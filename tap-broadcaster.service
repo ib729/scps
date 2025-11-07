@@ -1,0 +1,18 @@
+[Unit]
+Description=NFC Tap Broadcaster for Stuco POS
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/stuco
+Environment="NEXTJS_URL=http://localhost:3000"
+Environment="NFC_TAP_SECRET=your-secret-here"
+Environment="POS_LANE_ID=default"
+ExecStart=/home/pi/stuco/.venv/bin/python /home/pi/stuco/tap-broadcaster.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+

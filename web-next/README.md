@@ -7,10 +7,11 @@ A modern web interface for managing the Student Council Snack Bar system built w
 - **Dashboard**: Overview of students, balances, and recent transactions
 - **Student Management**: Create, update, and delete student accounts
 - **Transaction History**: View and manage all transactions
-- **Point of Sale (POS)**: Process purchases and debit accounts with overdraft support
-- **Top-up**: Add funds to student accounts
+- **Point of Sale (POS)**: Process purchases with **NFC card tap support** and overdraft enforcement
+- **Top-up**: Add funds to student accounts (manual selection only)
 - **Card Management**: Register and manage student cards
 - **Account Settings**: Configure overdraft limits and balances
+- **Real-time NFC Integration**: Tap card → auto-select student workflow
 
 ## Tech Stack
 
@@ -46,11 +47,14 @@ cd ../../../../..
 
 3. Configure environment variables:
 
-The `.env.local` file should already be set up with:
+Create or update `.env.local`:
 
-```
+```bash
 DATABASE_PATH=/Users/ivanbelousov/Documents/5 - Code /Projects/stuco/stuco.db
+NFC_TAP_SECRET=your-secret-here-change-this
 ```
+
+**Important**: Set a strong secret for NFC tap authentication if deploying to production.
 
 4. Run the development server:
 
@@ -137,7 +141,9 @@ The application connects to the existing SQLite database with the following tabl
 - Delete transactions (adjusts balance accordingly)
 
 ### POS (Point of Sale)
-- Select student
+- **Tap Card mode**: Student taps card → staff enters amount → charge (uses NFC)
+- **Manual mode**: Staff selects student from dropdown → enters amount → charge
+- Real-time card detection via Server-Sent Events (SSE) in tap mode
 - View current balance and overdraft limit
 - Enter purchase amount and description
 - Automatic overdraft calculation
@@ -203,6 +209,155 @@ If port 3000 is taken, specify a different port:
 ```bash
 pnpm dev -- -p 3001
 ```
+
+## NFC Card Tap Integration
+
+The web UI supports real-time NFC card tap detection for **POS workflows only**. Top-ups use manual student selection.
+
+### Architecture
+
+1. **Tap Broadcaster** (Python): Runs on the Raspberry Pi, reads NFC card taps from the PN532 reader
+2. **Next.js API** (`/api/nfc/tap`): Receives tap events via HTTP POST
+3. **SSE Stream** (`/api/nfc/stream`): Broadcasts tap events to connected browser clients
+4. **POS UI**: Listens for tap events in "Tap Card" mode and auto-selects students
+5. **Global Alert**: Shows a "Go to POS" prompt when cards are tapped on other pages
+
+### Setup NFC Tap Broadcaster
+
+1. Install dependencies on the Raspberry Pi:
+
+```bash
+cd /path/to/stuco
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+2. Configure environment variables:
+
+```bash
+export NEXTJS_URL=http://localhost:3000
+export NFC_TAP_SECRET=your-secret-here
+export POS_LANE_ID=default
+```
+
+3. Test the broadcaster:
+
+```bash
+# Simulate mode (no hardware required)
+python tap-broadcaster.py --simulate
+
+# Hardware mode
+python tap-broadcaster.py --device tty:AMA0:pn532
+
+# Single test tap
+python tap-broadcaster.py --test
+```
+
+### Running as a System Service (Raspberry Pi)
+
+1. Copy the service file:
+
+```bash
+sudo cp tap-broadcaster.service /etc/systemd/system/
+```
+
+2. Edit the service file with your paths and secrets:
+
+```bash
+sudo nano /etc/systemd/system/tap-broadcaster.service
+```
+
+3. Enable and start the service:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable tap-broadcaster
+sudo systemctl start tap-broadcaster
+```
+
+4. Check status:
+
+```bash
+sudo systemctl status tap-broadcaster
+journalctl -u tap-broadcaster -f
+```
+
+### API Endpoints
+
+#### POST /api/nfc/tap
+Receives card tap events from the broadcaster.
+
+**Request:**
+```json
+{
+  "card_uid": "DEADBEEF",
+  "lane": "default",
+  "reader_ts": "2025-01-01T12:00:00Z",
+  "secret": "your-secret-here"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "listeners": 2
+}
+```
+
+#### GET /api/nfc/stream
+Server-Sent Events stream for real-time tap notifications.
+
+**Query params:**
+- `lane` (optional): Filter events by POS lane ID
+
+**Events:**
+```
+data: {"type":"connected","lane":"default"}
+data: {"card_uid":"DEADBEEF","lane":"default","timestamp":"..."}
+data: {"type":"keepalive"}
+```
+
+### Workflows
+
+#### Tap Card Mode (POS only)
+1. Student taps card on reader
+2. Browser receives tap event via SSE
+3. UI auto-selects the student
+4. Staff enters amount and confirms
+5. Transaction created with card UID logged
+
+#### Manual Mode (POS)
+1. Staff selects student from dropdown
+2. Staff enters amount and confirms
+3. Transaction created (no card UID)
+
+#### Top-up (Manual Only)
+1. Staff selects student from dropdown
+2. Staff enters amount and confirms
+3. No NFC tap support for top-ups
+
+### Security
+
+- **Authentication**: Shared secret (`NFC_TAP_SECRET`) validates tap broadcasts
+- **HTTPS**: Use HTTPS in production to encrypt tap events
+- **Rate limiting**: Consider adding rate limits to `/api/nfc/tap` endpoint
+- **Lane isolation**: Multiple POS stations can use different lane IDs
+
+### Troubleshooting
+
+**"Disconnected from reader" in browser:**
+- Check that `pnpm dev` is running
+- Verify the SSE endpoint is accessible: `curl http://localhost:3000/api/nfc/stream`
+
+**Tap events not reaching browser:**
+- Check tap-broadcaster is running: `systemctl status tap-broadcaster`
+- Test broadcaster: `python tap-broadcaster.py --test`
+- Check Next.js logs for POST requests to `/api/nfc/tap`
+
+**Card not recognized:**
+- Ensure the card is enrolled in the database (see students → add card)
+- Check card status is "active" not "revoked"
 
 ## Contributing
 

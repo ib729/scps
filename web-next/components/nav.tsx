@@ -8,7 +8,7 @@ export function Nav() {
         <div className="flex h-16 items-center justify-between">
           <div className="flex items-center gap-6">
             <Link href="/" className="text-xl font-semibold">
-              Stuco Snack Bar
+              STUCO 2025-2026
             </Link>
             <div className="flex gap-1">
               <Button variant="ghost" asChild>
