@@ -35,7 +35,7 @@ export function StudentsTable({ students }: StudentsTableProps) {
           placeholder="Search students..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="max-w-sm"
+          className="flex-1"
         />
         <CreateStudentDialog />
       </div>

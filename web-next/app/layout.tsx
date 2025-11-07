@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { Nav } from "@/components/nav";
+import { AppSidebar } from "@/components/app-sidebar";
 import { TapAlert } from "@/components/tap-alert";
 import { Toaster } from "@/components/ui/sonner";
+import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
+import { Separator } from "@/components/ui/separator";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -16,8 +18,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Stuco Snack Bar",
-  description: "Student Council Snack Bar Management System",
+  title: "STUCO 2025-2026",
+  description: "Student Council Management System",
 };
 
 export default function RootLayout({
@@ -30,9 +32,20 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <Nav />
-        <TapAlert />
-        <main className="container mx-auto px-4 py-8">{children}</main>
+        <SidebarProvider>
+          <AppSidebar />
+          <SidebarInset>
+            <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+              <SidebarTrigger className="-ml-1" />
+              <Separator orientation="vertical" className="mr-2 h-4" />
+              <h1 className="text-lg font-semibold">STUCO 2025-2026</h1>
+            </header>
+            <div className="flex flex-1 flex-col gap-4 p-4">
+              <TapAlert />
+              {children}
+            </div>
+          </SidebarInset>
+        </SidebarProvider>
         <Toaster />
       </body>
     </html>

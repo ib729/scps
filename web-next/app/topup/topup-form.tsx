@@ -117,7 +117,7 @@ export function TopupForm({ students }: TopupFormProps) {
             <div className="space-y-2">
               <Label htmlFor="student">Student</Label>
               <Select value={studentId} onValueChange={setStudentId} required>
-                <SelectTrigger id="student">
+                <SelectTrigger id="student" className="w-full">
                   <SelectValue placeholder="Select a student" />
                 </SelectTrigger>
                 <SelectContent>

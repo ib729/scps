@@ -235,7 +235,7 @@ export function PosForm({ students }: PosFormProps) {
                 value={studentId} 
                 onValueChange={setStudentId}
               >
-              <SelectTrigger id="student">
+              <SelectTrigger id="student" className="w-full">
                   <SelectValue placeholder="Select a student or tap card" />
               </SelectTrigger>
               <SelectContent>

@@ -63,7 +63,7 @@ export function TransactionsTable({ transactions }: TransactionsTableProps) {
           placeholder="Search by student name..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="max-w-sm"
+          className="flex-1"
         />
         <Select value={typeFilter} onValueChange={setTypeFilter}>
           <SelectTrigger className="w-[180px]">
