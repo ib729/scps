@@ -1,19 +1,39 @@
 {% extends "_base.html" %}
 {% block content %}
 <h4>Top‑up</h4>
-<form method="post" class="row g-2">
-  <div class="col-md-4">
-    <label class="form-label">Card UID</label>
-    <input name="uid" class="form-control" placeholder="UID (hex)" required>
-  </div>
-  <div class="col-md-3">
-    <label class="form-label">Amount (¥)</label>
-    <input name="amount" type="number" min="1" step="1" class="form-control" required>
-  </div>
-  <div class="col-md-2 d-grid">
-    <label class="form-label">&nbsp;</label>
-    <button class="btn btn-primary">Add credit</button>
+<form method="post" class="pos-form topup-form">
+  <div class="row g-3 align-items-stretch">
+    <div class="col-12 col-md-5">
+      <div class="pos-card h-100">
+        <label class="form-label">Card UID</label>
+        <input id="topup-uid" name="uid" class="form-control form-control-lg" placeholder="tap or type" required autofocus>
+      </div>
+    </div>
+    <div class="col-12 col-md-5">
+      <div class="pos-card h-100">
+        <label class="form-label">Amount (¥)</label>
+        <input id="topup-amount" name="amount" type="number" min="1" step="1" class="form-control form-control-lg" placeholder="e.g., 50" required>
+        <div class="pos-quick-buttons mt-3">
+          <button class="btn btn-outline-primary btn-sm quick" data-v="10" type="button">¥10</button>
+          <button class="btn btn-outline-primary btn-sm quick" data-v="20" type="button">¥20</button>
+          <button class="btn btn-outline-primary btn-sm quick" data-v="50" type="button">¥50</button>
+          <button class="btn btn-outline-primary btn-sm quick" data-v="100" type="button">¥100</button>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-md-2 submit-wrap">
+      <button class="btn btn-primary btn-lg w-100 h-100" type="submit">Add credit</button>
+    </div>
   </div>
 </form>
-{% endblock %}
 
+<script>
+document.querySelectorAll('.topup-form .quick').forEach(btn=>{
+  btn.addEventListener('click', ev=>{
+    const amt = document.getElementById('topup-amount');
+    amt.value = ev.currentTarget.dataset.v;
+    amt.focus();
+  });
+});
+</script>
+{% endblock %}

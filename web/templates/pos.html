@@ -1,7 +1,7 @@
 {% extends "_base.html" %}
 {% block content %}
-<h4>POS · Charge</h4>
-<form method="post" class="pos-form">
+<h4>POS</h4>
+<form method="post" class="pos-form charge-form">
   <div class="row g-3 align-items-stretch">
     <div class="col-12 col-md-5">
       <div class="pos-card h-100">
@@ -28,7 +28,7 @@
 </form>
 
 <script>
-document.querySelectorAll('.quick').forEach(b=>{
+document.querySelectorAll('.charge-form .quick').forEach(b=>{
   b.addEventListener('click', ev=>{
     document.getElementById('price').value = ev.target.dataset.v;
     document.getElementById('uid').focus();

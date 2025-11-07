@@ -1,12 +1,17 @@
 {% extends "_base.html" %}
 {% block content %}
 <h4>Students</h4>
-<form class="row g-2 mb-2">
-  <div class="col-md-6">
-    <input class="form-control" name="q" placeholder="Search by name…" value="{{ q }}">
-  </div>
-  <div class="col-md-2 d-grid">
-    <button class="btn btn-outline-secondary">Search</button>
+<form class="pos-form search-form mb-3">
+  <div class="row g-3 align-items-stretch">
+    <div class="col-12 col-md-8">
+      <div class="pos-card h-100">
+        <label class="form-label">Search</label>
+        <input class="form-control form-control-lg" name="q" placeholder="Search by name…" value="{{ q }}">
+      </div>
+    </div>
+    <div class="col-12 col-md-4 submit-wrap">
+      <button class="btn btn-outline-secondary btn-lg w-100 h-100">Search</button>
+    </div>
   </div>
 </form>
 
@@ -26,4 +31,3 @@
 </table>
 </div>
 {% endblock %}
-

@@ -1,19 +1,23 @@
 {% extends "_base.html" %}
 {% block content %}
 <h4>Enroll student</h4>
-<form method="post" class="row g-2">
-  <div class="col-md-5">
-    <label class="form-label">Full name</label>
-    <input name="name" class="form-control" required>
-  </div>
-  <div class="col-md-5">
-    <label class="form-label">Card UID</label>
-    <input name="uid" class="form-control" required placeholder="tap/scan or type">
-  </div>
-  <div class="col-md-2 d-grid">
-    <label class="form-label">&nbsp;</label>
-    <button class="btn btn-success">Enroll</button>
+<form method="post" class="pos-form enroll-form">
+  <div class="row g-3 align-items-stretch">
+    <div class="col-12 col-md-5">
+      <div class="pos-card h-100">
+        <label class="form-label">Full name</label>
+        <input name="name" class="form-control form-control-lg" placeholder="Student name" required autofocus>
+      </div>
+    </div>
+    <div class="col-12 col-md-5">
+      <div class="pos-card h-100">
+        <label class="form-label">Card UID</label>
+        <input name="uid" class="form-control form-control-lg" required placeholder="tap or type">
+      </div>
+    </div>
+    <div class="col-12 col-md-2 submit-wrap">
+      <button class="btn btn-success btn-lg w-100 h-100">Enroll</button>
+    </div>
   </div>
 </form>
 {% endblock %}
-

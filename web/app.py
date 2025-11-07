@@ -6,7 +6,7 @@ from flask import Flask, render_template, request, redirect, url_for, flash, jso
 
 APP_TZ = ZoneInfo("Asia/Shanghai")  # display + weekly windows
 BASE_DIR = Path(__file__).resolve().parent
-DB_PATH = str(BASE.parent / "stuco.db") 
+DB_PATH = str(BASE_DIR.parent / "stuco.db")
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("STUCO_SECRET", "change-me")  # set a real secret in env
@@ -234,4 +234,3 @@ def api_topup():
 if __name__ == "__main__":
     # Flask dev server for local use; for production use Gunicorn or another WSGI server. :contentReference[oaicite:5]{index=5}
     app.run(host="0.0.0.0", port=5000, debug=False)
-
