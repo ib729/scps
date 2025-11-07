@@ -51,7 +51,7 @@ def charge_by_uid(uid_hex: str, price: int, staff="pos"):
         return False, "Unknown/inactive card"
 
     sid, bal, max_ov = card
-    now_utc = datetime.utcnow().replace(tzinfo=timezone.utc)
+    now_utc = datetime.now(timezone.utc) 
     wk_start = week_start_utc(now_utc)
 
     cur.execute("BEGIN IMMEDIATE;")

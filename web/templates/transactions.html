@@ -1,0 +1,31 @@
+{% extends "_base.html" %}
+{% block content %}
+<h4>Transactions</h4>
+<form class="row g-2 mb-2">
+  <div class="col-md-3">
+    <input class="form-control" type="number" name="limit" min="1" max="500" value="{{ limit }}">
+  </div>
+  <div class="col-md-2 d-grid">
+    <button class="btn btn-outline-secondary">Refresh</button>
+  </div>
+</form>
+
+<div class="table-responsive">
+<table class="table table-sm align-middle">
+  <thead><tr><th>Time (上海)</th><th>Name</th><th>Type</th><th class="text-end">Amount</th><th>Overpay</th><th>Staff</th></tr></thead>
+  <tbody>
+    {% for r in tx %}
+    <tr>
+      <td>{{ r.created_at|fmt_ts }}</td>
+      <td>{{ r.name }}</td>
+      <td>{{ r.type }}</td>
+      <td class="text-end">{% if r.amount<0 %}-{% endif %}¥{{ (r.amount if r.amount>0 else -r.amount) }}</td>
+      <td>{% if r.overdraft_component %}¥{{ r.overdraft_component }}{% else %}—{% endif %}</td>
+      <td>{{ r.staff }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}
+

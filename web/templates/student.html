@@ -1,0 +1,31 @@
+{% extends "_base.html" %}
+{% block content %}
+<h4>{{ stu.name }}</h4>
+<div class="row g-3">
+  <div class="col-md-4">
+    <div class="card p-3">
+      <div>UID: <span class="font-monospace">{{ stu.uid or "—" }}</span></div>
+      <div>Balance: <strong>¥{{ stu.balance }}</strong></div>
+      <div>Weekly overpay limit: ¥{{ stu.max_overdraft_week }}</div>
+    </div>
+  </div>
+</div>
+
+<h6 class="mt-4">Recent transactions</h6>
+<div class="table-responsive">
+<table class="table table-sm">
+  <thead><tr><th>Time (上海)</th><th>Type</th><th class="text-end">Amount</th><th>Overpay</th></tr></thead>
+  <tbody>
+    {% for r in tx %}
+    <tr>
+      <td>{{ r.created_at|fmt_ts }}</td>
+      <td>{{ r.type }}</td>
+      <td class="text-end">{% if r.amount<0 %}-{% endif %}¥{{ (r.amount if r.amount>0 else -r.amount) }}</td>
+      <td>{% if r.overdraft_component %}¥{{ r.overdraft_component }}{% else %}—{% endif %}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}
+

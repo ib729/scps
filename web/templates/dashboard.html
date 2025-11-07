@@ -1,0 +1,35 @@
+{% extends "_base.html" %}
+{% block content %}
+<div class="row g-3">
+  <div class="col-md-4">
+    <div class="card p-3 text-bg-light">
+      <div class="fs-5">Today (local)</div>
+      <div>Top‑ups: <strong>¥{{ (totals.topups or 0) }}</strong></div>
+      <div>Sales: <strong>¥{{ (totals.sales or 0) }}</strong></div>
+    </div>
+  </div>
+</div>
+
+<h5 class="mt-4">Recent activity</h5>
+<div class="table-responsive">
+<table class="table table-sm align-middle">
+  <thead><tr><th>Time (上海)</th><th>Name</th><th>Type</th><th class="text-end">Amount</th><th>Notes</th></tr></thead>
+  <tbody>
+    {% for r in tx %}
+    <tr>
+      <td>{{ r.created_at|fmt_ts }}</td>
+      <td>{{ r.name }}</td>
+      <td>{{ r.type }}</td>
+      <td class="text-end">{% if r.amount<0 %}-{% endif %}¥{{ (r.amount if r.amount>0 else -r.amount) }}</td>
+      <td>
+        {% if r.type == 'DEBIT' and r.overdraft_component %}
+          (overpay ¥{{ r.overdraft_component }})
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}
+

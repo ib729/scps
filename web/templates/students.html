@@ -1,0 +1,29 @@
+{% extends "_base.html" %}
+{% block content %}
+<h4>Students</h4>
+<form class="row g-2 mb-2">
+  <div class="col-md-6">
+    <input class="form-control" name="q" placeholder="Search by name…" value="{{ q }}">
+  </div>
+  <div class="col-md-2 d-grid">
+    <button class="btn btn-outline-secondary">Search</button>
+  </div>
+</form>
+
+<div class="table-responsive">
+<table class="table table-sm align-middle">
+  <thead><tr><th>Name</th><th>UID</th><th class="text-end">Balance</th><th></th></tr></thead>
+  <tbody>
+    {% for r in rows %}
+    <tr>
+      <td>{{ r.name }}</td>
+      <td class="font-monospace">{{ r.uid or "—" }}</td>
+      <td class="text-end">¥{{ r.balance }}</td>
+      <td><a class="btn btn-sm btn-outline-primary" href="{{ url_for('student_detail', sid=r.id) }}">View</a></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}
+
