@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   Table,
@@ -12,7 +11,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -22,7 +20,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { TransactionWithStudent } from "@/lib/models";
-import { deleteTransactionAction } from "@/app/actions/transactions";
 
 interface TransactionsTableProps {
   transactions: TransactionWithStudent[];
@@ -31,22 +28,6 @@ interface TransactionsTableProps {
 export function TransactionsTable({ transactions }: TransactionsTableProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
-  const [loading, setLoading] = useState<number | null>(null);
-  const router = useRouter();
-
-  const handleDelete = async (id: number) => {
-    if (
-      !confirm(
-        "Are you sure you want to delete this transaction? The balance will be adjusted accordingly."
-      )
-    ) {
-      return;
-    }
-    setLoading(id);
-    await deleteTransactionAction(id);
-    router.refresh();
-    setLoading(null);
-  };
 
   const filteredTransactions = transactions.filter((tx) => {
     const matchesSearch = tx.student_name
@@ -88,13 +69,12 @@ export function TransactionsTable({ transactions }: TransactionsTableProps) {
               <TableHead>Description</TableHead>
               <TableHead>Amount</TableHead>
               <TableHead>Staff</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {filteredTransactions.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground">
+                <TableCell colSpan={6} className="text-center text-muted-foreground">
                   No transactions found
                 </TableCell>
               </TableRow>
@@ -102,7 +82,14 @@ export function TransactionsTable({ transactions }: TransactionsTableProps) {
               filteredTransactions.map((tx) => (
                 <TableRow key={tx.id}>
                   <TableCell className="text-sm">
-                    {new Date(tx.created_at).toLocaleString()}
+                    {new Date(tx.created_at).toLocaleString("en-US", {
+                      year: "numeric",
+                      month: "2-digit",
+                      day: "2-digit",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      hour12: false,
+                    })}
                   </TableCell>
                   <TableCell>
                     <Link
@@ -146,16 +133,6 @@ export function TransactionsTable({ transactions }: TransactionsTableProps) {
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {tx.staff || "-"}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDelete(tx.id)}
-                      disabled={loading === tx.id}
-                    >
-                      Delete
-                    </Button>
                   </TableCell>
                 </TableRow>
               ))

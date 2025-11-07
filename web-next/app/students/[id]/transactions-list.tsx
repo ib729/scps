@@ -1,34 +1,13 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import type { Transaction } from "@/lib/models";
-import { deleteTransactionAction } from "@/app/actions/transactions";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
 
 interface TransactionsListProps {
   transactions: Transaction[];
 }
 
 export function TransactionsList({ transactions }: TransactionsListProps) {
-  const router = useRouter();
-  const [loading, setLoading] = useState<number | null>(null);
-
-  const handleDelete = async (id: number) => {
-    if (
-      !confirm(
-        "Are you sure you want to delete this transaction? The balance will be adjusted accordingly."
-      )
-    ) {
-      return;
-    }
-    setLoading(id);
-    await deleteTransactionAction(id);
-    router.refresh();
-    setLoading(null);
-  };
-
   if (transactions.length === 0) {
     return (
       <p className="text-muted-foreground text-sm">No transactions yet</p>
@@ -58,7 +37,14 @@ export function TransactionsList({ transactions }: TransactionsListProps) {
               <p className="font-medium">{tx.description}</p>
             </div>
             <p className="text-sm text-muted-foreground mt-1">
-              {new Date(tx.created_at).toLocaleString()}
+              {new Date(tx.created_at).toLocaleString("en-US", {
+                year: "numeric",
+                month: "2-digit",
+                day: "2-digit",
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: false,
+              })}
             </p>
             {tx.staff && (
               <p className="text-xs text-muted-foreground">Staff: {tx.staff}</p>
@@ -69,23 +55,13 @@ export function TransactionsList({ transactions }: TransactionsListProps) {
               </p>
             )}
           </div>
-          <div className="flex items-center gap-4">
-            <p
-              className={`text-lg font-bold ${
-                tx.amount >= 0 ? "text-green-600" : "text-red-600"
-              }`}
-            >
-              {tx.amount >= 0 ? "+" : ""}¥{tx.amount}
-            </p>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => handleDelete(tx.id)}
-              disabled={loading === tx.id}
-            >
-              Delete
-            </Button>
-          </div>
+          <p
+            className={`text-lg font-bold ${
+              tx.amount >= 0 ? "text-green-600" : "text-red-600"
+            }`}
+          >
+            {tx.amount >= 0 ? "+" : ""}¥{tx.amount}
+          </p>
         </div>
       ))}
     </div>

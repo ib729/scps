@@ -14,6 +14,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import type { StudentWithAccount } from "@/lib/models";
@@ -37,11 +45,23 @@ export function PosForm({ students }: PosFormProps) {
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
   const [tapStatus, setTapStatus] = useState<string>("");
+  const [isConnected, setIsConnected] = useState<boolean>(false);
   const router = useRouter();
   const searchParams = useSearchParams();
   const eventSourceRef = useRef<EventSource | null>(null);
 
+  // Dialog state for Tap mode
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogStudentId, setDialogStudentId] = useState<number>(0);
+  const [dialogCardUid, setDialogCardUid] = useState<string>("");
+  const [dialogAmount, setDialogAmount] = useState("");
+  const [dialogDescription, setDialogDescription] = useState("");
+  const [dialogStaff, setDialogStaff] = useState("");
+  const [dialogError, setDialogError] = useState("");
+  const [dialogLoading, setDialogLoading] = useState(false);
+
   const selectedStudent = students.find((s) => s.id === parseInt(studentId));
+  const dialogStudent = students.find((s) => s.id === dialogStudentId);
 
   // Handle card UID from URL parameter (from tap alert navigation)
   useEffect(() => {
@@ -57,23 +77,35 @@ export function PosForm({ students }: PosFormProps) {
   // Connect to SSE stream for tap events (only in tap-first mode)
   useEffect(() => {
     if (mode !== "tap-first") {
+      setIsConnected(false);
+      setTapStatus("");
       return;
     }
+
+    setTapStatus("Connecting to card reader...");
+    setIsConnected(false);
 
     const lane = "default"; // Could be configurable
     const eventSource = new EventSource(`/api/nfc/stream?lane=${lane}`);
     eventSourceRef.current = eventSource;
+
+    eventSource.onopen = () => {
+      console.log("[POS] SSE connection opened");
+    };
 
     eventSource.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
         
         if (data.type === "connected") {
+          setIsConnected(true);
           setTapStatus("Connected to card reader");
           return;
         }
 
         if (data.type === "keepalive") {
+          // Connection is alive, ensure we're marked as connected
+          setIsConnected(true);
           return;
         }
 
@@ -86,12 +118,15 @@ export function PosForm({ students }: PosFormProps) {
       }
     };
 
-    eventSource.onerror = () => {
+    eventSource.onerror = (err) => {
+      console.error("[POS] SSE connection error:", err);
+      setIsConnected(false);
       setTapStatus("Disconnected from reader");
     };
 
     return () => {
       eventSource.close();
+      setIsConnected(false);
     };
   }, [mode]);
 
@@ -122,10 +157,14 @@ export function PosForm({ students }: PosFormProps) {
       return;
     }
 
-    // Tap-first mode: auto-select student, wait for amount
-    setStudentId(student.id.toString());
-    setSuccess(`${student.name} selected - enter amount to charge`);
-    setError("");
+    // Tap-first mode: open dialog for amount entry
+    setDialogStudentId(student.id);
+    setDialogCardUid(uid);
+    setDialogAmount("");
+    setDialogDescription("");
+    setDialogStaff("");
+    setDialogError("");
+    setDialogOpen(true);
     setTapStatus("");
   };
 
@@ -167,14 +206,143 @@ export function PosForm({ students }: PosFormProps) {
     await processCheckout();
   };
 
+  const handleDialogSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setDialogError("");
+    setDialogLoading(true);
+
+    const result = await posCheckoutAction({
+      student_id: dialogStudentId,
+      card_uid: dialogCardUid,
+      amount: parseInt(dialogAmount),
+      description: dialogDescription || "POS Purchase",
+      staff: dialogStaff || undefined,
+    });
+
+    if (result.success && result.data) {
+      const studentName = students.find((s) => s.id === result.data.transaction.student_id)?.name;
+      setSuccess(
+        `Successfully charged ¥${dialogAmount} to ${studentName}. New balance: ¥${result.data.newBalance}`
+      );
+      setDialogOpen(false);
+      setDialogAmount("");
+      setDialogDescription("");
+      setDialogStaff("");
+      setDialogStudentId(0);
+      setDialogCardUid("");
+      router.refresh();
+    } else {
+      setDialogError(result.error || "Failed to process checkout");
+    }
+
+    setDialogLoading(false);
+  };
+
   return (
-    <div className="w-full space-y-4">
-      {/* Status bar */}
-      {tapStatus && (
-        <Alert>
+    <>
+      {/* Tap mode dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Process Purchase</DialogTitle>
+            <DialogDescription>
+              Card detected! Enter the purchase amount to continue.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleDialogSubmit}>
+            <div className="space-y-4 py-4">
+              {dialogError && (
+                <Alert variant="destructive">
+                  <AlertDescription>{dialogError}</AlertDescription>
+                </Alert>
+              )}
+              {dialogStudent && (
+                <div className="p-4 bg-muted rounded-lg space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-sm text-muted-foreground">Student:</span>
+                    <span className="font-medium">{dialogStudent.name}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-muted-foreground">Current Balance:</span>
+                    <span
+                      className={`font-bold ${
+                        dialogStudent.balance < 0
+                          ? "text-red-600"
+                          : dialogStudent.balance < 10
+                          ? "text-orange-600"
+                          : ""
+                      }`}
+                    >
+                      ¥{dialogStudent.balance}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-muted-foreground">Card UID:</span>
+                    <span className="font-mono text-xs">{dialogCardUid}</span>
+                  </div>
+                </div>
+              )}
+              <div className="space-y-2">
+                <Label htmlFor="dialog-amount">Amount (¥)</Label>
+                <Input
+                  id="dialog-amount"
+                  type="number"
+                  min="1"
+                  value={dialogAmount}
+                  onChange={(e) => setDialogAmount(e.target.value)}
+                  placeholder="Enter amount"
+                  required
+                  autoFocus
+                  disabled={dialogLoading}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="dialog-description">Description (Optional)</Label>
+                <Textarea
+                  id="dialog-description"
+                  value={dialogDescription}
+                  onChange={(e) => setDialogDescription(e.target.value)}
+                  placeholder="e.g., Snacks, Drinks"
+                  disabled={dialogLoading}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="dialog-staff">Staff Name (Optional)</Label>
+                <Input
+                  id="dialog-staff"
+                  value={dialogStaff}
+                  onChange={(e) => setDialogStaff(e.target.value)}
+                  placeholder="Your name"
+                  disabled={dialogLoading}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setDialogOpen(false)}
+                disabled={dialogLoading}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={dialogLoading || !dialogAmount}>
+                {dialogLoading ? "Processing..." : `Charge ¥${dialogAmount || "0"}`}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <div className="w-full space-y-4">
+      {/* Status bar - only show in tap-first mode */}
+      {mode === "tap-first" && (
+        <Alert variant={isConnected ? "default" : "destructive"}>
           <AlertDescription className="flex items-center justify-between">
-            <span>{tapStatus}</span>
-            <Badge variant="outline">NFC Connected</Badge>
+            <span>{tapStatus || "Connecting..."}</span>
+            <Badge variant={isConnected ? "default" : "secondary"}>
+              {isConnected ? "NFC Connected" : "NFC Disconnected"}
+            </Badge>
           </AlertDescription>
         </Alert>
       )}
@@ -328,7 +496,8 @@ export function PosForm({ students }: PosFormProps) {
         </form>
       </CardContent>
     </Card>
-    </div>
+      </div>
+    </>
   );
 }
 

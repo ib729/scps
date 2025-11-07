@@ -33,13 +33,16 @@ export function TopupForm({ students }: TopupFormProps) {
   const router = useRouter();
 
   // For manual adjustment
+  const [adjustStudentId, setAdjustStudentId] = useState<string>("");
   const [adjustAmount, setAdjustAmount] = useState("");
   const [adjustDescription, setAdjustDescription] = useState("");
+  const [adjustStaff, setAdjustStaff] = useState("");
   const [adjustError, setAdjustError] = useState("");
   const [adjustSuccess, setAdjustSuccess] = useState("");
   const [adjustLoading, setAdjustLoading] = useState(false);
 
   const selectedStudent = students.find((s) => s.id === parseInt(studentId));
+  const selectedAdjustStudent = students.find((s) => s.id === parseInt(adjustStudentId));
 
   const handleTopup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,15 +78,15 @@ export function TopupForm({ students }: TopupFormProps) {
     setAdjustLoading(true);
 
     const result = await adjustBalanceManualAction({
-      student_id: parseInt(studentId),
+      student_id: parseInt(adjustStudentId),
       amount: parseInt(adjustAmount),
       description: adjustDescription,
-      staff: staff || undefined,
+      staff: adjustStaff || undefined,
     });
 
     if (result.success && result.data) {
       setAdjustSuccess(
-        `Balance adjusted by ¥${adjustAmount} for ${selectedStudent?.name}. New balance: ¥${result.data.newBalance}`
+        `Balance adjusted by ¥${adjustAmount} for ${selectedAdjustStudent?.name}. New balance: ¥${result.data.newBalance}`
       );
       setAdjustAmount("");
       setAdjustDescription("");
@@ -216,6 +219,43 @@ export function TopupForm({ students }: TopupFormProps) {
             )}
 
             <div className="space-y-2">
+              <Label htmlFor="adjust-student">Student</Label>
+              <Select value={adjustStudentId} onValueChange={setAdjustStudentId} required>
+                <SelectTrigger id="adjust-student" className="w-full">
+                  <SelectValue placeholder="Select a student" />
+                </SelectTrigger>
+                <SelectContent>
+                  {students.map((student) => (
+                    <SelectItem key={student.id} value={student.id.toString()}>
+                      {student.name} (¥{student.balance})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {selectedAdjustStudent && (
+              <div className="p-4 bg-muted rounded-lg space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-sm text-muted-foreground">
+                    Current Balance:
+                  </span>
+                  <span
+                    className={`font-bold ${
+                      selectedAdjustStudent.balance < 0
+                        ? "text-red-600"
+                        : selectedAdjustStudent.balance < 10
+                        ? "text-orange-600"
+                        : ""
+                    }`}
+                  >
+                    ¥{selectedAdjustStudent.balance}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-2">
               <Label htmlFor="adjust-amount">Adjustment Amount (¥)</Label>
               <Input
                 id="adjust-amount"
@@ -241,9 +281,19 @@ export function TopupForm({ students }: TopupFormProps) {
               />
             </div>
 
+            <div className="space-y-2">
+              <Label htmlFor="adjust-staff">Staff Name (Optional)</Label>
+              <Input
+                id="adjust-staff"
+                value={adjustStaff}
+                onChange={(e) => setAdjustStaff(e.target.value)}
+                placeholder="Your name"
+              />
+            </div>
+
             <Button
               type="submit"
-              disabled={adjustLoading || !studentId}
+              disabled={adjustLoading || !adjustStudentId}
               variant="secondary"
               className="w-full"
             >
