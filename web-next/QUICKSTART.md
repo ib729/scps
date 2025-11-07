@@ -2,33 +2,50 @@
 
 ## Getting Started
 
-1. **Run the Setup Script**
+### Automated Setup (Recommended)
+
+1. **Check Prerequisites** (macOS/Linux)
 
 ```bash
 cd web-next
-./setup.sh
+./check-prereqs.sh
 ```
 
-This will:
-- Install all dependencies
-- Build better-sqlite3 native bindings
-- Verify the setup
+Ensure you have Xcode CLT (macOS) or build-essential (Linux).
 
-2. **Test Database Connection** (Optional)
+2. **Install Dependencies** (auto-builds better-sqlite3)
+
+```bash
+pnpm install
+```
+
+The postinstall script automatically rebuilds better-sqlite3 for your platform.
+
+3. **Test Database Connection** (Optional)
 
 ```bash
 node test-db.js
 ```
 
-3. **Start Development Server**
+4. **Start Development Server**
 
 ```bash
 pnpm dev
 ```
 
-4. **Open in Browser**
+5. **Open in Browser**
 
 Navigate to [http://localhost:3000](http://localhost:3000)
+
+### Legacy Setup (Old Method)
+
+If you prefer the old manual approach:
+
+```bash
+./setup.sh
+```
+
+This runs `pnpm install` + manual better-sqlite3 build. The new automated method is preferred.
 
 ## Common Tasks
 
@@ -96,19 +113,14 @@ Navigate to [http://localhost:3000](http://localhost:3000)
 
 ### "Could not locate the bindings file" Error
 
-If you see this error, manually build better-sqlite3:
+The `postinstall` script should prevent this. If it still occurs:
 
-```bash
-cd node_modules/.pnpm/better-sqlite3@12.4.1/node_modules/better-sqlite3
-npm run build-release
-cd ../../../../..
-```
+1. **Check prerequisites**: `./check-prereqs.sh`
+2. **Approve build scripts**: `pnpm approve-builds better-sqlite3`
+3. **Rebuild**: `pnpm rebuild better-sqlite3`
+4. **Last resort**: Run `./setup.sh` (legacy method)
 
-Or simply run the setup script again:
-
-```bash
-./setup.sh
-```
+See `PREREQUISITES.md` for platform-specific troubleshooting.
 
 ### Other Issues
 
@@ -121,7 +133,7 @@ node test-db.js
 
 # Reinstall everything
 rm -rf node_modules
-./setup.sh
+pnpm install
 ```
 
 ## Production Build

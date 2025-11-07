@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
     
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { success: false, error: "Invalid payload", details: error.errors },
+        { success: false, error: "Invalid payload", details: error.issues },
         { status: 400 }
       );
     }

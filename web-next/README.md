@@ -31,21 +31,23 @@ A modern web interface for managing the Student Council Snack Bar system built w
 
 ## Setup
 
-1. Install dependencies:
+### Quick Setup (Automatic)
+
+1. **Check prerequisites** (optional but recommended):
+
+```bash
+./check-prereqs.sh
+```
+
+2. **Install dependencies** (automatically builds better-sqlite3):
 
 ```bash
 pnpm install
 ```
 
-2. Build better-sqlite3 native bindings:
+The `postinstall` script will automatically rebuild better-sqlite3 native bindings for your platform.
 
-```bash
-cd node_modules/.pnpm/better-sqlite3@12.4.1/node_modules/better-sqlite3
-npm run build-release
-cd ../../../../..
-```
-
-3. Configure environment variables:
+3. **Configure environment variables**:
 
 Create or update `.env.local`:
 
@@ -56,13 +58,36 @@ NFC_TAP_SECRET=your-secret-here-change-this
 
 **Important**: Set a strong secret for NFC tap authentication if deploying to production.
 
-4. Run the development server:
+4. **Run the development server**:
 
 ```bash
 pnpm dev
 ```
 
 5. Open [http://localhost:3000](http://localhost:3000) in your browser
+
+### System Prerequisites
+
+**macOS:**
+- Xcode Command Line Tools: `xcode-select --install`
+- Installs automatically if missing
+
+**Debian/Raspberry Pi OS:**
+```bash
+sudo apt update
+sudo apt install -y build-essential python3 pkg-config
+```
+
+See `PREREQUISITES.md` for detailed platform-specific setup and troubleshooting.
+
+### Legacy Setup Script
+
+The old `setup.sh` script is no longer needed. It's kept for reference but `pnpm install` now handles everything automatically.
+
+If you encounter issues with better-sqlite3, you can still run:
+```bash
+./setup.sh
+```
 
 ## Build for Production
 
@@ -192,15 +217,18 @@ Ensure the `DATABASE_PATH` in `.env.local` points to the correct SQLite database
 
 ### better-sqlite3 Build Errors
 
-If you encounter "Could not locate the bindings file" error, manually build better-sqlite3:
+**New (Automatic):** The `postinstall` script should handle this automatically. If you still see "Could not locate the bindings file":
 
+1. Check prerequisites are installed: `./check-prereqs.sh`
+2. Clear and reinstall: `rm -rf node_modules && pnpm install`
+3. If pnpm blocked scripts, approve them: `pnpm approve-builds better-sqlite3`
+
+**Legacy (Manual):** As a last resort, build manually:
 ```bash
 cd node_modules/.pnpm/better-sqlite3@12.4.1/node_modules/better-sqlite3
 npm run build-release
 cd ../../../../..
 ```
-
-**Note**: pnpm's security settings may block build scripts. The manual build above ensures the native bindings are compiled for your platform.
 
 ### Port Already in Use
 

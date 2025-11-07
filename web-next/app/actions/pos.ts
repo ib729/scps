@@ -16,14 +16,14 @@ import {
 const posCheckoutSchema = z
   .object({
     student_id: z.number().int().positive().optional(),
-    card_uid: z.string().optional(),
-    amount: z.number().int().positive(),
-    description: z.string().optional(),
-    staff: z.string().optional(),
+  card_uid: z.string().optional(),
+  amount: z.number().int().positive(),
+  description: z.string().optional(),
+  staff: z.string().optional(),
   })
   .refine((data) => data.student_id || data.card_uid, {
     message: "Either student_id or card_uid must be provided",
-  });
+});
 
 export async function posCheckoutAction(data: unknown) {
   try {

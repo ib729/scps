@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,9 +38,21 @@ export function PosForm({ students }: PosFormProps) {
   const [loading, setLoading] = useState(false);
   const [tapStatus, setTapStatus] = useState<string>("");
   const router = useRouter();
+  const searchParams = useSearchParams();
   const eventSourceRef = useRef<EventSource | null>(null);
 
   const selectedStudent = students.find((s) => s.id === parseInt(studentId));
+
+  // Handle card UID from URL parameter (from tap alert navigation)
+  useEffect(() => {
+    const cardFromUrl = searchParams.get("card");
+    if (cardFromUrl && !studentId) {
+      // Auto-select student from URL parameter
+      handleCardTap(cardFromUrl);
+      // Clear the URL parameter after processing
+      router.replace("/pos");
+    }
+  }, [searchParams]);
 
   // Connect to SSE stream for tap events (only in tap-first mode)
   useEffect(() => {
@@ -196,26 +208,26 @@ export function PosForm({ students }: PosFormProps) {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
+    <Card>
+      <CardHeader>
           <CardTitle>
             {mode === "tap-first" ? "Tap Card to Begin" : "Process Purchase"}
           </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {error && (
-              <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-            {success && (
-              <Alert>
-                <AlertDescription>{success}</AlertDescription>
-              </Alert>
-            )}
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {error && (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+          {success && (
+            <Alert>
+              <AlertDescription>{success}</AlertDescription>
+            </Alert>
+          )}
 
-            <div className="space-y-2">
+          <div className="space-y-2">
               <Label htmlFor="student">
                 {mode === "tap-first" ? "Student (tap card or select)" : "Student"}
               </Label>
@@ -223,45 +235,45 @@ export function PosForm({ students }: PosFormProps) {
                 value={studentId} 
                 onValueChange={setStudentId}
               >
-                <SelectTrigger id="student">
+              <SelectTrigger id="student">
                   <SelectValue placeholder="Select a student or tap card" />
-                </SelectTrigger>
-                <SelectContent>
-                  {students.map((student) => (
-                    <SelectItem key={student.id} value={student.id.toString()}>
-                      {student.name} (¥{student.balance})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+              </SelectTrigger>
+              <SelectContent>
+                {students.map((student) => (
+                  <SelectItem key={student.id} value={student.id.toString()}>
+                    {student.name} (¥{student.balance})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-            {selectedStudent && (
-              <div className="p-4 bg-muted rounded-lg space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">
-                    Current Balance:
-                  </span>
-                  <span
-                    className={`font-bold ${
-                      selectedStudent.balance < 0
-                        ? "text-red-600"
-                        : selectedStudent.balance < 10
-                        ? "text-orange-600"
-                        : ""
-                    }`}
-                  >
-                    ¥{selectedStudent.balance}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">
-                    Overdraft Limit:
-                  </span>
-                  <span className="font-medium">
-                    ¥{selectedStudent.max_overdraft_week}/week
-                  </span>
-                </div>
+          {selectedStudent && (
+            <div className="p-4 bg-muted rounded-lg space-y-2">
+              <div className="flex justify-between">
+                <span className="text-sm text-muted-foreground">
+                  Current Balance:
+                </span>
+                <span
+                  className={`font-bold ${
+                    selectedStudent.balance < 0
+                      ? "text-red-600"
+                      : selectedStudent.balance < 10
+                      ? "text-orange-600"
+                      : ""
+                  }`}
+                >
+                  ¥{selectedStudent.balance}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-sm text-muted-foreground">
+                  Overdraft Limit:
+                </span>
+                <span className="font-medium">
+                  ¥{selectedStudent.max_overdraft_week}/week
+                </span>
+              </div>
                 {cardUid && (
                   <div className="flex justify-between">
                     <span className="text-sm text-muted-foreground">
@@ -270,52 +282,52 @@ export function PosForm({ students }: PosFormProps) {
                     <span className="font-mono text-xs">{cardUid}</span>
                   </div>
                 )}
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <Label htmlFor="amount">Amount (¥)</Label>
-              <Input
-                id="amount"
-                type="number"
-                min="1"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="Enter amount"
-                required
-              />
             </div>
+          )}
 
-            <div className="space-y-2">
-              <Label htmlFor="description">Description (Optional)</Label>
-              <Textarea
-                id="description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="e.g., Snacks, Drinks"
-              />
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="amount">Amount (¥)</Label>
+            <Input
+              id="amount"
+              type="number"
+              min="1"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="Enter amount"
+              required
+            />
+          </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="staff">Staff Name (Optional)</Label>
-              <Input
-                id="staff"
-                value={staff}
-                onChange={(e) => setStaff(e.target.value)}
-                placeholder="Your name"
-              />
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="description">Description (Optional)</Label>
+            <Textarea
+              id="description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="e.g., Snacks, Drinks"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="staff">Staff Name (Optional)</Label>
+            <Input
+              id="staff"
+              value={staff}
+              onChange={(e) => setStaff(e.target.value)}
+              placeholder="Your name"
+            />
+          </div>
 
             <Button 
               type="submit" 
               disabled={loading || !studentId || !amount} 
               className="w-full"
             >
-              {loading ? "Processing..." : `Charge ¥${amount || "0"}`}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+            {loading ? "Processing..." : `Charge ¥${amount || "0"}`}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { getAllStudents } from "@/lib/repositories/students";
 import { PosForm } from "./pos-form";
 
@@ -15,7 +16,9 @@ export default async function PosPage() {
         </p>
       </div>
 
-      <PosForm students={students} />
+      <Suspense fallback={<div>Loading...</div>}>
+        <PosForm students={students} />
+      </Suspense>
     </div>
   );
 }
