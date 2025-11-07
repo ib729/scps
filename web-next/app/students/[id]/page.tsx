@@ -35,6 +35,7 @@ export default async function StudentDetailPage({
 
   const transactions = getTransactionsByStudentId(studentId);
   const cards = getCardsByStudentId(studentId);
+  const hasTransactions = transactions.length > 0;
 
   return (
     <div className="w-full space-y-6">
@@ -58,7 +59,7 @@ export default async function StudentDetailPage({
               className={`text-4xl font-bold ${
                 student.balance < 0
                   ? "text-red-600"
-                  : student.balance < 10
+                  : student.balance <= 5 && hasTransactions
                   ? "text-orange-600"
                   : ""
               }`}
@@ -68,7 +69,7 @@ export default async function StudentDetailPage({
             <div className="mt-2">
               {student.balance < 0 ? (
                 <Badge variant="destructive">Overdraft</Badge>
-              ) : student.balance < 10 ? (
+              ) : student.balance <= 5 && hasTransactions ? (
                 <Badge variant="secondary">Low Balance</Badge>
               ) : (
                 <Badge variant="default">Active</Badge>

@@ -24,17 +24,19 @@ import {
 } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Copy, Check } from "lucide-react";
 import type { StudentWithAccount } from "@/lib/models";
 import { posCheckoutAction } from "@/app/actions/pos";
 import { getCardByUidAction } from "@/app/actions/cards";
 
 interface PosFormProps {
   students: StudentWithAccount[];
+  studentIdsWithTransactions: number[];
 }
 
 type WorkflowMode = "tap-first" | "manual";
 
-export function PosForm({ students }: PosFormProps) {
+export function PosForm({ students, studentIdsWithTransactions }: PosFormProps) {
   const [mode, setMode] = useState<WorkflowMode>("tap-first");
   const [studentId, setStudentId] = useState<string>("");
   const [cardUid, setCardUid] = useState<string>("");
@@ -43,6 +45,8 @@ export function PosForm({ students }: PosFormProps) {
   const [staff, setStaff] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [transactionId, setTransactionId] = useState<number | null>(null);
+  const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(false);
   const [tapStatus, setTapStatus] = useState<string>("");
   const [isConnected, setIsConnected] = useState<boolean>(false);
@@ -62,6 +66,12 @@ export function PosForm({ students }: PosFormProps) {
 
   const selectedStudent = students.find((s) => s.id === parseInt(studentId));
   const dialogStudent = students.find((s) => s.id === dialogStudentId);
+
+  const copyTransactionId = async (txId: number) => {
+    await navigator.clipboard.writeText(txId.toString());
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   // Handle card UID from URL parameter (from tap alert navigation)
   useEffect(() => {
@@ -175,6 +185,7 @@ export function PosForm({ students }: PosFormProps) {
     setLoading(true);
     setError("");
     setSuccess("");
+    setTransactionId(null);
 
     const result = await posCheckoutAction({
       student_id: finalStudentId || undefined,
@@ -189,6 +200,7 @@ export function PosForm({ students }: PosFormProps) {
       setSuccess(
         `Successfully charged ¥${amount} to ${studentName}. New balance: ¥${result.data.newBalance}`
       );
+      setTransactionId(result.data.transaction.id);
       setAmount("");
       setDescription("");
       setStudentId("");
@@ -224,6 +236,7 @@ export function PosForm({ students }: PosFormProps) {
       setSuccess(
         `Successfully charged ¥${dialogAmount} to ${studentName}. New balance: ¥${result.data.newBalance}`
       );
+      setTransactionId(result.data.transaction.id);
       setDialogOpen(false);
       setDialogAmount("");
       setDialogDescription("");
@@ -268,7 +281,7 @@ export function PosForm({ students }: PosFormProps) {
                       className={`font-bold ${
                         dialogStudent.balance < 0
                           ? "text-red-600"
-                          : dialogStudent.balance < 10
+                          : dialogStudent.balance <= 5 && studentIdsWithTransactions.includes(dialogStudent.id)
                           ? "text-orange-600"
                           : ""
                       }`}
@@ -391,7 +404,26 @@ export function PosForm({ students }: PosFormProps) {
           )}
           {success && (
             <Alert>
-              <AlertDescription>{success}</AlertDescription>
+              <AlertDescription>
+                <div className="space-y-2">
+                  <div>{success}</div>
+                  {transactionId && (
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className="text-sm text-muted-foreground">
+                        Transaction ID: <span className="font-mono font-medium">{transactionId}</span>
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => copyTransactionId(transactionId)}
+                        className="h-6 w-6 p-0"
+                      >
+                        {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </AlertDescription>
             </Alert>
           )}
 
@@ -426,7 +458,7 @@ export function PosForm({ students }: PosFormProps) {
                   className={`font-bold ${
                     selectedStudent.balance < 0
                       ? "text-red-600"
-                      : selectedStudent.balance < 10
+                      : selectedStudent.balance <= 5 && studentIdsWithTransactions.includes(selectedStudent.id)
                       ? "text-orange-600"
                       : ""
                   }`}

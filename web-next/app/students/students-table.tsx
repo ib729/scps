@@ -19,9 +19,10 @@ import { DeleteStudentDialog } from "./delete-student-dialog";
 
 interface StudentsTableProps {
   students: StudentWithAccount[];
+  studentIdsWithTransactions: number[];
 }
 
-export function StudentsTable({ students }: StudentsTableProps) {
+export function StudentsTable({ students, studentIdsWithTransactions }: StudentsTableProps) {
   const [searchQuery, setSearchQuery] = useState("");
 
   const filteredStudents = students.filter((student) =>
@@ -74,7 +75,7 @@ export function StudentsTable({ students }: StudentsTableProps) {
                       className={
                         student.balance < 0
                           ? "text-red-600 font-bold"
-                          : student.balance < 10
+                          : student.balance <= 5 && studentIdsWithTransactions.includes(student.id)
                           ? "text-orange-600 font-bold"
                           : "font-bold"
                       }
@@ -86,16 +87,13 @@ export function StudentsTable({ students }: StudentsTableProps) {
                   <TableCell>
                     {student.balance < 0 ? (
                       <Badge variant="destructive">Overdraft</Badge>
-                    ) : student.balance < 10 ? (
+                    ) : student.balance <= 5 && studentIdsWithTransactions.includes(student.id) ? (
                       <Badge variant="secondary">Low Balance</Badge>
                     ) : (
                       <Badge variant="default">Active</Badge>
                     )}
                   </TableCell>
-                  <TableCell className="text-right space-x-2">
-                    <Button variant="outline" size="sm" asChild>
-                      <Link href={`/students/${student.id}`}>View</Link>
-                    </Button>
+                  <TableCell className="text-right">
                     <DeleteStudentDialog
                       studentId={student.id}
                       studentName={student.name}

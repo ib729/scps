@@ -15,20 +15,24 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Copy, Check } from "lucide-react";
 import type { StudentWithAccount } from "@/lib/models";
 import { topupAction, adjustBalanceManualAction } from "@/app/actions/topup";
 
 interface TopupFormProps {
   students: StudentWithAccount[];
+  studentIdsWithTransactions: number[];
 }
 
-export function TopupForm({ students }: TopupFormProps) {
+export function TopupForm({ students, studentIdsWithTransactions }: TopupFormProps) {
   const [studentId, setStudentId] = useState<string>("");
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
   const [staff, setStaff] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [transactionId, setTransactionId] = useState<number | null>(null);
+  const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
@@ -39,15 +43,30 @@ export function TopupForm({ students }: TopupFormProps) {
   const [adjustStaff, setAdjustStaff] = useState("");
   const [adjustError, setAdjustError] = useState("");
   const [adjustSuccess, setAdjustSuccess] = useState("");
+  const [adjustTransactionId, setAdjustTransactionId] = useState<number | null>(null);
+  const [adjustCopied, setAdjustCopied] = useState(false);
   const [adjustLoading, setAdjustLoading] = useState(false);
 
   const selectedStudent = students.find((s) => s.id === parseInt(studentId));
   const selectedAdjustStudent = students.find((s) => s.id === parseInt(adjustStudentId));
 
+  const copyTransactionId = async (txId: number) => {
+    await navigator.clipboard.writeText(txId.toString());
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const copyAdjustTransactionId = async (txId: number) => {
+    await navigator.clipboard.writeText(txId.toString());
+    setAdjustCopied(true);
+    setTimeout(() => setAdjustCopied(false), 2000);
+  };
+
   const handleTopup = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setSuccess("");
+    setTransactionId(null);
     setLoading(true);
 
     const result = await topupAction({
@@ -61,6 +80,7 @@ export function TopupForm({ students }: TopupFormProps) {
       setSuccess(
         `Successfully added ¥${amount} to ${selectedStudent?.name}. New balance: ¥${result.data.newBalance}`
       );
+      setTransactionId(result.data.transaction.id);
       setAmount("");
       setDescription("");
       router.refresh();
@@ -75,6 +95,7 @@ export function TopupForm({ students }: TopupFormProps) {
     e.preventDefault();
     setAdjustError("");
     setAdjustSuccess("");
+    setAdjustTransactionId(null);
     setAdjustLoading(true);
 
     const result = await adjustBalanceManualAction({
@@ -88,6 +109,7 @@ export function TopupForm({ students }: TopupFormProps) {
       setAdjustSuccess(
         `Balance adjusted by ¥${adjustAmount} for ${selectedAdjustStudent?.name}. New balance: ¥${result.data.newBalance}`
       );
+      setAdjustTransactionId(result.data.transaction.id);
       setAdjustAmount("");
       setAdjustDescription("");
       router.refresh();
@@ -113,7 +135,26 @@ export function TopupForm({ students }: TopupFormProps) {
             )}
             {success && (
               <Alert>
-                <AlertDescription>{success}</AlertDescription>
+                <AlertDescription>
+                  <div className="space-y-2">
+                    <div>{success}</div>
+                    {transactionId && (
+                      <div className="flex items-center gap-2 mt-2">
+                        <span className="text-sm text-muted-foreground">
+                          Transaction ID: <span className="font-mono font-medium">{transactionId}</span>
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => copyTransactionId(transactionId)}
+                          className="h-6 w-6 p-0"
+                        >
+                          {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </AlertDescription>
               </Alert>
             )}
 
@@ -143,7 +184,7 @@ export function TopupForm({ students }: TopupFormProps) {
                     className={`font-bold ${
                       selectedStudent.balance < 0
                         ? "text-red-600"
-                        : selectedStudent.balance < 10
+                        : selectedStudent.balance <= 5 && studentIdsWithTransactions.includes(selectedStudent.id)
                         ? "text-orange-600"
                         : ""
                     }`}
@@ -214,7 +255,26 @@ export function TopupForm({ students }: TopupFormProps) {
             )}
             {adjustSuccess && (
               <Alert>
-                <AlertDescription>{adjustSuccess}</AlertDescription>
+                <AlertDescription>
+                  <div className="space-y-2">
+                    <div>{adjustSuccess}</div>
+                    {adjustTransactionId && (
+                      <div className="flex items-center gap-2 mt-2">
+                        <span className="text-sm text-muted-foreground">
+                          Transaction ID: <span className="font-mono font-medium">{adjustTransactionId}</span>
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => copyAdjustTransactionId(adjustTransactionId)}
+                          className="h-6 w-6 p-0"
+                        >
+                          {adjustCopied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </AlertDescription>
               </Alert>
             )}
 
@@ -244,7 +304,7 @@ export function TopupForm({ students }: TopupFormProps) {
                     className={`font-bold ${
                       selectedAdjustStudent.balance < 0
                         ? "text-red-600"
-                        : selectedAdjustStudent.balance < 10
+                        : selectedAdjustStudent.balance <= 5 && studentIdsWithTransactions.includes(selectedAdjustStudent.id)
                         ? "text-orange-600"
                         : ""
                     }`}

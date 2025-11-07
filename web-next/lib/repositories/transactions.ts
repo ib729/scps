@@ -80,3 +80,13 @@ export function getRecentTransactions(limit: number = 10): TransactionWithStuden
   return getAllTransactions(limit);
 }
 
+export function getStudentIdsWithTransactions(): number[] {
+  const db = getDb();
+  const stmt = db.prepare(`
+    SELECT DISTINCT student_id
+    FROM transactions
+  `);
+  const rows = stmt.all() as { student_id: number }[];
+  return rows.map((row) => row.student_id);
+}
+

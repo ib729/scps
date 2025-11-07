@@ -1,6 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getAllStudents } from "@/lib/repositories/students";
-import { getRecentTransactions } from "@/lib/repositories/transactions";
+import { getRecentTransactions, getStudentIdsWithTransactions } from "@/lib/repositories/transactions";
 import Link from "next/link";
 import { Users, DollarSign, AlertTriangle, TrendingUp, ArrowUpRight, ArrowDownRight } from "lucide-react";
 
@@ -9,11 +9,14 @@ export const dynamic = "force-dynamic";
 export default async function DashboardPage() {
   const students = getAllStudents();
   const recentTransactions = getRecentTransactions(10);
+  const studentIdsWithTransactions = getStudentIdsWithTransactions();
 
   const totalStudents = students.length;
   const totalBalance = students.reduce((sum, s) => sum + s.balance, 0);
   const studentsWithNegativeBalance = students.filter((s) => s.balance < 0).length;
-  const studentsWithLowBalance = students.filter((s) => s.balance >= 0 && s.balance < 10).length;
+  const studentsWithLowBalance = students.filter((s) => 
+    s.balance >= 0 && s.balance <= 5 && studentIdsWithTransactions.includes(s.id)
+  ).length;
 
   // Calculate percentage changes (mock data for now - you could track historical data)
   const balanceChange = "+12.5%";
@@ -82,7 +85,7 @@ export default async function DashboardPage() {
           <CardContent>
             <div className="text-2xl font-bold">{studentsWithLowBalance}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              Students with {"<"}¥10
+              Students with ≤¥5
             </p>
           </CardContent>
         </Card>
@@ -154,13 +157,13 @@ export default async function DashboardPage() {
           <CardHeader>
             <CardTitle>Students with Low Balance</CardTitle>
             <CardDescription>
-              {students.filter((s) => s.balance < 10).length} students need top-up
+              {students.filter((s) => s.balance <= 5 && studentIdsWithTransactions.includes(s.id)).length} students need top-up
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               {students
-                .filter((s) => s.balance < 10)
+                .filter((s) => s.balance <= 5 && studentIdsWithTransactions.includes(s.id))
                 .slice(0, 5)
                 .map((student) => (
                   <div
@@ -187,7 +190,7 @@ export default async function DashboardPage() {
                     </span>
                   </div>
                 ))}
-              {students.filter((s) => s.balance < 10).length === 0 && (
+              {students.filter((s) => s.balance <= 5 && studentIdsWithTransactions.includes(s.id)).length === 0 && (
                 <p className="text-sm text-muted-foreground">
                   All students have sufficient balance
                 </p>

@@ -70,13 +70,14 @@ def charge_by_uid(uid_hex: str, price: int, staff="pos"):
                    (student_id, card_uid, type, amount, overdraft_component, description, staff)
                    VALUES (?,?,?,?,?,?,?)""",
                 (sid, uid_hex, 'DEBIT', -price, need_ov, 'purchase', staff))
+    tx_id = cur.lastrowid
     if need_ov:
         add_overdraft_usage(cur, sid, wk_start, need_ov)
 
     con.commit()
     newbal = cur.execute("SELECT balance FROM accounts WHERE student_id=?", (sid,)).fetchone()[0]
     con.close()
-    return True, f"Charged ¥{price} (overpay used ¥{need_ov}). New balance: ¥{newbal}."
+    return True, f"Charged ¥{price} (overpay used ¥{need_ov}). New balance: ¥{newbal}. TX ID: {tx_id}"
 
 def read_uid_from_pn532(device):
     import nfc

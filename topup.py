@@ -23,10 +23,11 @@ def topup(uid_hex: str, amount: int, staff="admin"):
     cur.execute("""INSERT INTO transactions(student_id, card_uid, type, amount, description, staff)
                    VALUES (?,?,?,?,?,?)""",
                 (sid, uid_hex, 'TOPUP', amount, 'manual top-up', staff))
+    tx_id = cur.lastrowid
     con.commit()
     newbal = cur.execute("SELECT balance FROM accounts WHERE student_id=?", (sid,)).fetchone()[0]
     con.close()
-    print(f"Topped up ¥{amount}. New balance: ¥{newbal}.")
+    print(f"Topped up ¥{amount}. New balance: ¥{newbal}. TX ID: {tx_id}")
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()

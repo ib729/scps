@@ -11,7 +11,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Copy, Check } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -28,6 +30,13 @@ interface TransactionsTableProps {
 export function TransactionsTable({ transactions }: TransactionsTableProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [copiedId, setCopiedId] = useState<number | null>(null);
+
+  const copyTransactionId = async (txId: number) => {
+    await navigator.clipboard.writeText(txId.toString());
+    setCopiedId(txId);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
 
   const filteredTransactions = transactions.filter((tx) => {
     const matchesSearch = tx.student_name
@@ -63,6 +72,7 @@ export function TransactionsTable({ transactions }: TransactionsTableProps) {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead>ID</TableHead>
               <TableHead>Date</TableHead>
               <TableHead>Student</TableHead>
               <TableHead>Type</TableHead>
@@ -74,13 +84,30 @@ export function TransactionsTable({ transactions }: TransactionsTableProps) {
           <TableBody>
             {filteredTransactions.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-muted-foreground">
+                <TableCell colSpan={7} className="text-center text-muted-foreground">
                   No transactions found
                 </TableCell>
               </TableRow>
             ) : (
               filteredTransactions.map((tx) => (
                 <TableRow key={tx.id}>
+                  <TableCell className="text-sm">
+                    <div className="flex items-center gap-1">
+                      <span className="font-mono text-xs">{tx.id}</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => copyTransactionId(tx.id)}
+                        className="h-5 w-5 p-0"
+                      >
+                        {copiedId === tx.id ? (
+                          <Check className="h-3 w-3" />
+                        ) : (
+                          <Copy className="h-3 w-3" />
+                        )}
+                      </Button>
+                    </div>
+                  </TableCell>
                   <TableCell className="text-sm">
                     {new Date(tx.created_at).toLocaleString("en-US", {
                       year: "numeric",

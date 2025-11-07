@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS transactions (
   description TEXT,
   staff TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),  -- UTC ISO-ish
-  FOREIGN KEY(student_id) REFERENCES students(id)
+  FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE CASCADE
 );
 
 -- Track weekly overpay usage per student, keyed by the Monday 00:00 (Asia/Shanghai) converted to UTC
@@ -39,9 +39,20 @@ CREATE TABLE IF NOT EXISTS overdraft_weeks (
   week_start_utc TEXT NOT NULL,
   used INTEGER NOT NULL DEFAULT 0,               -- whole CNY used this week
   PRIMARY KEY(student_id, week_start_utc),
-  FOREIGN KEY(student_id) REFERENCES students(id)
+  FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE CASCADE
 );
 
 CREATE INDEX IF NOT EXISTS idx_tx_student_time
   ON transactions(student_id, created_at);
+
+-- Staff user accounts
+CREATE TABLE IF NOT EXISTS users (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  email TEXT NOT NULL UNIQUE,
+  password_hash TEXT NOT NULL,
+  avatar TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
 
