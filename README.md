@@ -35,24 +35,49 @@ A closed-loop, reloadable card system for school snack bars with NFC card suppor
 ### For Development (macOS/Linux)
 
 ```bash
-# 1. Initialize database
+# 1. Check web UI prerequisites (optional)
+cd web-next
+./check-prereqs.sh
+
+# 2. Initialize database
+cd ..
 python init_db.py
 
-# 2. Enroll a student
+# 3. Enroll a student
 python enroll.py
 
-# 3. Start web UI
+# 4. Install web UI dependencies (auto-builds better-sqlite3)
 cd web-next
 pnpm install
+
+# 5. Start web UI
 pnpm dev
 
-# 4. Test NFC tap broadcaster (simulation)
+# 6. Test NFC tap broadcaster (simulation)
+cd ..
 python tap-broadcaster.py --simulate
 ```
 
 Open http://localhost:3000 and start managing your snack bar!
 
 ### For Production (Raspberry Pi)
+
+**Prerequisites (Raspberry Pi OS - Debian Trixie/Bookworm ARM64):**
+
+```bash
+# Install build tools
+sudo apt update
+sudo apt install -y build-essential python3 pkg-config git
+
+# Install Node.js 20 LTS
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install -y nodejs
+
+# Install pnpm
+npm install -g pnpm
+```
+
+**Then follow the same steps as development setup above.**
 
 See `NFC-SETUP.md` for complete setup instructions including systemd service configuration.
 
@@ -153,9 +178,18 @@ pip install -r requirements.txt
 
 # Web UI (see web-next/README.md)
 cd web-next
+
+# Check prerequisites (optional)
+./check-prereqs.sh
+
+# Install and auto-build
 pnpm install
+
+# Start development
 pnpm dev
 ```
+
+**Note:** `pnpm install` now automatically rebuilds better-sqlite3 via the postinstall hook.
 
 ## License
 
