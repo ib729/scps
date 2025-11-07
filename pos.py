@@ -3,12 +3,13 @@ from datetime import datetime, timedelta, timezone
 try:
     from zoneinfo import ZoneInfo
 except Exception:
-    ZoneInfo = None
+    ZoneInfo = None  # Python <3.9: fallback uses UTC-week approximation
 
 DB = "stuco.db"
-WEEK_TZ = "Asia/Shanghai"  # weekly overdraft window
+WEEK_TZ = "Asia/Shanghai"  # stable UTC+8, no DST
 
 def week_start_utc(now_utc: datetime) -> str:
+    """Return Monday 00:00 of the current week in Asia/Shanghai, converted to UTC (naive string)."""
     if ZoneInfo is None:
         weekday = now_utc.weekday()
         start = (now_utc - timedelta(days=weekday)).replace(hour=0, minute=0, second=0, microsecond=0)
@@ -20,25 +21,29 @@ def week_start_utc(now_utc: datetime) -> str:
     return start_utc.strftime("%Y-%m-%d %H:%M:%S")
 
 def overdraft_used_this_week(cur, sid: int, week_start: str) -> int:
-    row = cur.execute("""SELECT used_fen FROM overdraft_weeks
+    row = cur.execute("""SELECT used FROM overdraft_weeks
                          WHERE student_id=? AND week_start_utc=?""",
                       (sid, week_start)).fetchone()
     return row[0] if row else 0
 
-def add_overdraft_usage(cur, sid: int, week_start: str, delta_fen: int):
-    cur.execute("""INSERT INTO overdraft_weeks(student_id, week_start_utc, used_fen)
+def add_overdraft_usage(cur, sid: int, week_start: str, delta: int):
+    # UPSERT accumulation of weekly overpay
+    cur.execute("""INSERT INTO overdraft_weeks(student_id, week_start_utc, used)
                    VALUES (?,?,?)
                    ON CONFLICT(student_id, week_start_utc)
-                   DO UPDATE SET used_fen = used_fen + excluded.used_fen""",
-                (sid, week_start, delta_fen))
+                   DO UPDATE SET used = used + excluded.used""",
+                (sid, week_start, delta))
 
-def charge_by_uid(uid_hex: str, price_fen: int, staff="pos"):
+def charge_by_uid(uid_hex: str, price: int, staff="pos"):
+    if price <= 0:
+        return False, "Price must be a positive integer CNY."
+
     con = sqlite3.connect(DB)
     con.execute("PRAGMA foreign_keys=ON;")
     con.execute("PRAGMA busy_timeout=5000;")
     cur = con.cursor()
 
-    card = cur.execute("""SELECT c.student_id, a.balance, a.max_overdraft_week_fen
+    card = cur.execute("""SELECT c.student_id, a.balance, a.max_overdraft_week
                           FROM cards c JOIN accounts a ON a.student_id=c.student_id
                           WHERE c.card_uid=? AND c.status='active'""", (uid_hex,)).fetchone()
     if not card:
@@ -54,24 +59,24 @@ def charge_by_uid(uid_hex: str, price_fen: int, staff="pos"):
     used_this_week = overdraft_used_this_week(cur, sid, wk_start)
     remaining_ov = max(0, max_ov - used_this_week)
 
-    need_ov = max(0, price_fen - bal)
+    need_ov = max(0, price - bal)
     if need_ov > remaining_ov:
         con.rollback(); con.close()
-        return False, f"Declined: need {need_ov} fen overdraft, only {remaining_ov} fen left this week."
+        return False, f"Declined: need ¥{need_ov} overpay, only ¥{remaining_ov} left this week."
 
-    cur.execute("UPDATE accounts SET balance = balance - ? WHERE student_id=?",
-                (price_fen, sid))
+    # Apply debit
+    cur.execute("UPDATE accounts SET balance = balance - ? WHERE student_id=?", (price, sid))
     cur.execute("""INSERT INTO transactions
-                   (student_id, card_uid, type, amount_fen, overdraft_component_fen, description, staff)
+                   (student_id, card_uid, type, amount, overdraft_component, description, staff)
                    VALUES (?,?,?,?,?,?,?)""",
-                (sid, uid_hex, 'DEBIT', -price_fen, need_ov, 'purchase', staff))
+                (sid, uid_hex, 'DEBIT', -price, need_ov, 'purchase', staff))
     if need_ov:
         add_overdraft_usage(cur, sid, wk_start, need_ov)
 
     con.commit()
     newbal = cur.execute("SELECT balance FROM accounts WHERE student_id=?", (sid,)).fetchone()[0]
     con.close()
-    return True, f"Charged {price_fen} fen (overdraft used {need_ov} fen). New balance: {newbal} fen."
+    return True, f"Charged ¥{price} (overpay used ¥{need_ov}). New balance: ¥{newbal}."
 
 def read_uid_from_pn532(device):
     import nfc
@@ -86,27 +91,26 @@ def read_uid_from_pn532(device):
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("price_cny", type=float, help="price per tap in CNY")
+    ap.add_argument("price", type=int, help="price per tap in whole CNY (e.g., 6)")
     ap.add_argument("--device", default="tty:AMA0:pn532",
                     help="nfcpy device string (e.g., tty:AMA0:pn532, usb:USB0:pn532)")
     ap.add_argument("--simulate", action="store_true", help="type UIDs manually (no reader)")
     args = ap.parse_args()
 
-    price_fen = int(round(args.price_cny * 100))
-    print(f"POS ready. Price per tap: {price_fen} fen. Weekly overdraft quota: 2000 fen.")
+    print(f"POS ready. Price per tap: ¥{args.price}. Weekly overpay quota: ¥20 (resets Monday 00:00 Asia/Shanghai).")
 
     if args.simulate:
         print("Simulation mode. Type UID hex (or 'quit'):")
         while True:
             uid = input("> ").strip()
             if uid.lower() in ("q","quit","exit"): break
-            ok, msg = charge_by_uid(uid.upper(), price_fen)
+            ok, msg = charge_by_uid(uid.upper(), args.price)
             print(("[OK] " if ok else "[NO] ") + msg)
     else:
         try:
             while True:
                 uid = read_uid_from_pn532(args.device)
-                ok, msg = charge_by_uid(uid, price_fen)
+                ok, msg = charge_by_uid(uid, args.price)
                 print(("[OK] " if ok else "[NO] ") + msg)
                 time.sleep(0.8)
         except KeyboardInterrupt:

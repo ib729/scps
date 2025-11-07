@@ -2,7 +2,11 @@ import argparse, sqlite3
 
 DB = "stuco.db"
 
-def topup(uid_hex: str, amount_fen: int, staff="admin"):
+def topup(uid_hex: str, amount: int, staff="admin"):
+    if amount <= 0:
+        print("Amount must be a positive integer CNY.")
+        return
+
     con = sqlite3.connect(DB)
     con.execute("PRAGMA foreign_keys=ON;")
     con.execute("PRAGMA busy_timeout=5000;")
@@ -14,22 +18,21 @@ def topup(uid_hex: str, amount_fen: int, staff="admin"):
         return
     sid = row[0]
 
-    cur.execute("BEGIN IMMEDIATE;")  # atomic
-    cur.execute("UPDATE accounts SET balance = balance + ? WHERE student_id=?",
-                (amount_fen, sid))
-    cur.execute("""INSERT INTO transactions(student_id, card_uid, type, amount_fen, description, staff)
+    cur.execute("BEGIN IMMEDIATE;")  # atomic top-up + log
+    cur.execute("UPDATE accounts SET balance = balance + ? WHERE student_id=?", (amount, sid))
+    cur.execute("""INSERT INTO transactions(student_id, card_uid, type, amount, description, staff)
                    VALUES (?,?,?,?,?,?)""",
-                (sid, uid_hex, 'TOPUP', amount_fen, 'manual top-up', staff))
+                (sid, uid_hex, 'TOPUP', amount, 'manual top-up', staff))
     con.commit()
     newbal = cur.execute("SELECT balance FROM accounts WHERE student_id=?", (sid,)).fetchone()[0]
     con.close()
-    print(f"Topped up {amount_fen} fen. New balance: {newbal} fen.")
+    print(f"Topped up ¥{amount}. New balance: ¥{newbal}.")
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("uid", help="Card UID hex")
-    ap.add_argument("amount_cny", type=float, help="Amount in CNY")
+    ap.add_argument("amount", type=int, help="Whole CNY (e.g., 20 = ¥20)")
     ap.add_argument("--staff", default="admin")
     args = ap.parse_args()
-    topup(args.uid.upper(), int(round(args.amount_cny*100)), args.staff)
+    topup(args.uid.upper(), args.amount, args.staff)
 

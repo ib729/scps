@@ -15,8 +15,8 @@ CREATE TABLE IF NOT EXISTS cards (
 
 CREATE TABLE IF NOT EXISTS accounts (
   student_id INTEGER PRIMARY KEY,
-  balance INTEGER NOT NULL DEFAULT 0,                 -- <-- renamed, stores fen (cents)
-  max_overdraft_week_fen INTEGER NOT NULL DEFAULT 2000,  -- ¥20/week
+  balance INTEGER NOT NULL DEFAULT 0,            -- whole CNY
+  max_overdraft_week INTEGER NOT NULL DEFAULT 20,-- whole CNY, e.g., 20 = ¥20/week
   FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE CASCADE
 );
 
@@ -25,18 +25,19 @@ CREATE TABLE IF NOT EXISTS transactions (
   student_id INTEGER NOT NULL,
   card_uid TEXT,
   type TEXT NOT NULL CHECK (type IN ('TOPUP','DEBIT','ADJUST')),
-  amount_fen INTEGER NOT NULL,                 -- + for topup, - for debit
-  overdraft_component_fen INTEGER NOT NULL DEFAULT 0,
+  amount INTEGER NOT NULL,                       -- + for topup/adjust, - for debit; whole CNY
+  overdraft_component INTEGER NOT NULL DEFAULT 0,-- part of a DEBIT taken from the weekly overpay
   description TEXT,
   staff TEXT,
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),  -- UTC
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),  -- UTC ISO-ish
   FOREIGN KEY(student_id) REFERENCES students(id)
 );
 
+-- Track weekly overpay usage per student, keyed by the Monday 00:00 (Asia/Shanghai) converted to UTC
 CREATE TABLE IF NOT EXISTS overdraft_weeks (
   student_id INTEGER NOT NULL,
-  week_start_utc TEXT NOT NULL,     -- Monday 00:00 America/New_York, converted to UTC
-  used_fen INTEGER NOT NULL DEFAULT 0,
+  week_start_utc TEXT NOT NULL,
+  used INTEGER NOT NULL DEFAULT 0,               -- whole CNY used this week
   PRIMARY KEY(student_id, week_start_utc),
   FOREIGN KEY(student_id) REFERENCES students(id)
 );

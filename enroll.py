@@ -29,7 +29,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--name", required=False, help="Student name")
     ap.add_argument("--device", default="tty:AMA0:pn532",
-                    help="nfcpy device string (e.g., tty:AMA0:pn532 or usb:USB0:pn532)")
+                    help="nfcpy device (e.g., tty:AMA0:pn532 or usb:USB0:pn532)")
     ap.add_argument("--simulate", help="Provide UID hex manually (no reader)")
     args = ap.parse_args()
 
