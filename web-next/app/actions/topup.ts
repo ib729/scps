@@ -32,8 +32,8 @@ export async function topupAction(data: unknown) {
         type: "TOPUP",
         amount: validated.amount,
         overdraft_component: 0,
-        description: validated.description || "Account Top-up",
-        staff: validated.staff,
+        description: validated.description || null,
+        staff: validated.staff || null,
       });
 
       // Update balance
@@ -85,8 +85,8 @@ export async function adjustBalanceManualAction(data: unknown) {
         type: "ADJUST",
         amount: validated.amount,
         overdraft_component: 0,
-        description: validated.description,
-        staff: validated.staff,
+        description: validated.description || null,
+        staff: validated.staff || null,
       });
 
       // Update balance

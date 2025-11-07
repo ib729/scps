@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,6 +35,17 @@ export function TopupForm({ students, studentIdsWithTransactions }: TopupFormPro
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Auto-select student from query parameter
+  useEffect(() => {
+    const studentFromUrl = searchParams.get("student");
+    if (studentFromUrl && !studentId) {
+      setStudentId(studentFromUrl);
+      // Clear the URL parameter after setting
+      router.replace("/topup");
+    }
+  }, [searchParams, studentId, router]);
 
   // For manual adjustment
   const [adjustStudentId, setAdjustStudentId] = useState<string>("");
@@ -214,7 +225,7 @@ export function TopupForm({ students, studentIdsWithTransactions }: TopupFormPro
                 id="description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="e.g., Cash payment, Bank transfer"
+                placeholder="Wechat Pay, Alipay, Bitcoin, Cash"
               />
             </div>
 

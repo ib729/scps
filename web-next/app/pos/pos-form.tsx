@@ -27,7 +27,8 @@ import { Badge } from "@/components/ui/badge";
 import { Copy, Check } from "lucide-react";
 import type { StudentWithAccount } from "@/lib/models";
 import { posCheckoutAction } from "@/app/actions/pos";
-import { getCardByUidAction } from "@/app/actions/cards";
+import { getCardByUidAction, createCardAction } from "@/app/actions/cards";
+import { createStudentAction } from "@/app/actions/students";
 
 interface PosFormProps {
   students: StudentWithAccount[];
@@ -63,6 +64,13 @@ export function PosForm({ students, studentIdsWithTransactions }: PosFormProps) 
   const [dialogStaff, setDialogStaff] = useState("");
   const [dialogError, setDialogError] = useState("");
   const [dialogLoading, setDialogLoading] = useState(false);
+
+  // Enrollment dialog state for unknown cards
+  const [enrollDialogOpen, setEnrollDialogOpen] = useState(false);
+  const [enrollCardUid, setEnrollCardUid] = useState<string>("");
+  const [enrollName, setEnrollName] = useState("");
+  const [enrollError, setEnrollError] = useState("");
+  const [enrollLoading, setEnrollLoading] = useState(false);
 
   const selectedStudent = students.find((s) => s.id === parseInt(studentId));
   const dialogStudent = students.find((s) => s.id === dialogStudentId);
@@ -148,7 +156,11 @@ export function PosForm({ students, studentIdsWithTransactions }: PosFormProps) 
     const cardResult = await getCardByUidAction(uid);
     
     if (!cardResult.success || !cardResult.data) {
-      setError(`Card ${uid} not found in system`);
+      // Card not found - offer enrollment
+      setEnrollCardUid(uid);
+      setEnrollName("");
+      setEnrollError("");
+      setEnrollDialogOpen(true);
       setTapStatus("");
       return;
     }
@@ -178,6 +190,65 @@ export function PosForm({ students, studentIdsWithTransactions }: PosFormProps) 
     setTapStatus("");
   };
 
+  const handleEnrollCard = async (action: 'checkout' | 'topup' | 'none') => {
+    setEnrollError("");
+    setEnrollLoading(true);
+
+    try {
+      // Create the student
+      const studentResult = await createStudentAction({
+        name: enrollName,
+      });
+
+      if (!studentResult.success || !studentResult.data) {
+        setEnrollError(studentResult.error || "Failed to create student");
+        setEnrollLoading(false);
+        return;
+      }
+
+      // Create the card
+      const cardResult = await createCardAction({
+        card_uid: enrollCardUid,
+        student_id: studentResult.data.id,
+        status: "active",
+      });
+
+      if (!cardResult.success) {
+        setEnrollError(cardResult.error || "Failed to create card");
+        setEnrollLoading(false);
+        return;
+      }
+
+      // Success! Close enrollment dialog
+      setEnrollDialogOpen(false);
+      setEnrollName("");
+      router.refresh();
+
+      // Handle the selected action
+      if (action === 'checkout') {
+        // Continue to checkout - open payment dialog
+        setDialogStudentId(studentResult.data.id);
+        setDialogCardUid(enrollCardUid);
+        setDialogAmount("");
+        setDialogDescription("");
+        setDialogStaff("");
+        setDialogError("");
+        setDialogOpen(true);
+      } else if (action === 'topup') {
+        // Navigate to top-up page with student ID
+        router.push(`/topup?student=${studentResult.data.id}`);
+      } else {
+        // Just show success message
+        setSuccess(`Successfully enrolled ${enrollName}!`);
+      }
+    } catch (error) {
+      setEnrollError("An unexpected error occurred");
+      console.error("Enrollment error:", error);
+    }
+
+    setEnrollLoading(false);
+  };
+
   const processCheckout = async (studId?: number, uid?: string) => {
     const finalStudentId = studId || parseInt(studentId);
     const finalCardUid = uid || cardUid;
@@ -191,7 +262,7 @@ export function PosForm({ students, studentIdsWithTransactions }: PosFormProps) 
       student_id: finalStudentId || undefined,
       card_uid: finalCardUid || undefined,
       amount: parseInt(amount),
-      description: description || "POS Purchase",
+      description: description || undefined,
       staff: staff || undefined,
     });
 
@@ -227,7 +298,7 @@ export function PosForm({ students, studentIdsWithTransactions }: PosFormProps) 
       student_id: dialogStudentId,
       card_uid: dialogCardUid,
       amount: parseInt(dialogAmount),
-      description: dialogDescription || "POS Purchase",
+      description: dialogDescription || undefined,
       staff: dialogStaff || undefined,
     });
 
@@ -253,6 +324,78 @@ export function PosForm({ students, studentIdsWithTransactions }: PosFormProps) 
 
   return (
     <>
+      {/* Enrollment dialog for unknown cards */}
+      <Dialog open={enrollDialogOpen} onOpenChange={setEnrollDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Enroll New Card</DialogTitle>
+            <DialogDescription>
+              This card is not registered. Enter the student&apos;s name to enroll.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {enrollError && (
+              <Alert variant="destructive">
+                <AlertDescription>{enrollError}</AlertDescription>
+              </Alert>
+            )}
+            <div className="space-y-2">
+              <Label htmlFor="enroll-card-uid">Card UID</Label>
+              <Input
+                id="enroll-card-uid"
+                value={enrollCardUid}
+                className="font-mono text-xs"
+                disabled
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="enroll-name">Student Name</Label>
+              <Input
+                id="enroll-name"
+                value={enrollName}
+                onChange={(e) => setEnrollName(e.target.value)}
+                placeholder="Enter student name"
+                disabled={enrollLoading}
+                autoFocus
+              />
+            </div>
+          </div>
+          <DialogFooter className="flex-col sm:flex-col gap-2">
+            <Button
+              onClick={() => handleEnrollCard('checkout')}
+              disabled={enrollLoading || !enrollName}
+              className="w-full"
+            >
+              {enrollLoading ? "Enrolling..." : "Enroll & Process Payment"}
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => handleEnrollCard('topup')}
+              disabled={enrollLoading || !enrollName}
+              className="w-full"
+            >
+              {enrollLoading ? "Enrolling..." : "Enroll & Top-up"}
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => handleEnrollCard('none')}
+              disabled={enrollLoading || !enrollName}
+              className="w-full"
+            >
+              {enrollLoading ? "Enrolling..." : "Enroll Only"}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setEnrollDialogOpen(false)}
+              disabled={enrollLoading}
+              className="w-full"
+            >
+              Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Tap mode dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">

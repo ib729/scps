@@ -130,7 +130,7 @@ export default async function DashboardPage() {
                           {tx.student_name}
                         </p>
                         <p className="text-sm text-muted-foreground">
-                          {tx.description || tx.type}
+                          {tx.description || "-"}
                         </p>
                       </div>
                     </div>

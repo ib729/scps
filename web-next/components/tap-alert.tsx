@@ -102,8 +102,7 @@ export function TapAlert() {
     setEnrollmentError("");
   };
 
-  const handleEnrollmentSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleEnrollmentSubmit = async (destination: 'pos' | 'topup' | 'none') => {
     setEnrollmentError("");
     setEnrollmentLoading(true);
 
@@ -132,12 +131,19 @@ export function TapAlert() {
         return;
       }
 
-      // Success! Close drawer and navigate to POS
+      // Success! Close drawer
       setOpen(false);
       setShowEnrollmentForm(false);
       setEnrollmentName("");
-      router.push(`/pos?card=${cardUid}`);
-      router.refresh();
+      
+      // Navigate based on destination
+      if (destination === 'pos') {
+        router.push(`/pos?card=${cardUid}`);
+      } else if (destination === 'topup') {
+        router.push(`/topup?student=${studentResult.data.id}`);
+      } else {
+        router.refresh();
+      }
     } catch (error) {
       setEnrollmentError("An unexpected error occurred");
       console.error("Enrollment error:", error);
@@ -214,45 +220,52 @@ export function TapAlert() {
                   Enter the student&apos;s name to register this card.
                 </DrawerDescription>
               </DrawerHeader>
-              <form onSubmit={handleEnrollmentSubmit}>
-                <div className="p-4 pb-0">
-                  <div className="space-y-4">
-                    <div className="flex flex-col gap-2">
-                      <div className="text-sm text-muted-foreground">Card UID:</div>
-                      <div className="font-mono text-sm font-bold">{cardUid}</div>
-                    </div>
-                    {enrollmentError && (
-                      <Alert variant="destructive">
-                        <AlertDescription>{enrollmentError}</AlertDescription>
-                      </Alert>
-                    )}
-                    <div className="space-y-2">
-                      <Label htmlFor="student-name">Student Name</Label>
-                      <Input
-                        id="student-name"
-                        value={enrollmentName}
-                        onChange={(e) => setEnrollmentName(e.target.value)}
-                        placeholder="Enter student name"
-                        required
-                        disabled={enrollmentLoading}
-                      />
-                    </div>
+              <div className="p-4 pb-0">
+                <div className="space-y-4">
+                  <div className="flex flex-col gap-2">
+                    <div className="text-sm text-muted-foreground">Card UID:</div>
+                    <div className="font-mono text-sm font-bold">{cardUid}</div>
+                  </div>
+                  {enrollmentError && (
+                    <Alert variant="destructive">
+                      <AlertDescription>{enrollmentError}</AlertDescription>
+                    </Alert>
+                  )}
+                  <div className="space-y-2">
+                    <Label htmlFor="student-name">Student Name</Label>
+                    <Input
+                      id="student-name"
+                      value={enrollmentName}
+                      onChange={(e) => setEnrollmentName(e.target.value)}
+                      placeholder="Enter student name"
+                      required
+                      disabled={enrollmentLoading}
+                    />
                   </div>
                 </div>
-                <DrawerFooter>
-                  <Button type="submit" disabled={enrollmentLoading || !enrollmentName}>
-                    {enrollmentLoading ? "Enrolling..." : "Enroll & Go to POS"}
-                  </Button>
-                  <Button 
-                    type="button"
-                    variant="outline" 
-                    onClick={() => setShowEnrollmentForm(false)}
-                    disabled={enrollmentLoading}
-                  >
-                    Back
-                  </Button>
-                </DrawerFooter>
-              </form>
+              </div>
+              <DrawerFooter>
+                <Button 
+                  onClick={() => handleEnrollmentSubmit('topup')}
+                  disabled={enrollmentLoading || !enrollmentName}
+                >
+                  {enrollmentLoading ? "Enrolling..." : "Enroll & Top-up"}
+                </Button>
+                <Button 
+                  variant="secondary"
+                  onClick={() => handleEnrollmentSubmit('none')}
+                  disabled={enrollmentLoading || !enrollmentName}
+                >
+                  {enrollmentLoading ? "Enrolling..." : "Enroll Only"}
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowEnrollmentForm(false)}
+                  disabled={enrollmentLoading}
+                >
+                  Back
+                </Button>
+              </DrawerFooter>
             </>
           )}
         </div>

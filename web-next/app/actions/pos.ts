@@ -89,8 +89,8 @@ export async function posCheckoutAction(data: unknown) {
         type: "DEBIT",
         amount: -chargeAmount,
         overdraft_component: overdraftUsed,
-        description: validated.description || "POS Purchase",
-        staff: validated.staff,
+        description: validated.description || null,
+        staff: validated.staff || null,
       });
 
       // Update balance

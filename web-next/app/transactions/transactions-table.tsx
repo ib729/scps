@@ -141,7 +141,7 @@ export function TransactionsTable({ transactions }: TransactionsTableProps) {
                   </TableCell>
                   <TableCell>
                     <div>
-                      {tx.description}
+                      {tx.description || "-"}
                       {tx.overdraft_component > 0 && (
                         <p className="text-xs text-orange-600 mt-1">
                           Overdraft: ¥{tx.overdraft_component}

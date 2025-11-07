@@ -45,7 +45,7 @@ export function TransactionsList({ transactions }: TransactionsListProps) {
               >
                 {tx.type}
               </Badge>
-              <p className="font-medium">{tx.description}</p>
+              <p className="font-medium">{tx.description || "-"}</p>
             </div>
             <div className="flex items-center gap-2 mt-1">
               <span className="text-xs text-muted-foreground">
@@ -74,9 +74,7 @@ export function TransactionsList({ transactions }: TransactionsListProps) {
                 hour12: false,
               })}
             </p>
-            {tx.staff && (
-              <p className="text-xs text-muted-foreground">Staff: {tx.staff}</p>
-            )}
+            <p className="text-xs text-muted-foreground">Staff: {tx.staff || "-"}</p>
             {tx.overdraft_component > 0 && (
               <p className="text-xs text-orange-600">
                 Overdraft used: ¥{tx.overdraft_component}
