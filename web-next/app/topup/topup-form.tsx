@@ -96,7 +96,7 @@ export function TopupForm({ students }: TopupFormProps) {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="w-full space-y-6">
       <Card>
         <CardHeader>
           <CardTitle>Top-up Account</CardTitle>

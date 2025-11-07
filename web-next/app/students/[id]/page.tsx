@@ -37,11 +37,11 @@ export default async function StudentDetailPage({
   const cards = getCardsByStudentId(studentId);
 
   return (
-    <div className="space-y-6">
+    <div className="w-full space-y-6">
       <div className="flex justify-between items-start">
         <div>
-          <h1 className="text-3xl font-bold">{student.name}</h1>
-          <p className="text-muted-foreground mt-2">Student ID: {student.id}</p>
+          <h2 className="text-2xl font-bold">{student.name}</h2>
+          <p className="text-muted-foreground mt-1">Student ID: {student.id}</p>
         </div>
         <Button variant="outline" asChild>
           <Link href="/students">Back to Students</Link>

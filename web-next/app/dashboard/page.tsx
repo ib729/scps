@@ -2,8 +2,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { getAllStudents } from "@/lib/repositories/students";
 import { getRecentTransactions } from "@/lib/repositories/transactions";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Users, DollarSign, AlertTriangle, TrendingUp, ArrowUpRight, ArrowDownRight } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -22,14 +20,7 @@ export default async function DashboardPage() {
   const overdraftChange = studentsWithNegativeBalance > 0 ? "+8%" : "0%";
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground mt-2">
-          Overview of the STUCO snack bar system
-        </p>
-      </div>
-
+    <div className="w-full space-y-8">
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -205,35 +196,6 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
       </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Quick Actions</CardTitle>
-          <CardDescription>
-            Common tasks and shortcuts
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-3">
-          <Button asChild size="lg" className="h-auto py-6 flex-col gap-2">
-            <Link href="/pos">
-              <DollarSign className="h-5 w-5" />
-              <span>Process Sale</span>
-            </Link>
-          </Button>
-          <Button asChild variant="outline" size="lg" className="h-auto py-6 flex-col gap-2">
-            <Link href="/topup">
-              <TrendingUp className="h-5 w-5" />
-              <span>Top-up Account</span>
-            </Link>
-          </Button>
-          <Button asChild variant="outline" size="lg" className="h-auto py-6 flex-col gap-2">
-            <Link href="/students">
-              <Users className="h-5 w-5" />
-              <span>Manage Students</span>
-            </Link>
-          </Button>
-        </CardContent>
-      </Card>
     </div>
   );
 }

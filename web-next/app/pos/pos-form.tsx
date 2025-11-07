@@ -168,7 +168,7 @@ export function PosForm({ students }: PosFormProps) {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="w-full space-y-4">
       {/* Status bar */}
       {tapStatus && (
         <Alert>

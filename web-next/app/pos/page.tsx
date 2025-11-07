@@ -8,18 +8,9 @@ export default async function PosPage() {
   const students = getAllStudents();
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Point of Sale</h1>
-        <p className="text-muted-foreground mt-2">
-          Process purchases and debit student accounts
-        </p>
-      </div>
-
-      <Suspense fallback={<div>Loading...</div>}>
-        <PosForm students={students} />
-      </Suspense>
-    </div>
+    <Suspense fallback={<div>Loading...</div>}>
+      <PosForm students={students} />
+    </Suspense>
   );
 }
 
