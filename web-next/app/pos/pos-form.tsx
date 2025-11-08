@@ -490,187 +490,216 @@ export function PosForm({ students, studentIdsWithTransactions }: PosFormProps) 
         </DialogContent>
       </Dialog>
 
-      <div className="w-full space-y-4">
-      {/* Status bar - only show in tap-first mode */}
-      {mode === "tap-first" && (
-        <Alert variant={isConnected ? "default" : "destructive"}>
-          <AlertDescription className="flex items-center justify-between">
-            <span>{tapStatus || "Connecting..."}</span>
-            <Badge variant={isConnected ? "default" : "secondary"}>
-              {isConnected ? "NFC Connected" : "NFC Disconnected"}
-            </Badge>
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {/* Mode selector */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              variant={mode === "tap-first" ? "default" : "outline"}
-              onClick={() => setMode("tap-first")}
-              className="flex-1"
-            >
-              Tap Card
-            </Button>
-            <Button
-              type="button"
-              variant={mode === "manual" ? "default" : "outline"}
-              onClick={() => setMode("manual")}
-              className="flex-1"
-            >
-              Manual
-            </Button>
-          </div>
-          <p className="text-xs text-muted-foreground mt-2 text-center">
-            {mode === "tap-first" 
-              ? "Wait for student to tap their card"
-              : "Select student manually from dropdown"}
-          </p>
-        </CardContent>
-      </Card>
-
-    <Card>
-      <CardHeader>
-          <CardTitle>
-            {mode === "tap-first" ? "Tap Card to Begin" : "Process Purchase"}
-          </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {error && (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-          {success && (
-            <Alert>
-              <AlertDescription>
-                <div className="space-y-2">
-                  <div>{success}</div>
-                  {transactionId && (
-                    <div className="flex items-center gap-2 mt-2">
-                      <span className="text-sm text-muted-foreground">
-                        Transaction ID: <span className="font-mono font-medium">{transactionId}</span>
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => copyTransactionId(transactionId)}
-                        className="h-6 w-6 p-0"
-                      >
-                        {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              </AlertDescription>
-            </Alert>
-          )}
-
-          <div className="space-y-2">
-              <Label htmlFor="student">
-                {mode === "tap-first" ? "Student (tap card or select)" : "Student"}
-              </Label>
-              <Select 
-                value={studentId} 
-                onValueChange={setStudentId}
+      <div className="w-full space-y-6">
+        {/* Mode selector - more prominent */}
+        <Card className="border-2">
+          <CardContent className="pt-6">
+            <div className="flex gap-3">
+              <Button
+                type="button"
+                variant={mode === "tap-first" ? "default" : "outline"}
+                onClick={() => setMode("tap-first")}
+                className="flex-1 h-14 text-lg font-semibold"
               >
-              <SelectTrigger id="student" className="w-full">
-                  <SelectValue placeholder="Select a student or tap card" />
-              </SelectTrigger>
-              <SelectContent>
-                {students.map((student) => (
-                  <SelectItem key={student.id} value={student.id.toString()}>
-                    {student.name} (¥{student.balance})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+                Tap Card
+              </Button>
+              <Button
+                type="button"
+                variant={mode === "manual" ? "default" : "outline"}
+                onClick={() => setMode("manual")}
+                className="flex-1 h-14 text-lg font-semibold"
+              >
+                Manual
+              </Button>
+            </div>
+            <p className="text-sm text-muted-foreground mt-3 text-center">
+              {mode === "tap-first" 
+                ? "Fast checkout with NFC card tap"
+                : "Select student manually from the list"}
+            </p>
+          </CardContent>
+        </Card>
 
-          {selectedStudent && (
-            <div className="p-4 bg-muted rounded-lg space-y-2">
-              <div className="flex justify-between">
-                <span className="text-sm text-muted-foreground">
-                  Current Balance:
-                </span>
-                <span
-                  className={`font-bold ${
-                    selectedStudent.balance < 0
-                      ? "text-red-600"
-                      : selectedStudent.balance <= 5 && studentIdsWithTransactions.includes(selectedStudent.id)
-                      ? "text-orange-600"
-                      : ""
-                  }`}
-                >
-                  ¥{selectedStudent.balance}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-muted-foreground">
-                  Overdraft Limit:
-                </span>
-                <span className="font-medium">
-                  ¥{selectedStudent.max_overdraft_week}/week
-                </span>
-              </div>
-                {cardUid && (
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">
-                      Card UID:
+        {/* Success message - shown for both modes */}
+        {success && (
+          <Alert className="border-green-200 bg-green-50 dark:bg-green-950 dark:border-green-800">
+            <AlertDescription>
+              <div className="space-y-2">
+                <div className="text-green-800 dark:text-green-200 font-medium">{success}</div>
+                {transactionId && (
+                  <div className="flex items-center gap-2 mt-2">
+                    <span className="text-sm text-green-700 dark:text-green-300">
+                      Transaction ID: <span className="font-mono font-semibold">{transactionId}</span>
                     </span>
-                    <span className="font-mono text-xs">{cardUid}</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => copyTransactionId(transactionId)}
+                      className="h-6 w-6 p-0"
+                    >
+                      {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                    </Button>
                   </div>
                 )}
-            </div>
-          )}
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
 
-          <div className="space-y-2">
-            <Label htmlFor="amount">Amount (¥)</Label>
-            <Input
-              id="amount"
-              type="number"
-              min="1"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              placeholder="Enter amount"
-              required
-            />
-          </div>
+        {/* Error message - shown for both modes */}
+        {error && (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
 
-          <div className="space-y-2">
-            <Label htmlFor="description">Description (Optional)</Label>
-            <Textarea
-              id="description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="e.g., Snacks, Drinks"
-            />
-          </div>
+        {/* TAP CARD MODE - Waiting screen */}
+        {mode === "tap-first" && (
+          <>
+            {/* Status bar */}
+            <Alert variant={isConnected ? "default" : "destructive"} className="border-2">
+              <AlertDescription className="flex items-center justify-between">
+                <span className="font-medium">{tapStatus || "Connecting..."}</span>
+                <Badge variant={isConnected ? "default" : "secondary"} className="text-sm px-3 py-1">
+                  {isConnected ? "NFC Connected" : "NFC Disconnected"}
+                </Badge>
+              </AlertDescription>
+            </Alert>
 
-          <div className="space-y-2">
-            <Label htmlFor="staff">Staff Name (Optional)</Label>
-            <Input
-              id="staff"
-              value={staff}
-              onChange={(e) => setStaff(e.target.value)}
-              placeholder="Your name"
-            />
-          </div>
+            {/* Waiting card with instructions */}
+            <Card className="border-2 border-primary/20 flex-1">
+              <CardContent className="flex items-center justify-center min-h-[400px] py-12 text-center">
+                <div className="space-y-6 max-w-2xl mx-auto">
+                  <div className="flex justify-center">
+                    <div className="relative w-32 h-32 rounded-full bg-primary/10 flex items-center justify-center border-4 border-primary/20">
+                      {/* Animated pulsing ring */}
+                      <div className="absolute inset-0 rounded-full bg-primary/20 animate-ping"></div>
+                      {/* Radio/NFC waves icon */}
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-primary relative z-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9.348 14.651a3.75 3.75 0 010-5.303m5.304 0a3.75 3.75 0 010 5.303m-7.425 2.122a6.75 6.75 0 010-9.546m9.546 0a6.75 6.75 0 010 9.546M5.106 18.894c-3.808-3.808-3.808-9.98 0-13.789m13.788 0c3.808 3.808 3.808 9.98 0 13.789M12 12h.008v.008H12V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+                      </svg>
+                    </div>
+                  </div>
+                  <div>
+                    <h3 className="text-3xl font-bold mb-3">Waiting for Card Tap</h3>
+                    <p className="text-muted-foreground text-xl">
+                      Ask the student to place their card on the reader
+                    </p>
+                  </div>
+                  <div className="pt-6 border-t">
+                    <p className="text-sm text-muted-foreground">
+                      A payment dialog will automatically appear when a card is detected
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </>
+        )}
 
-            <Button 
-              type="submit" 
-              disabled={loading || !studentId || !amount} 
-              className="w-full"
-            >
-            {loading ? "Processing..." : `Charge ¥${amount || "0"}`}
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
+        {/* MANUAL MODE - Form */}
+        {mode === "manual" && (
+          <Card className="flex-1">
+            <CardHeader>
+              <CardTitle className="text-2xl">Process Purchase Manually</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="space-y-2">
+                  <Label htmlFor="student" className="text-base">Student</Label>
+                  <Select 
+                    value={studentId} 
+                    onValueChange={setStudentId}
+                  >
+                    <SelectTrigger id="student" className="w-full h-12 text-base">
+                      <SelectValue placeholder="Select a student" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {students.map((student) => (
+                        <SelectItem key={student.id} value={student.id.toString()}>
+                          {student.name} (¥{student.balance})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {selectedStudent && (
+                  <div className="p-5 bg-muted rounded-lg space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-base text-muted-foreground">
+                        Current Balance:
+                      </span>
+                      <span
+                        className={`font-bold text-xl ${
+                          selectedStudent.balance < 0
+                            ? "text-red-600"
+                            : selectedStudent.balance <= 5 && studentIdsWithTransactions.includes(selectedStudent.id)
+                            ? "text-orange-600"
+                            : ""
+                        }`}
+                      >
+                        ¥{selectedStudent.balance}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-base text-muted-foreground">
+                        Overdraft Limit:
+                      </span>
+                      <span className="font-medium text-base">
+                        ¥{selectedStudent.max_overdraft_week}/week
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <Label htmlFor="amount" className="text-base">Amount (¥)</Label>
+                  <Input
+                    id="amount"
+                    type="number"
+                    min="1"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    placeholder="Enter amount"
+                    required
+                    className="text-xl h-14"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="description" className="text-base">Description (Optional)</Label>
+                  <Textarea
+                    id="description"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="e.g., Snacks, Drinks"
+                    className="text-base min-h-[80px]"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="staff" className="text-base">Staff Name (Optional)</Label>
+                  <Input
+                    id="staff"
+                    value={staff}
+                    onChange={(e) => setStaff(e.target.value)}
+                    placeholder="Your name"
+                    className="text-base h-12"
+                  />
+                </div>
+
+                <Button 
+                  type="submit" 
+                  disabled={loading || !studentId || !amount} 
+                  className="w-full h-14 text-lg font-semibold"
+                >
+                  {loading ? "Processing..." : `Charge ¥${amount || "0"}`}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </>
   );

@@ -1,7 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getAllStudents } from "@/lib/repositories/students";
 import { getRecentTransactions, getStudentIdsWithTransactions } from "@/lib/repositories/transactions";
-import Link from "next/link";
 import { Users, DollarSign, AlertTriangle, TrendingUp, ArrowUpRight, ArrowDownRight } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -91,114 +90,66 @@ export default async function DashboardPage() {
         </Card>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-7">
-        <Card className="md:col-span-4">
-          <CardHeader>
-            <CardTitle>Recent Transactions</CardTitle>
-            <CardDescription>
-              You have {recentTransactions.length} transactions this period
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {recentTransactions.length === 0 ? (
-                <p className="text-muted-foreground text-sm">No transactions yet</p>
-              ) : (
-                recentTransactions.map((tx) => (
-                  <div
-                    key={tx.id}
-                    className="flex items-center justify-between"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className={`flex h-9 w-9 items-center justify-center rounded-full ${
-                        tx.type === "TOPUP" 
-                          ? "bg-green-100 dark:bg-green-900/20" 
-                          : tx.type === "DEBIT"
-                          ? "bg-red-100 dark:bg-red-900/20"
-                          : "bg-gray-100 dark:bg-gray-900/20"
-                      }`}>
-                        {tx.amount >= 0 ? (
-                          <ArrowUpRight className={`h-4 w-4 ${
-                            tx.type === "TOPUP" ? "text-green-600" : "text-gray-600"
-                          }`} />
-                        ) : (
-                          <ArrowDownRight className="h-4 w-4 text-red-600" />
-                        )}
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-sm font-medium leading-none">
-                          {tx.student_name}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          {tx.description || "-"}
-                        </p>
-                      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Recent Transactions</CardTitle>
+          <CardDescription>
+            You have {recentTransactions.length} transactions this period
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {recentTransactions.length === 0 ? (
+              <p className="text-muted-foreground text-sm">No transactions yet</p>
+            ) : (
+              recentTransactions.map((tx) => (
+                <div
+                  key={tx.id}
+                  className="flex items-center justify-between"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className={`flex h-9 w-9 items-center justify-center rounded-full ${
+                      tx.type === "TOPUP" 
+                        ? "bg-green-100 dark:bg-green-900/20" 
+                        : tx.type === "DEBIT"
+                        ? "bg-red-100 dark:bg-red-900/20"
+                        : "bg-gray-100 dark:bg-gray-900/20"
+                    }`}>
+                      {tx.amount >= 0 ? (
+                        <ArrowUpRight className={`h-4 w-4 ${
+                          tx.type === "TOPUP" ? "text-green-600" : "text-gray-600"
+                        }`} />
+                      ) : (
+                        <ArrowDownRight className="h-4 w-4 text-red-600" />
+                      )}
                     </div>
-                    <div className="text-right space-y-1">
-                      <p
-                        className={`text-sm font-medium ${
-                          tx.amount >= 0 ? "text-green-600" : "text-red-600"
-                        }`}
-                      >
-                        {tx.amount >= 0 ? "+" : ""}¥{Math.abs(tx.amount)}
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium leading-none">
+                        {tx.student_name}
                       </p>
-                      <p className="text-xs text-muted-foreground">
-                        {new Date(tx.created_at).toLocaleDateString()}
+                      <p className="text-sm text-muted-foreground">
+                        {tx.description || "-"}
                       </p>
                     </div>
                   </div>
-                ))
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="md:col-span-3">
-          <CardHeader>
-            <CardTitle>Students with Low Balance</CardTitle>
-            <CardDescription>
-              {students.filter((s) => s.balance <= 5 && studentIdsWithTransactions.includes(s.id)).length} students need top-up
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {students
-                .filter((s) => s.balance <= 5 && studentIdsWithTransactions.includes(s.id))
-                .slice(0, 5)
-                .map((student) => (
-                  <div
-                    key={student.id}
-                    className="flex items-center justify-between"
-                  >
-                    <div className="space-y-1">
-                      <Link
-                        href={`/students/${student.id}`}
-                        className="text-sm font-medium leading-none hover:underline"
-                      >
-                        {student.name}
-                      </Link>
-                      <p className="text-xs text-muted-foreground">
-                        {student.balance < 0 ? "Overdraft" : "Low balance"}
-                      </p>
-                    </div>
-                    <span
-                      className={`text-sm font-bold ${
-                        student.balance < 0 ? "text-red-600" : "text-orange-600"
+                  <div className="text-right space-y-1">
+                    <p
+                      className={`text-sm font-medium ${
+                        tx.amount >= 0 ? "text-green-600" : "text-red-600"
                       }`}
                     >
-                      ¥{student.balance}
-                    </span>
+                      {tx.amount >= 0 ? "+" : ""}¥{Math.abs(tx.amount)}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(tx.created_at).toLocaleDateString()}
+                    </p>
                   </div>
-                ))}
-              {students.filter((s) => s.balance <= 5 && studentIdsWithTransactions.includes(s.id)).length === 0 && (
-                <p className="text-sm text-muted-foreground">
-                  All students have sufficient balance
-                </p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+                </div>
+              ))
+            )}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
