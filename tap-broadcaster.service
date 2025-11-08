@@ -4,12 +4,15 @@ After=network.target
 
 [Service]
 Type=simple
-User=pi
-WorkingDirectory=/home/pi/stuco
+User=qiss
+WorkingDirectory=/home/qiss/stuco
 Environment="NEXTJS_URL=http://localhost:3000"
 Environment="NFC_TAP_SECRET=your-secret-here"
 Environment="POS_LANE_ID=default"
-ExecStart=/home/pi/stuco/.venv/bin/python /home/pi/stuco/tap-broadcaster.py
+Environment="PN532_DEVICE=i2c:/dev/i2c-1:pn532"
+ExecStart=/home/qiss/stuco/.venv/bin/python -u /home/qiss/stuco/tap-broadcaster.py
+StandardOutput=journal
+StandardError=journal
 Restart=on-failure
 RestartSec=5
 

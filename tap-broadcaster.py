@@ -13,6 +13,8 @@ Usage:
 import argparse
 import binascii
 import os
+import re
+import subprocess
 import sys
 import time
 from datetime import datetime, timezone
@@ -26,6 +28,11 @@ except ImportError:
 
 def read_uid_from_pn532(device):
     """Read card UID from PN532 reader."""
+    # Check if device is I2C (nfcpy doesn't support I2C, use libnfc instead)
+    if device.startswith("i2c") or "i2c" in device.lower():
+        return read_uid_from_libnfc()
+    
+    # Use nfcpy for TTY/USB devices
     try:
         import nfc
     except ImportError:
@@ -43,6 +50,41 @@ def read_uid_from_pn532(device):
         clf.connect(rdwr={"on-connect": on_connect})
 
     return uid_hex["val"]
+
+
+def read_uid_from_libnfc():
+    """Read card UID using libnfc command-line tool (for I2C devices)."""
+    try:
+        # Use nfc-list which is faster and doesn't wait for card removal
+        # 5-second timeout allows time for I2C initialization
+        result = subprocess.run(
+            ["nfc-list"],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        
+        # Parse output for UID
+        # Looking for line like: "       UID (NFCID1): ed  9d  25  02"
+        for line in result.stdout.split("\n"):
+            if "UID" in line and ("NFCID" in line or ":" in line):
+                # Extract hex bytes after colon
+                match = re.search(r':\s*((?:[0-9a-fA-F]{2}\s*)+)', line)
+                if match:
+                    uid_bytes = match.group(1).strip().replace(" ", "")
+                    return uid_bytes.upper()
+        
+        return None
+        
+    except FileNotFoundError:
+        print("Error: nfc-list not found. Install libnfc-bin: sudo apt install libnfc-bin")
+        sys.exit(1)
+    except subprocess.TimeoutExpired:
+        # Timeout means no card was detected, return None to try again
+        return None
+    except Exception as e:
+        print(f"Error reading from libnfc: {e}")
+        return None
 
 
 def broadcast_tap(url, card_uid, lane, secret=None):
@@ -101,8 +143,8 @@ def main():
     )
     parser.add_argument(
         "--device",
-        default="tty:AMA0:pn532",
-        help="nfcpy device string (e.g., tty:AMA0:pn532, usb:USB0:pn532)",
+        default=os.getenv("PN532_DEVICE", "i2c:/dev/i2c-1:pn532"),
+        help="nfcpy device string (default: i2c:/dev/i2c-1:pn532 or $PN532_DEVICE)",
     )
     parser.add_argument(
         "--simulate",
