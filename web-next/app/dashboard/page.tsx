@@ -20,66 +20,62 @@ export default async function DashboardPage() {
   return (
     <div className="w-full space-y-8">
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
+        <Card className="h-full flex flex-col">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
               Total Students
             </CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
+          <CardContent className="flex flex-1 flex-col justify-end gap-1">
             <div className="text-2xl font-bold">{totalStudents}</div>
-            <p className="text-xs text-muted-foreground mt-1">
+            <p className="text-xs text-muted-foreground">
               Active accounts in system
             </p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="h-full flex flex-col">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
               Total Sales
             </CardTitle>
             <ShoppingCart className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
+          <CardContent className="flex flex-1 flex-col justify-end gap-1">
             <div className="text-2xl font-bold">{totalSales.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground mt-1">
+            <p className="text-xs text-muted-foreground">
               Debit transactions completed
             </p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="h-full flex flex-col">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
               Total Balance
             </CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
+          <CardContent className="flex flex-1 flex-col justify-end gap-1">
             <div className="text-2xl font-bold">¥{totalBalance.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground mt-1">
+            <p className="text-xs text-muted-foreground">
               Combined balance across all accounts
             </p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="h-full flex flex-col">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
               In Overdraft
             </CardTitle>
             <AlertTriangle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
+          <CardContent className="flex flex-1 flex-col justify-end gap-1">
             <div className="text-2xl font-bold">{studentsWithNegativeBalance}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {studentsWithNegativeBalance > 0 ? (
-                <span className="text-orange-600">Needs attention</span>
-              ) : (
-                <span className="text-green-600">All accounts positive</span>
-              )}
+            <p className="text-xs text-muted-foreground">
+              {studentsWithNegativeBalance > 0 ? "Needs attention" : "All accounts positive"}
             </p>
           </CardContent>
         </Card>
