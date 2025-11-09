@@ -1,10 +1,7 @@
-vibe coded sexy payment system.
+## vibe coded payment system that looks and feels sexy
 
 props to my slaves for the hard work: gpt, claude, grok, and composer. i love you all!
 
-btw this comes with no warrenty, you get what you get.
+btw this comes with no warrenty, you get what you get
 
-i'm not responsible for anything that happens.
-
-- ivan
-
+i'm not responsible for anything that happens
