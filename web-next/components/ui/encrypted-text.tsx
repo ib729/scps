@@ -57,6 +57,7 @@ export const EncryptedText: React.FC<EncryptedTextProps> = ({
   const ref = useRef<HTMLSpanElement>(null);
   const isInView = useInView(ref, { once: true });
 
+  const [isMounted, setIsMounted] = useState(false);
   const [revealCount, setRevealCount] = useState<number>(0);
   const animationFrameRef = useRef<number | null>(null);
   const startTimeRef = useRef<number>(0);
@@ -64,6 +65,11 @@ export const EncryptedText: React.FC<EncryptedTextProps> = ({
   const scrambleCharsRef = useRef<string[]>(
     text ? generateGibberishPreservingSpaces(text, charset).split("") : [],
   );
+
+  // Set mounted to true after first render to avoid hydration mismatch
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!isInView) return;
@@ -125,6 +131,24 @@ export const EncryptedText: React.FC<EncryptedTextProps> = ({
   }, [isInView, text, revealDelayMs, charset, flipDelayMs]);
 
   if (!text) return null;
+
+  // On server or before mount, show revealed text to avoid hydration mismatch
+  if (!isMounted) {
+    return (
+      <motion.span
+        ref={ref}
+        className={cn(className)}
+        aria-label={text}
+        role="text"
+      >
+        {text.split("").map((char, index) => (
+          <span key={index} className={cn(revealedClassName)}>
+            {char}
+          </span>
+        ))}
+      </motion.span>
+    );
+  }
 
   return (
     <motion.span

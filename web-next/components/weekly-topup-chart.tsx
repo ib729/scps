@@ -84,6 +84,7 @@ export function WeeklyTopupChart({ data }: WeeklyTopupChartProps) {
           </div>
         ) : (
           <ChartContainer
+            id="weekly-topup-chart"
             config={chartConfig}
             className="aspect-auto h-[250px] w-full"
           >

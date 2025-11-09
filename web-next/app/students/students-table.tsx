@@ -32,7 +32,7 @@ export function StudentsTable({ students, studentIdsWithTransactions }: Students
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-4">
+      <div className="flex gap-4" suppressHydrationWarning>
         <Input
           placeholder="Search students..."
           value={searchQuery}

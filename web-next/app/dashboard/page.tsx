@@ -59,7 +59,7 @@ export default async function DashboardPage() {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent className="flex flex-1 flex-col justify-end gap-1">
-            <div className="text-2xl font-bold">¥{formatCurrency(totalBalance)}</div>
+            <div className={`text-2xl font-bold ${totalBalance < 0 ? "text-red-600" : ""}`}>¥{formatCurrency(totalBalance)}</div>
             <p className="text-xs text-muted-foreground">
               Combined balance across all accounts
             </p>
