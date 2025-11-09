@@ -214,3 +214,11 @@ db_backups/
 
 # STUCO - System info and debug files
 raspinfo.txt
+
+# STUCO - Logs and temporary files
+logs/
+*.log
+
+# Rclone configuration (if stored locally)
+rclone.conf
+.rclone/

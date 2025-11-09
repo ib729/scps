@@ -1,18 +1,13 @@
-blinker==1.9.0
-click==8.3.0
-Flask==3.1.2
-gunicorn==23.0.0
-itsdangerous==2.2.0
-Jinja2==3.1.6
-libusb1==3.3.1
-MarkupSafe==3.0.3
-ndeflib==0.3.3
-nfcpy==1.0.4
-packaging==25.0
-pyDes==2.0.1
-pyserial==3.5
-PySocks==1.7.1
+# HTTP client for NFC tap broadcaster
 requests==2.32.3
+
+# NFC card reader support
+nfcpy==1.0.4
+ndeflib==0.3.3
+libusb1==3.3.1
+pyserial==3.5
+pyDes==2.0.1
+
+# Networking libraries
+PySocks==1.7.1
 socksio==1.0.0
-tzdata==2025.2
-Werkzeug==3.1.3

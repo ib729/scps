@@ -241,6 +241,125 @@ If you encounter any issues, restore the backup with:
 - Verification of foreign key constraints
 - Clear rollback instructions
 
+### cloud_backup_r2.sh
+
+**Location**: `scripts/cloud_backup_r2.sh`
+
+**Purpose**: Automated database backup to Cloudflare R2 with local retention.
+
+**Usage:**
+```bash
+./scripts/cloud_backup_r2.sh
+```
+
+**Prerequisites:**
+- rclone installed (`sudo apt install rclone`)
+- rclone configured for Cloudflare R2 (see documentation)
+
+**Environment Variables:**
+```bash
+export RCLONE_REMOTE="r2"  # Your rclone remote name (default: r2)
+export R2_PATH="stuco-db-backups"  # Path within bucket for backups (default: stuco-db-backups)
+```
+
+**Setup:**
+```bash
+# Configure rclone for R2
+rclone config
+# Choose: s3, Provider: Cloudflare, Enter credentials
+```
+
+**Steps:**
+1. Creates compressed `.tar.gz` backup of `stuco.db`, `stuco.db-wal`, `stuco.db-shm`
+2. Stores backup locally in `db_backups/` with timestamp
+3. Uploads to Cloudflare R2 bucket using rclone
+4. Displays backup summary and statistics
+5. Keeps local backup (does not auto-delete)
+
+**Output:**
+```
+============================================================
+STUCO Cloudflare R2 Database Backup (rclone)
+============================================================
+Timestamp: 20241209_020000
+
+------------------------------------------------------------
+Step 1: Creating compressed backup
+------------------------------------------------------------
+✓ All database files included
+✓ Local backup created: db_backups/stuco_backup_20241209_020000.tar.gz (45K)
+
+------------------------------------------------------------
+Step 2: Uploading to Cloudflare R2
+------------------------------------------------------------
+Remote: r2:stuco-db-backups/
+File: stuco_backup_20241209_020000.tar.gz
+✓ Upload successful!
+
+------------------------------------------------------------
+Step 3: Backup Summary
+------------------------------------------------------------
+Local backups: 5 files (225K total)
+Latest backup: db_backups/stuco_backup_20241209_020000.tar.gz (45K)
+
+Checking R2 bucket contents...
+R2 backups: 12 files
+
+============================================================
+✓ Backup Complete!
+============================================================
+
+Local:  db_backups/stuco_backup_20241209_020000.tar.gz
+Remote: r2:stuco-db-backups/stuco_backup_20241209_020000.tar.gz
+```
+
+**When to Use:**
+- Automated daily cloud backups (via cron)
+- Off-site disaster recovery
+- Compliance with data retention policies
+- Before major system changes
+
+**Cron Setup:**
+```bash
+# Daily at 2 AM
+0 2 * * * cd /home/qiss/stuco && ./scripts/cloud_backup_r2.sh >> logs/r2_backup.log 2>&1
+
+# With custom remote/path
+0 2 * * * cd /home/qiss/stuco && RCLONE_REMOTE=my-r2 R2_PATH=my-backups ./scripts/cloud_backup_r2.sh >> logs/r2_backup.log 2>&1
+```
+
+### restore_from_r2.sh
+
+**Location**: `scripts/restore_from_r2.sh`
+
+**Purpose**: Restore database from Cloudflare R2 backup.
+
+**Usage:**
+```bash
+./scripts/restore_from_r2.sh <backup_filename.tar.gz>
+```
+
+**Example:**
+```bash
+# List available backups first
+rclone ls r2:stuco-db-backups/
+
+# Restore specific backup
+./scripts/restore_from_r2.sh stuco_backup_20241209_020000.tar.gz
+```
+
+**Steps:**
+1. Downloads backup from R2 to `db_backups/` using rclone
+2. Creates safety backup of current database
+3. Extracts and restores database files
+4. Provides verification commands
+
+**Safety Features:**
+- Backs up current database before restore
+- Checks rclone remote configuration before proceeding
+- Validates download success
+- Clear error messages
+
 ## NFC Scripts
 
 ### tap-broadcaster.py
@@ -500,6 +619,8 @@ See [Database Guide](database.md) for migration details.
 | Reset database (production) | `python reset_db.py` |
 | Reset database (quick) | `./scripts/reset_db.sh` |
 | Run migration | `./scripts/run_migration.sh migrate_file.sql` |
+| Backup to cloud (R2) | `./scripts/cloud_backup_r2.sh` |
+| Restore from cloud (R2) | `./scripts/restore_from_r2.sh backup_file.tar.gz` |
 | Test NFC (simulate) | `python tap-broadcaster.py --simulate` |
 | Test NFC (hardware) | `python tap-broadcaster.py --device tty:AMA0:pn532` |
 | CLI POS (simulate) | `python pos.py 6.5 --simulate` |

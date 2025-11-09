@@ -246,6 +246,125 @@ crontab -e
 0 3 * * * find /path/to/stuco/db_backups -name "auto_backup_*.tar.gz" -mtime +30 -delete
 ```
 
+### Cloud Backups with Cloudflare R2
+
+For off-site backups to Cloudflare R2 (S3-compatible storage with generous free tier) using rclone:
+
+#### Setup
+
+1. **Create R2 Bucket**:
+   - Go to [Cloudflare Dashboard](https://dash.cloudflare.com/) → R2
+   - Create a new bucket (e.g., `stuco-db-backups`)
+   - Generate API token with Object Read & Write permissions
+   - Note your Account ID, Access Key ID, and Secret Access Key
+
+2. **Install rclone**:
+   ```bash
+   # On Debian/Ubuntu/Raspberry Pi OS
+   sudo apt update && sudo apt install rclone
+   
+   # Or download from official site
+   curl https://rclone.org/install.sh | sudo bash
+   ```
+
+3. **Configure rclone for Cloudflare R2**:
+   ```bash
+   rclone config
+   ```
+   
+   Follow the interactive prompts:
+   - **Name**: `r2` (or your preferred name)
+   - **Storage**: Choose `s3` (S3 Compliant Storage Providers)
+   - **Provider**: Choose `Cloudflare` (Cloudflare R2)
+   - **Access Key ID**: Enter your R2 Access Key ID
+   - **Secret Access Key**: Enter your R2 Secret Access Key
+   - **Region**: `auto`
+   - **Endpoint**: `https://<your-account-id>.r2.cloudflarestorage.com`
+   - **Location constraint**: Leave blank
+   - **ACL**: Leave blank or choose `private`
+   - Complete the configuration
+
+4. **Optional: Set Environment Variables**:
+   ```bash
+   # Add to ~/.bashrc for convenience
+   export RCLONE_REMOTE="r2"  # Your rclone remote name
+   export R2_PATH="stuco-db-backups"  # Path within bucket for backups
+   ```
+
+#### Manual Backup
+
+Run the backup script manually:
+
+```bash
+cd /home/qiss/stuco
+./scripts/cloud_backup_r2.sh
+```
+
+This will:
+- Create a compressed backup in `db_backups/`
+- Upload to Cloudflare R2
+- Keep the local backup
+- Display backup summary
+
+#### Automated Daily Cloud Backups
+
+Add to crontab for daily cloud backups:
+
+```bash
+# Edit crontab
+crontab -e
+
+# Add daily R2 backup at 2 AM
+0 2 * * * cd /home/qiss/stuco && ./scripts/cloud_backup_r2.sh >> logs/r2_backup.log 2>&1
+```
+
+If you need to specify a custom rclone remote name or path:
+
+```bash
+# With custom remote and path
+0 2 * * * cd /home/qiss/stuco && RCLONE_REMOTE=my-r2 R2_PATH=my-backups ./scripts/cloud_backup_r2.sh >> logs/r2_backup.log 2>&1
+```
+
+#### Restore from R2
+
+To restore a database from R2:
+
+```bash
+# List available backups
+rclone ls r2:stuco-db-backups/
+
+# Restore specific backup
+./scripts/restore_from_r2.sh stuco_backup_20241209_020000.tar.gz
+```
+
+The restore script will:
+- Download the backup from R2
+- Create a safety backup of current database
+- Extract and restore the database files
+
+#### List and Manage R2 Backups
+
+```bash
+# List all backups with sizes
+rclone ls r2:stuco-db-backups/
+
+# List with more details
+rclone lsl r2:stuco-db-backups/
+
+# Download a backup without restoring
+rclone copy r2:stuco-db-backups/stuco_backup_20241209_020000.tar.gz db_backups/
+
+# Check total space used
+rclone size r2:stuco-db-backups/
+
+# Delete old backups (optional)
+rclone delete r2:stuco-db-backups/stuco_backup_20241201_020000.tar.gz
+
+# Delete backups older than 90 days
+rclone delete r2:stuco-db-backups/ --min-age 90d
+```
+
+
 ## Troubleshooting
 
 - **Locked DB**: Close other apps/scripts; increase busy_timeout.
