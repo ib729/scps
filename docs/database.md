@@ -124,7 +124,7 @@ Outputs tables, student count, balances, transactions.
 
 ## Migrations
 
-Migrations update existing DBs. Run with `./run_migration.sh <script.sql>` (backs up first).
+Migrations update existing DBs. Run with `./scripts/run_migration.sh <script.sql>` (backs up first).
 
 ### 1. Cascade Delete (migrate_cascade_delete.sql)
 
@@ -169,13 +169,13 @@ Migrations update existing DBs. Run with `./run_migration.sh <script.sql>` (back
 2. Run:
 
    ```bash
-   ./run_migration.sh migrate_cascade_delete.sql
-   ./run_migration.sh migrate_decimal_currency.sql
+   ./scripts/run_migration.sh migrate_cascade_delete.sql
+   ./scripts/run_migration.sh migrate_decimal_currency.sql
    ```
 
 3. Verify: `sqlite3 stuco.db "SELECT * FROM accounts;"`
 
-See scripts for details.
+See scripts for details. Migration files are located in `migrations/` directory.
 
 ## Backup and Maintenance
 
@@ -205,7 +205,7 @@ Features:
 
 **Quick Reset Script (`reset_db.sh`):**
 ```bash
-./reset_db.sh
+./scripts/reset_db.sh
 # Simpler bash version, auto-backups and reinitializes
 ```
 
@@ -214,8 +214,8 @@ Features:
 Run migrations with automatic backup:
 
 ```bash
-./run_migration.sh migrate_cascade_delete.sql
-./run_migration.sh migrate_decimal_currency.sql
+./scripts/run_migration.sh migrate_cascade_delete.sql
+./scripts/run_migration.sh migrate_decimal_currency.sql
 ```
 
 The script:
@@ -272,11 +272,11 @@ sqlite3 stuco.db ".tables"
 sqlite3 stuco.db "SELECT s.name, a.balance FROM students s JOIN accounts a ON s.id = a.student_id;"
 
 # Backup
-./reset_db.sh  # Full reset with backup
+./scripts/reset_db.sh  # Full reset with backup
 python reset_db.py  # Interactive reset
 
 # Migrations
-./run_migration.sh migration_file.sql
+./scripts/run_migration.sh migration_file.sql
 ```
 
 **Updated**: November 2025

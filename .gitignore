@@ -211,3 +211,6 @@ stuco.db
 stuco.db-wal
 stuco.db-shm
 db_backups/
+
+# STUCO - System info and debug files
+raspinfo.txt

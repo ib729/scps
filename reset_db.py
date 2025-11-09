@@ -14,7 +14,7 @@ import hashlib
 DB_FILE = "stuco.db"
 DB_WAL = "stuco.db-wal"
 DB_SHM = "stuco.db-shm"
-SCHEMA_FILE = "schema.sql"
+SCHEMA_FILE = "migrations/schema.sql"
 BACKUP_DIR = "db_backups"
 
 def hash_password(password):

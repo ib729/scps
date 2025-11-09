@@ -139,10 +139,10 @@ sudo systemctl start stuco-web
 
 #### NFC Tap Broadcaster Service
 
-The `tap-broadcaster.service` file is already included in the repo. Install it:
+The `tap-broadcaster.service` file is already included in the repo (in `systemd/`). Install it:
 
 ```bash
-sudo cp tap-broadcaster.service /etc/systemd/system/
+sudo cp systemd/tap-broadcaster.service /etc/systemd/system/
 sudo nano /etc/systemd/system/tap-broadcaster.service
 ```
 

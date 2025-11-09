@@ -161,17 +161,17 @@ Admin password: ********
 
 ### reset_db.sh
 
-**Location**: `reset_db.sh` (root)
+**Location**: `scripts/reset_db.sh`
 
 **Purpose**: Quick bash-based database reset (simpler than Python version).
 
 **Usage:**
 ```bash
-./reset_db.sh
+./scripts/reset_db.sh
 ```
 
 **Interactive Flow:**
-1. Confirms schema.sql exists
+1. Confirms migrations/schema.sql exists
 2. Prompts for confirmation (type 'yes')
 3. Creates timestamped backup
 4. Removes old database files
@@ -190,22 +190,23 @@ Admin password: ********
 
 ### run_migration.sh
 
-**Location**: `run_migration.sh` (root)
+**Location**: `scripts/run_migration.sh`
 
 **Purpose**: Run SQL migrations with automatic backup.
 
 **Usage:**
 ```bash
-./run_migration.sh migrate_cascade_delete.sql
-./run_migration.sh migrate_decimal_currency.sql
+./scripts/run_migration.sh migrate_cascade_delete.sql
+./scripts/run_migration.sh migrate_decimal_currency.sql
 ```
 
 **Steps:**
 1. Checks database file exists
-2. Creates timestamped backup
-3. Runs migration SQL file
-4. Tests foreign key constraints
-5. Provides rollback instructions
+2. Locates migration file (in migrations/ or specified path)
+3. Creates timestamped backup
+4. Runs migration SQL file
+5. Tests foreign key constraints
+6. Provides rollback instructions
 
 **Output:**
 ```
@@ -497,8 +498,8 @@ See [Database Guide](database.md) for migration details.
 | Setup web UI (manual) | `cd web-next && ./setup.sh` |
 | Initialize database | `python init_db.py` |
 | Reset database (production) | `python reset_db.py` |
-| Reset database (quick) | `./reset_db.sh` |
-| Run migration | `./run_migration.sh migrate_file.sql` |
+| Reset database (quick) | `./scripts/reset_db.sh` |
+| Run migration | `./scripts/run_migration.sh migrate_file.sql` |
 | Test NFC (simulate) | `python tap-broadcaster.py --simulate` |
 | Test NFC (hardware) | `python tap-broadcaster.py --device tty:AMA0:pn532` |
 | CLI POS (simulate) | `python pos.py 6.5 --simulate` |

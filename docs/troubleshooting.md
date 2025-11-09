@@ -59,7 +59,7 @@ Common issues and solutions for the Stuco system.
 
 **Cause**: Deleting with related data pre-migration.
 
-**Solution**: Run cascade migration: `./run_migration.sh migrate_cascade_delete.sql`.
+**Solution**: Run cascade migration: `./scripts/run_migration.sh migrate_cascade_delete.sql`.
 
 ### Data Not Updating
 

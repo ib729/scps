@@ -113,7 +113,7 @@ For multiple checkouts:
 1. **Edit Service File**:
 
    ```bash
-   sudo cp tap-broadcaster.service /etc/systemd/system/
+   sudo cp systemd/tap-broadcaster.service /etc/systemd/system/
    sudo nano /etc/systemd/system/tap-broadcaster.service
    ```
 

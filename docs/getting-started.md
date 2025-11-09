@@ -93,11 +93,11 @@ This verifies all tools and provides installation instructions if missing.
 3. **Optional: Run Migrations** (if needed):
 
    ```bash
-   ./run_migration.sh migrate_cascade_delete.sql
-   ./run_migration.sh migrate_decimal_currency.sql
+   ./scripts/run_migration.sh migrate_cascade_delete.sql
+   ./scripts/run_migration.sh migrate_decimal_currency.sql
    ```
 
-   See [Database Guide](database.md) for details.
+   See [Database Guide](database.md) for details. Migration files are in `migrations/` directory.
 
 ## Web UI Setup
 

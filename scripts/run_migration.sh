@@ -1,15 +1,35 @@
 #!/bin/bash
 
-# Migration script to fix student deletion
-# This adds ON DELETE CASCADE to foreign keys
+# Migration script for running database migrations
+# Usage: ./run_migration.sh <migration_file.sql>
 
 set -e
 
 DB_FILE="stuco.db"
 BACKUP_FILE="stuco.db.backup.$(date +%Y%m%d_%H%M%S)"
-MIGRATION_FILE="migrate_cascade_delete.sql"
 
-echo "=== Student Deletion Fix Migration ==="
+# Check if migration file argument is provided
+if [ -z "$1" ]; then
+    echo "Usage: $0 <migration_file.sql>"
+    echo ""
+    echo "Available migrations in migrations/:"
+    ls -1 migrations/*.sql 2>/dev/null || echo "  (no migration files found)"
+    exit 1
+fi
+
+# Determine migration file path
+if [ -f "$1" ]; then
+    MIGRATION_FILE="$1"
+elif [ -f "migrations/$1" ]; then
+    MIGRATION_FILE="migrations/$1"
+else
+    echo "Error: Migration file '$1' not found!"
+    echo "Looked in: current directory and migrations/"
+    exit 1
+fi
+
+echo "=== Database Migration ==="
+echo "Migration: $MIGRATION_FILE"
 echo ""
 
 # Check if database exists
@@ -31,7 +51,7 @@ sqlite3 "$DB_FILE" < "$MIGRATION_FILE"
 if [ $? -eq 0 ]; then
     echo "   ✓ Migration completed successfully!"
     echo ""
-    echo "3. Testing deletion functionality..."
+    echo "3. Verifying database integrity..."
     
     # Test that foreign keys are enabled
     result=$(sqlite3 "$DB_FILE" "PRAGMA foreign_keys;")
@@ -44,7 +64,7 @@ if [ $? -eq 0 ]; then
     echo ""
     echo "=== Migration Complete ==="
     echo ""
-    echo "Student deletion should now work properly!"
+    echo "Migration applied successfully!"
     echo "Backup saved as: $BACKUP_FILE"
     echo ""
     echo "If you encounter any issues, restore the backup with:"
