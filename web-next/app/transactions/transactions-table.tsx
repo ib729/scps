@@ -110,7 +110,7 @@ export function TransactionsTable({ transactions }: TransactionsTableProps) {
                     </div>
                   </TableCell>
                   <TableCell className="text-sm">
-                    {new Date(tx.created_at).toLocaleString("en-US", {
+                    {new Date(tx.created_at + "Z").toLocaleString("en-US", {
                       year: "numeric",
                       month: "2-digit",
                       day: "2-digit",
