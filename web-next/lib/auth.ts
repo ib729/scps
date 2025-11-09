@@ -7,12 +7,14 @@ export const auth = betterAuth({
     enabled: true,
     autoSignIn: true,
   },
-  socialProviders: {
-    microsoft: {
-      clientId: process.env.MICROSOFT_CLIENT_ID as string,
-      clientSecret: process.env.MICROSOFT_CLIENT_SECRET as string,
+  ...(process.env.MICROSOFT_CLIENT_ID && process.env.MICROSOFT_CLIENT_SECRET && {
+    socialProviders: {
+      microsoft: {
+        clientId: process.env.MICROSOFT_CLIENT_ID,
+        clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
+      },
     },
-  },
+  }),
   baseURL: process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
   trustedOrigins: [
     "http://localhost:3000",
