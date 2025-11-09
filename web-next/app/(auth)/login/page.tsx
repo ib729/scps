@@ -14,6 +14,12 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { toast } from "sonner";
 
 export default function LoginPage() {
@@ -44,19 +50,6 @@ export default function LoginPage() {
       router.push("/dashboard");
     } catch (error) {
       toast.error("An unexpected error occurred");
-      setLoading(false);
-    }
-  };
-
-  const handleMicrosoftLogin = async () => {
-    setLoading(true);
-    try {
-      await authClient.signIn.social({
-        provider: "microsoft",
-        callbackURL: "/dashboard",
-      });
-    } catch (error) {
-      toast.error("Failed to sign in with Microsoft");
       setLoading(false);
     }
   };
@@ -115,22 +108,32 @@ export default function LoginPage() {
               </span>
             </div>
           </div>
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full"
-            onClick={handleMicrosoftLogin}
-            disabled={loading}
-            size="lg"
-          >
-            <svg className="mr-2 h-4 w-4" viewBox="0 0 21 21">
-              <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
-              <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
-              <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
-              <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
-            </svg>
-            Login with Microsoft
-          </Button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="w-full">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    disabled
+                    size="lg"
+                  >
+                    <svg className="mr-2 h-4 w-4" viewBox="0 0 21 21">
+                      <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
+                      <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
+                      <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
+                      <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
+                    </svg>
+                    Login with Microsoft
+                  </Button>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Microsoft OAuth coming soon</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </form>
         <div className="mt-6 text-center text-sm">
           Don&apos;t have an account?{" "}

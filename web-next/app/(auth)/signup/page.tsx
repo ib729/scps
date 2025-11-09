@@ -14,11 +14,26 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSlot,
+} from "@/components/ui/input-otp";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { toast } from "sonner";
+
+const SIGNUP_CODE = "uGFk@j3A"; // 8-digit code required to create account
 
 export default function SignupPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [showOtpStep, setShowOtpStep] = useState(false);
+  const [otp, setOtp] = useState("");
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -27,54 +42,81 @@ export default function SignupPage() {
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
+    setLoading(false);
+    setShowOtpStep(true);
+  };
 
-    try {
-      const { data, error } = await authClient.signUp.email({
-        email: formData.email,
-        password: formData.password,
-        name: formData.name,
-      });
-
-      if (error) {
-        toast.error(error.message || "Failed to sign up");
-        setLoading(false);
+  const handleOtpChange = async (value: string) => {
+    setOtp(value);
+    
+    // Auto-verify when all 8 digits are entered
+    if (value.length === 8) {
+      if (value !== SIGNUP_CODE) {
+        toast.error("Invalid code. Please try again.");
+        setOtp("");
         return;
       }
 
-      toast.success("Account created successfully!");
-      router.push("/dashboard");
-    } catch (error) {
-      toast.error("An unexpected error occurred");
-      setLoading(false);
-    }
-  };
+      setLoading(true);
 
-  const handleMicrosoftSignup = async () => {
-    setLoading(true);
-    try {
-      await authClient.signIn.social({
-        provider: "microsoft",
-        callbackURL: "/dashboard",
-      });
-    } catch (error) {
-      toast.error("Failed to sign up with Microsoft");
-      setLoading(false);
+      try {
+        const { data, error } = await authClient.signUp.email({
+          email: formData.email,
+          password: formData.password,
+          name: formData.name,
+        });
+
+        if (error) {
+          toast.error(error.message || "Failed to sign up");
+          setLoading(false);
+          setOtp("");
+          return;
+        }
+
+        toast.success("Account created successfully!");
+        router.push("/dashboard");
+      } catch (error) {
+        toast.error("An unexpected error occurred");
+        setLoading(false);
+        setOtp("");
+      }
     }
   };
 
   return (
-    <Card className="w-full shadow-lg">
-      <CardHeader className="space-y-1">
-        <CardTitle className="text-3xl font-bold tracking-tight">
-          Create an account
-        </CardTitle>
-        <CardDescription className="text-base">
-
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSignup} className="grid gap-4">
+    <>
+      {showOtpStep ? (
+        <div className="flex items-center justify-center py-8">
+          <InputOTP
+            maxLength={8}
+            value={otp}
+            onChange={handleOtpChange}
+            disabled={loading}
+          >
+            <InputOTPGroup>
+              <InputOTPSlot index={0} />
+              <InputOTPSlot index={1} />
+              <InputOTPSlot index={2} />
+              <InputOTPSlot index={3} />
+              <InputOTPSlot index={4} />
+              <InputOTPSlot index={5} />
+              <InputOTPSlot index={6} />
+              <InputOTPSlot index={7} />
+            </InputOTPGroup>
+          </InputOTP>
+        </div>
+      ) : (
+        <Card className="w-full shadow-lg">
+          <CardHeader className="space-y-1">
+            <CardTitle className="text-3xl font-bold tracking-tight">
+              Create an account
+            </CardTitle>
+            <CardDescription className="text-base">
+              Enter your information to get started with STUCO
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSignup} className="grid gap-4">
           <div className="grid gap-2">
             <Label htmlFor="name">Full Name</Label>
             <Input
@@ -129,31 +171,43 @@ export default function SignupPage() {
               </span>
             </div>
           </div>
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full"
-            onClick={handleMicrosoftSignup}
-            disabled={loading}
-            size="lg"
-          >
-            <svg className="mr-2 h-4 w-4" viewBox="0 0 21 21">
-              <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
-              <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
-              <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
-              <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
-            </svg>
-            Sign up with Microsoft
-          </Button>
-        </form>
-        <div className="mt-6 text-center text-sm">
-          Already have an account?{" "}
-          <Link href="/login" className="font-semibold text-primary hover:underline">
-            Sign in
-          </Link>
-        </div>
-      </CardContent>
-    </Card>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div className="w-full">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    disabled
+                    size="lg"
+                  >
+                    <svg className="mr-2 h-4 w-4" viewBox="0 0 21 21">
+                      <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
+                      <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
+                      <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
+                      <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
+                    </svg>
+                    Sign up with Microsoft
+                  </Button>
+                </div>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Microsoft OAuth coming soon</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+            </form>
+            <div className="mt-6 text-center text-sm">
+              Already have an account?{" "}
+              <Link href="/login" className="font-semibold text-primary hover:underline">
+                Sign in
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </>
   );
 }
 
