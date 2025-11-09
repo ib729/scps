@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import type { StudentWithAccount } from "@/lib/models";
 import { CreateStudentDialog } from "./create-student-dialog";
 import { DeleteStudentDialog } from "./delete-student-dialog";
+import { formatCurrency } from "@/lib/currency";
 
 interface StudentsTableProps {
   students: StudentWithAccount[];
@@ -75,19 +76,19 @@ export function StudentsTable({ students, studentIdsWithTransactions }: Students
                       className={
                         student.balance < 0
                           ? "text-red-600 font-bold"
-                          : student.balance <= 5 && studentIdsWithTransactions.includes(student.id)
+                          : student.balance <= 50 && studentIdsWithTransactions.includes(student.id)
                           ? "text-orange-600 font-bold"
                           : "font-bold"
                       }
                     >
-                      ¥{student.balance}
+                      ¥{formatCurrency(student.balance)}
                     </span>
                   </TableCell>
-                  <TableCell>¥{student.max_overdraft_week}/week</TableCell>
+                  <TableCell>¥{formatCurrency(student.max_overdraft_week)}/week</TableCell>
                   <TableCell>
                     {student.balance < 0 ? (
                       <Badge variant="destructive">Overdraft</Badge>
-                    ) : student.balance <= 5 && studentIdsWithTransactions.includes(student.id) ? (
+                    ) : student.balance <= 50 && studentIdsWithTransactions.includes(student.id) ? (
                       <Badge variant="secondary">Low Balance</Badge>
                     ) : (
                       <Badge variant="default">Active</Badge>

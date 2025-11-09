@@ -34,9 +34,12 @@ def add_overdraft_usage(cur, sid: int, week_start: str, delta: int):
                    DO UPDATE SET used = used + excluded.used""",
                 (sid, week_start, delta))
 
-def charge_by_uid(uid_hex: str, price: int, staff="pos"):
+def charge_by_uid(uid_hex: str, price: float, staff="pos"):
     if price <= 0:
-        return False, "Price must be a positive integer CNY."
+        return False, "Price must be a positive number."
+    
+    # Convert to tenths (e.g., 5.5 -> 55)
+    price_tenths = round(price * 10)
 
     con = sqlite3.connect(DB)
     con.execute("PRAGMA foreign_keys=ON;")
@@ -50,34 +53,38 @@ def charge_by_uid(uid_hex: str, price: int, staff="pos"):
         con.close()
         return False, "Unknown/inactive card"
 
-    sid, bal, max_ov = card
+    sid, bal_tenths, max_ov_tenths = card
     now_utc = datetime.now(timezone.utc) 
     wk_start = week_start_utc(now_utc)
 
     cur.execute("BEGIN IMMEDIATE;")
-    bal = cur.execute("SELECT balance FROM accounts WHERE student_id=?", (sid,)).fetchone()[0]
-    used_this_week = overdraft_used_this_week(cur, sid, wk_start)
-    remaining_ov = max(0, max_ov - used_this_week)
+    bal_tenths = cur.execute("SELECT balance FROM accounts WHERE student_id=?", (sid,)).fetchone()[0]
+    used_this_week_tenths = overdraft_used_this_week(cur, sid, wk_start)
+    remaining_ov_tenths = max(0, max_ov_tenths - used_this_week_tenths)
 
-    need_ov = max(0, price - bal)
-    if need_ov > remaining_ov:
+    need_ov_tenths = max(0, price_tenths - bal_tenths)
+    if need_ov_tenths > remaining_ov_tenths:
         con.rollback(); con.close()
-        return False, f"Declined: need ¥{need_ov} overpay, only ¥{remaining_ov} left this week."
+        need_ov_display = need_ov_tenths / 10.0
+        remaining_ov_display = remaining_ov_tenths / 10.0
+        return False, f"Declined: need ¥{need_ov_display:.1f} overpay, only ¥{remaining_ov_display:.1f} left this week."
 
     # Apply debit
-    cur.execute("UPDATE accounts SET balance = balance - ? WHERE student_id=?", (price, sid))
+    cur.execute("UPDATE accounts SET balance = balance - ? WHERE student_id=?", (price_tenths, sid))
     cur.execute("""INSERT INTO transactions
                    (student_id, card_uid, type, amount, overdraft_component, description, staff)
                    VALUES (?,?,?,?,?,?,?)""",
-                (sid, uid_hex, 'DEBIT', -price, need_ov, 'purchase', staff))
+                (sid, uid_hex, 'DEBIT', -price_tenths, need_ov_tenths, 'purchase', staff))
     tx_id = cur.lastrowid
-    if need_ov:
-        add_overdraft_usage(cur, sid, wk_start, need_ov)
+    if need_ov_tenths:
+        add_overdraft_usage(cur, sid, wk_start, need_ov_tenths)
 
     con.commit()
-    newbal = cur.execute("SELECT balance FROM accounts WHERE student_id=?", (sid,)).fetchone()[0]
+    newbal_tenths = cur.execute("SELECT balance FROM accounts WHERE student_id=?", (sid,)).fetchone()[0]
+    newbal = newbal_tenths / 10.0
+    need_ov = need_ov_tenths / 10.0
     con.close()
-    return True, f"Charged ¥{price} (overpay used ¥{need_ov}). New balance: ¥{newbal}. TX ID: {tx_id}"
+    return True, f"Charged ¥{price:.1f} (overpay used ¥{need_ov:.1f}). New balance: ¥{newbal:.1f}. TX ID: {tx_id}"
 
 def read_uid_from_pn532(device):
     import nfc
@@ -92,13 +99,13 @@ def read_uid_from_pn532(device):
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("price", type=int, help="price per tap in whole CNY (e.g., 6)")
+    ap.add_argument("price", type=float, help="price per tap in CNY (e.g., 6.5)")
     ap.add_argument("--device", default="tty:AMA0:pn532",
                     help="nfcpy device string (e.g., tty:AMA0:pn532, usb:USB0:pn532)")
     ap.add_argument("--simulate", action="store_true", help="type UIDs manually (no reader)")
     args = ap.parse_args()
 
-    print(f"POS ready. Price per tap: ¥{args.price}. Weekly overpay quota: ¥20 (resets Monday 00:00 Asia/Shanghai).")
+    print(f"POS ready. Price per tap: ¥{args.price:.1f}. Weekly overpay quota: ¥20.0 (resets Monday 00:00 Asia/Shanghai).")
 
     if args.simulate:
         print("Simulation mode. Type UID hex (or 'quit'):")

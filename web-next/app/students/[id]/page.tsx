@@ -11,6 +11,7 @@ import { UpdateAccountForm } from "./update-account-form";
 import { AddCardDialog } from "./add-card-dialog";
 import { TransactionsList } from "./transactions-list";
 import { CardsList } from "./cards-list";
+import { formatCurrency } from "@/lib/currency";
 
 export const dynamic = "force-dynamic";
 
@@ -59,17 +60,17 @@ export default async function StudentDetailPage({
               className={`text-4xl font-bold ${
                 student.balance < 0
                   ? "text-red-600"
-                  : student.balance <= 5 && hasTransactions
+                  : student.balance <= 50 && hasTransactions
                   ? "text-orange-600"
                   : ""
               }`}
             >
-              ¥{student.balance}
+              ¥{formatCurrency(student.balance)}
             </div>
             <div className="mt-2">
               {student.balance < 0 ? (
                 <Badge variant="destructive">Overdraft</Badge>
-              ) : student.balance <= 5 && hasTransactions ? (
+              ) : student.balance <= 50 && hasTransactions ? (
                 <Badge variant="secondary">Low Balance</Badge>
               ) : (
                 <Badge variant="default">Active</Badge>
@@ -84,7 +85,7 @@ export default async function StudentDetailPage({
           </CardHeader>
           <CardContent>
             <div className="text-4xl font-bold">
-              ¥{student.max_overdraft_week}
+              ¥{formatCurrency(student.max_overdraft_week)}
             </div>
             <p className="text-sm text-muted-foreground mt-2">per week</p>
           </CardContent>

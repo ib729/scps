@@ -7,6 +7,7 @@ import {
   adjustBalance,
 } from "@/lib/repositories/accounts";
 import { updateAccountSchema } from "@/lib/models";
+import { toDbValue } from "@/lib/currency";
 
 export async function getAccountByStudentIdAction(studentId: number) {
   try {

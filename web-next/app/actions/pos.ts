@@ -12,23 +12,27 @@ import {
   upsertOverdraftWeek,
   getCurrentWeekStartUtc,
 } from "@/lib/repositories/overdraft";
+import { toDbValue } from "@/lib/currency";
 
 const posCheckoutSchema = z
   .object({
     student_id: z.number().int().positive().optional(),
   card_uid: z.string().optional(),
-  amount: z.number().int().positive(),
+  amount: z.number().positive(), // accepts decimals, will be converted to tenths
   description: z.string().optional(),
   staff: z.string().optional(),
   })
   .refine((data) => data.student_id || data.card_uid, {
     message: "Either student_id or card_uid must be provided",
-});
+  });
 
 export async function posCheckoutAction(data: unknown) {
   try {
     const validated = posCheckoutSchema.parse(data);
     const db = getDb();
+
+    // Convert display amount to database value (tenths)
+    const chargeAmountInTenths = toDbValue(validated.amount);
 
     const result = db.transaction(() => {
       // Resolve student: either from student_id or by looking up card_uid
@@ -59,7 +63,7 @@ export async function posCheckoutAction(data: unknown) {
       }
 
       const currentBalance = student.balance;
-      const chargeAmount = validated.amount;
+      const chargeAmount = chargeAmountInTenths;
       const newBalance = currentBalance - chargeAmount;
 
       let overdraftUsed = 0;

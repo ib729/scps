@@ -33,13 +33,13 @@ export type CreateCard = z.infer<typeof createCardSchema>;
 // Account schemas
 export const accountSchema = z.object({
   student_id: z.number().int().positive(),
-  balance: z.number().int(),
-  max_overdraft_week: z.number().int().nonnegative(),
+  balance: z.number().int(), // stored as tenths internally
+  max_overdraft_week: z.number().int().nonnegative(), // stored as tenths internally
 });
 
 export const updateAccountSchema = z.object({
-  balance: z.number().int().optional(),
-  max_overdraft_week: z.number().int().nonnegative().optional(),
+  balance: z.number().int().optional(), // stored as tenths internally
+  max_overdraft_week: z.number().int().nonnegative().optional(), // stored as tenths internally
 });
 
 export type Account = z.infer<typeof accountSchema>;
@@ -51,8 +51,8 @@ export const transactionSchema = z.object({
   student_id: z.number().int().positive(),
   card_uid: z.string().nullable(),
   type: z.enum(["TOPUP", "DEBIT", "ADJUST"]),
-  amount: z.number().int(),
-  overdraft_component: z.number().int(),
+  amount: z.number().int(), // stored as tenths internally
+  overdraft_component: z.number().int(), // stored as tenths internally
   description: z.string().nullable(),
   staff: z.string().nullable(),
   created_at: z.string(),
@@ -62,8 +62,8 @@ export const createTransactionSchema = z.object({
   student_id: z.number().int().positive(),
   card_uid: z.string().optional(),
   type: z.enum(["TOPUP", "DEBIT", "ADJUST"]),
-  amount: z.number().int(),
-  overdraft_component: z.number().int().default(0),
+  amount: z.number().int(), // stored as tenths internally
+  overdraft_component: z.number().int().default(0), // stored as tenths internally
   description: z.string().optional(),
   staff: z.string().optional(),
 });
@@ -75,7 +75,7 @@ export type CreateTransaction = z.infer<typeof createTransactionSchema>;
 export const overdraftWeekSchema = z.object({
   student_id: z.number().int().positive(),
   week_start_utc: z.string(),
-  used: z.number().int().nonnegative(),
+  used: z.number().int().nonnegative(), // stored as tenths internally
 });
 
 export type OverdraftWeek = z.infer<typeof overdraftWeekSchema>;

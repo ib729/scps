@@ -3,6 +3,7 @@ import { getAllStudents } from "@/lib/repositories/students";
 import { getRecentTransactions, getStudentIdsWithTransactions, getWeeklyTopupData, getTotalSalesCount } from "@/lib/repositories/transactions";
 import { Users, ShoppingCart, AlertTriangle, DollarSign, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { WeeklyTopupChart } from "@/components/weekly-topup-chart";
+import { formatCurrency } from "@/lib/currency";
 
 export const dynamic = "force-dynamic";
 
@@ -58,7 +59,7 @@ export default async function DashboardPage() {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent className="flex flex-1 flex-col justify-end gap-1">
-            <div className="text-2xl font-bold">¥{totalBalance.toLocaleString()}</div>
+            <div className="text-2xl font-bold">¥{formatCurrency(totalBalance)}</div>
             <p className="text-xs text-muted-foreground">
               Combined balance across all accounts
             </p>
@@ -131,7 +132,7 @@ export default async function DashboardPage() {
                         tx.amount >= 0 ? "text-green-600" : "text-red-600"
                       }`}
                     >
-                      {tx.amount >= 0 ? "+" : ""}¥{Math.abs(tx.amount)}
+                      {tx.amount >= 0 ? "+" : ""}¥{formatCurrency(Math.abs(tx.amount))}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {new Date(tx.created_at).toLocaleDateString()}

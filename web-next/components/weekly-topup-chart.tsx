@@ -16,6 +16,7 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart"
 import type { WeeklyTopupData } from "@/lib/repositories/transactions"
+import { toDisplayValue } from "@/lib/currency"
 
 interface WeeklyTopupChartProps {
   data: WeeklyTopupData[]
@@ -30,7 +31,7 @@ const chartConfig = {
 
 export function WeeklyTopupChart({ data }: WeeklyTopupChartProps) {
   const total = React.useMemo(
-    () => data.reduce((acc, curr) => acc + curr.amount, 0),
+    () => toDisplayValue(data.reduce((acc, curr) => acc + curr.amount, 0)),
     [data]
   )
 
@@ -45,8 +46,8 @@ export function WeeklyTopupChart({ data }: WeeklyTopupChartProps) {
       return { trend: "0.0", trendDirection: "up" as const }
     }
     
-    const firstHalfAvg = data.slice(0, midpoint).reduce((acc, curr) => acc + curr.amount, 0) / midpoint
-    const secondHalfAvg = data.slice(midpoint).reduce((acc, curr) => acc + curr.amount, 0) / (data.length - midpoint)
+    const firstHalfAvg = toDisplayValue(data.slice(0, midpoint).reduce((acc, curr) => acc + curr.amount, 0)) / midpoint
+    const secondHalfAvg = toDisplayValue(data.slice(midpoint).reduce((acc, curr) => acc + curr.amount, 0)) / (data.length - midpoint)
     const trendValue = firstHalfAvg > 0 ? ((secondHalfAvg - firstHalfAvg) / firstHalfAvg * 100).toFixed(1) : "0.0"
     const direction = parseFloat(trendValue) >= 0 ? "up" as const : "down" as const
     
@@ -121,7 +122,7 @@ export function WeeklyTopupChart({ data }: WeeklyTopupChartProps) {
                 tickLine={false}
                 axisLine={false}
                 tickMargin={8}
-                tickFormatter={(value) => `¥${value}`}
+                tickFormatter={(value) => `¥${toDisplayValue(value).toFixed(1)}`}
               />
               <ChartTooltip
                 content={
@@ -132,7 +133,7 @@ export function WeeklyTopupChart({ data }: WeeklyTopupChartProps) {
                       return `Week of ${value}`
                     }}
                     formatter={(value) => {
-                      return `¥${Number(value).toLocaleString()}`
+                      return `¥${toDisplayValue(Number(value)).toFixed(1)}`
                     }}
                   />
                 }

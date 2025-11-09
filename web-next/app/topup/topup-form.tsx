@@ -18,6 +18,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Copy, Check } from "lucide-react";
 import type { StudentWithAccount } from "@/lib/models";
 import { topupAction, adjustBalanceManualAction } from "@/app/actions/topup";
+import { toDisplayValue, formatCurrency } from "@/lib/currency";
 
 interface TopupFormProps {
   students: StudentWithAccount[];
@@ -82,14 +83,14 @@ export function TopupForm({ students, studentIdsWithTransactions }: TopupFormPro
 
     const result = await topupAction({
       student_id: parseInt(studentId),
-      amount: parseInt(amount),
+      amount: parseFloat(amount),
       description: description || undefined,
       staff: staff || undefined,
     });
 
     if (result.success && result.data) {
       setSuccess(
-        `Successfully added ¥${amount} to ${selectedStudent?.name}. New balance: ¥${result.data.newBalance}`
+        `Successfully added ¥${amount} to ${selectedStudent?.name}. New balance: ¥${formatCurrency(result.data.newBalance)}`
       );
       setTransactionId(result.data.transaction.id);
       setAmount("");
@@ -111,14 +112,14 @@ export function TopupForm({ students, studentIdsWithTransactions }: TopupFormPro
 
     const result = await adjustBalanceManualAction({
       student_id: parseInt(adjustStudentId),
-      amount: parseInt(adjustAmount),
+      amount: parseFloat(adjustAmount),
       description: adjustDescription,
       staff: adjustStaff || undefined,
     });
 
     if (result.success && result.data) {
       setAdjustSuccess(
-        `Balance adjusted by ¥${adjustAmount} for ${selectedAdjustStudent?.name}. New balance: ¥${result.data.newBalance}`
+        `Balance adjusted by ¥${adjustAmount} for ${selectedAdjustStudent?.name}. New balance: ¥${formatCurrency(result.data.newBalance)}`
       );
       setAdjustTransactionId(result.data.transaction.id);
       setAdjustAmount("");
@@ -178,7 +179,7 @@ export function TopupForm({ students, studentIdsWithTransactions }: TopupFormPro
                 <SelectContent>
                   {students.map((student) => (
                     <SelectItem key={student.id} value={student.id.toString()}>
-                      {student.name} (¥{student.balance})
+                      {student.name} (¥{formatCurrency(student.balance)})
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -195,12 +196,12 @@ export function TopupForm({ students, studentIdsWithTransactions }: TopupFormPro
                     className={`font-bold ${
                       selectedStudent.balance < 0
                         ? "text-red-600"
-                        : selectedStudent.balance <= 5 && studentIdsWithTransactions.includes(selectedStudent.id)
+                        : selectedStudent.balance <= 50 && studentIdsWithTransactions.includes(selectedStudent.id)
                         ? "text-orange-600"
                         : ""
                     }`}
                   >
-                    ¥{selectedStudent.balance}
+                    ¥{formatCurrency(selectedStudent.balance)}
                   </span>
                 </div>
               </div>
@@ -211,10 +212,11 @@ export function TopupForm({ students, studentIdsWithTransactions }: TopupFormPro
               <Input
                 id="amount"
                 type="number"
-                min="1"
+                min="0.1"
+                step="0.1"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                placeholder="Enter amount"
+                placeholder="Enter amount (e.g., 5.5)"
                 required
               />
             </div>
@@ -298,7 +300,7 @@ export function TopupForm({ students, studentIdsWithTransactions }: TopupFormPro
                 <SelectContent>
                   {students.map((student) => (
                     <SelectItem key={student.id} value={student.id.toString()}>
-                      {student.name} (¥{student.balance})
+                      {student.name} (¥{formatCurrency(student.balance)})
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -315,12 +317,12 @@ export function TopupForm({ students, studentIdsWithTransactions }: TopupFormPro
                     className={`font-bold ${
                       selectedAdjustStudent.balance < 0
                         ? "text-red-600"
-                        : selectedAdjustStudent.balance <= 5 && studentIdsWithTransactions.includes(selectedAdjustStudent.id)
+                        : selectedAdjustStudent.balance <= 50 && studentIdsWithTransactions.includes(selectedAdjustStudent.id)
                         ? "text-orange-600"
                         : ""
                     }`}
                   >
-                    ¥{selectedAdjustStudent.balance}
+                    ¥{formatCurrency(selectedAdjustStudent.balance)}
                   </span>
                 </div>
               </div>
@@ -331,9 +333,10 @@ export function TopupForm({ students, studentIdsWithTransactions }: TopupFormPro
               <Input
                 id="adjust-amount"
                 type="number"
+                step="0.1"
                 value={adjustAmount}
                 onChange={(e) => setAdjustAmount(e.target.value)}
-                placeholder="e.g., 10 or -5"
+                placeholder="e.g., 10.5 or -5.5"
                 required
               />
               <p className="text-xs text-muted-foreground">

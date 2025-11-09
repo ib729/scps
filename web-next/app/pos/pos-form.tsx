@@ -30,6 +30,7 @@ import { posCheckoutAction } from "@/app/actions/pos";
 import { getCardByUidAction, createCardAction } from "@/app/actions/cards";
 import { createStudentAction } from "@/app/actions/students";
 import { EncryptedText } from "@/components/ui/encrypted-text";
+import { toDisplayValue, formatCurrency } from "@/lib/currency";
 
 interface PosFormProps {
   students: StudentWithAccount[];
@@ -262,7 +263,7 @@ export function PosForm({ students, studentIdsWithTransactions }: PosFormProps) 
     const result = await posCheckoutAction({
       student_id: finalStudentId || undefined,
       card_uid: finalCardUid || undefined,
-      amount: parseInt(amount),
+      amount: parseFloat(amount),
       description: description || undefined,
       staff: staff || undefined,
     });
@@ -270,7 +271,7 @@ export function PosForm({ students, studentIdsWithTransactions }: PosFormProps) 
     if (result.success && result.data) {
       const studentName = students.find((s) => s.id === result.data.transaction.student_id)?.name;
       setSuccess(
-        `Successfully charged ¥${amount} to ${studentName}. New balance: ¥${result.data.newBalance}`
+        `Successfully charged ¥${amount} to ${studentName}. New balance: ¥${formatCurrency(result.data.newBalance)}`
       );
       setTransactionId(result.data.transaction.id);
       setAmount("");
@@ -298,7 +299,7 @@ export function PosForm({ students, studentIdsWithTransactions }: PosFormProps) 
     const result = await posCheckoutAction({
       student_id: dialogStudentId,
       card_uid: dialogCardUid,
-      amount: parseInt(dialogAmount),
+      amount: parseFloat(dialogAmount),
       description: dialogDescription || undefined,
       staff: dialogStaff || undefined,
     });
@@ -306,7 +307,7 @@ export function PosForm({ students, studentIdsWithTransactions }: PosFormProps) 
     if (result.success && result.data) {
       const studentName = students.find((s) => s.id === result.data.transaction.student_id)?.name;
       setSuccess(
-        `Successfully charged ¥${dialogAmount} to ${studentName}. New balance: ¥${result.data.newBalance}`
+        `Successfully charged ¥${dialogAmount} to ${studentName}. New balance: ¥${formatCurrency(result.data.newBalance)}`
       );
       setTransactionId(result.data.transaction.id);
       setDialogOpen(false);
@@ -425,12 +426,12 @@ export function PosForm({ students, studentIdsWithTransactions }: PosFormProps) 
                       className={`font-bold ${
                         dialogStudent.balance < 0
                           ? "text-red-600"
-                          : dialogStudent.balance <= 5 && studentIdsWithTransactions.includes(dialogStudent.id)
+                          : dialogStudent.balance <= 50 && studentIdsWithTransactions.includes(dialogStudent.id)
                           ? "text-orange-600"
                           : ""
                       }`}
                     >
-                      ¥{dialogStudent.balance}
+                      ¥{formatCurrency(dialogStudent.balance)}
                     </span>
                   </div>
                   <div className="flex justify-between">
@@ -444,10 +445,11 @@ export function PosForm({ students, studentIdsWithTransactions }: PosFormProps) 
                 <Input
                   id="dialog-amount"
                   type="number"
-                  min="1"
+                  min="0.1"
+                  step="0.1"
                   value={dialogAmount}
                   onChange={(e) => setDialogAmount(e.target.value)}
-                  placeholder="Enter amount"
+                  placeholder="Enter amount (e.g., 5.5)"
                   required
                   autoFocus
                   disabled={dialogLoading}
@@ -605,7 +607,7 @@ export function PosForm({ students, studentIdsWithTransactions }: PosFormProps) 
                     <SelectContent>
                       {students.map((student) => (
                         <SelectItem key={student.id} value={student.id.toString()}>
-                          {student.name} (¥{student.balance})
+                          {student.name} (¥{formatCurrency(student.balance)})
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -622,12 +624,12 @@ export function PosForm({ students, studentIdsWithTransactions }: PosFormProps) 
                         className={`font-bold text-xl ${
                           selectedStudent.balance < 0
                             ? "text-red-600"
-                            : selectedStudent.balance <= 5 && studentIdsWithTransactions.includes(selectedStudent.id)
+                            : selectedStudent.balance <= 50 && studentIdsWithTransactions.includes(selectedStudent.id)
                             ? "text-orange-600"
                             : ""
                         }`}
                       >
-                        ¥{selectedStudent.balance}
+                        ¥{formatCurrency(selectedStudent.balance)}
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
@@ -635,7 +637,7 @@ export function PosForm({ students, studentIdsWithTransactions }: PosFormProps) 
                         Overdraft Limit:
                       </span>
                       <span className="font-medium text-base">
-                        ¥{selectedStudent.max_overdraft_week}/week
+                        ¥{formatCurrency(selectedStudent.max_overdraft_week)}/week
                       </span>
                     </div>
                   </div>
@@ -646,10 +648,11 @@ export function PosForm({ students, studentIdsWithTransactions }: PosFormProps) 
                   <Input
                     id="amount"
                     type="number"
-                    min="1"
+                    min="0.1"
+                    step="0.1"
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
-                    placeholder="Enter amount"
+                    placeholder="Enter amount (e.g., 5.5)"
                     required
                     className="text-xl h-14"
                   />

@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { TransactionWithStudent } from "@/lib/models";
+import { formatCurrency } from "@/lib/currency";
 
 interface TransactionsTableProps {
   transactions: TransactionWithStudent[];
@@ -144,7 +145,7 @@ export function TransactionsTable({ transactions }: TransactionsTableProps) {
                       {tx.description || "-"}
                       {tx.overdraft_component > 0 && (
                         <p className="text-xs text-orange-600 mt-1">
-                          Overdraft: ¥{tx.overdraft_component}
+                          Overdraft: ¥{formatCurrency(tx.overdraft_component)}
                         </p>
                       )}
                     </div>
@@ -155,7 +156,7 @@ export function TransactionsTable({ transactions }: TransactionsTableProps) {
                         tx.amount >= 0 ? "text-green-600" : "text-red-600"
                       }`}
                     >
-                      {tx.amount >= 0 ? "+" : ""}¥{tx.amount}
+                      {tx.amount >= 0 ? "+" : ""}¥{formatCurrency(Math.abs(tx.amount))}
                     </span>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
