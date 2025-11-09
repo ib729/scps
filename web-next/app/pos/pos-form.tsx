@@ -579,6 +579,7 @@ export function PosForm({ students, studentIdsWithTransactions }: PosFormProps) 
                       encryptedClassName="text-neutral-500"
                       revealedClassName="dark:text-white text-black"
                       revealDelayMs={50}
+                      completedClassName="animate-breathe"
                     />
                   </p>
                 </div>

@@ -22,6 +22,8 @@ type EncryptedTextProps = {
   encryptedClassName?: string;
   /** CSS class for styling the revealed characters */
   revealedClassName?: string;
+  /** CSS class applied to the wrapper when all characters are revealed */
+  completedClassName?: string;
 };
 
 const DEFAULT_CHARSET =
@@ -53,6 +55,7 @@ export const EncryptedText: React.FC<EncryptedTextProps> = ({
   flipDelayMs = 50,
   encryptedClassName,
   revealedClassName,
+  completedClassName,
 }) => {
   const ref = useRef<HTMLSpanElement>(null);
   const isInView = useInView(ref, { once: true });
@@ -137,7 +140,7 @@ export const EncryptedText: React.FC<EncryptedTextProps> = ({
     return (
       <motion.span
         ref={ref}
-        className={cn(className)}
+        className={cn(className, completedClassName)}
         aria-label={text}
         role="text"
       >
@@ -150,10 +153,12 @@ export const EncryptedText: React.FC<EncryptedTextProps> = ({
     );
   }
 
+  const isComplete = revealCount >= text.length;
+
   return (
     <motion.span
       ref={ref}
-      className={cn(className)}
+      className={cn(className, isComplete && completedClassName)}
       aria-label={text}
       role="text"
     >
