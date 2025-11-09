@@ -100,6 +100,8 @@ export function getWeeklyTopupData(weeks: number = 12): WeeklyTopupData[] {
   const db = getDb();
   
   // Get top-up transactions from the last N weeks, grouped by week
+  // SQLite doesn't support 'weeks' modifier, so we convert to days
+  const days = weeks * 7;
   const stmt = db.prepare(`
     SELECT 
       date(created_at, 'weekday 0', '-6 days') as week_start,
@@ -107,7 +109,7 @@ export function getWeeklyTopupData(weeks: number = 12): WeeklyTopupData[] {
     FROM transactions
     WHERE 
       type = 'TOPUP' 
-      AND created_at >= date('now', '-${weeks} weeks')
+      AND created_at >= date('now', '-${days} days')
     GROUP BY week_start
     ORDER BY week_start ASC
   `);
@@ -128,5 +130,16 @@ export function getWeeklyTopupData(weeks: number = 12): WeeklyTopupData[] {
       weekStart: row.week_start,
     };
   });
+}
+
+export function getTotalSalesCount(): number {
+  const db = getDb();
+  const stmt = db.prepare(`
+    SELECT COUNT(*) as count
+    FROM transactions
+    WHERE type = 'DEBIT'
+  `);
+  const result = stmt.get() as { count: number };
+  return result.count || 0;
 }
 

@@ -1,7 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getAllStudents } from "@/lib/repositories/students";
-import { getRecentTransactions, getStudentIdsWithTransactions, getWeeklyTopupData } from "@/lib/repositories/transactions";
-import { Users, DollarSign, AlertTriangle, TrendingUp, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { getRecentTransactions, getStudentIdsWithTransactions, getWeeklyTopupData, getTotalSalesCount } from "@/lib/repositories/transactions";
+import { Users, ShoppingCart, AlertTriangle, DollarSign, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { WeeklyTopupChart } from "@/components/weekly-topup-chart";
 
 export const dynamic = "force-dynamic";
@@ -11,17 +11,11 @@ export default async function DashboardPage() {
   const recentTransactions = getRecentTransactions(10);
   const studentIdsWithTransactions = getStudentIdsWithTransactions();
   const weeklyTopupData = getWeeklyTopupData(12);
+  const totalSales = getTotalSalesCount();
 
   const totalStudents = students.length;
   const totalBalance = students.reduce((sum, s) => sum + s.balance, 0);
   const studentsWithNegativeBalance = students.filter((s) => s.balance < 0).length;
-  const studentsWithLowBalance = students.filter((s) => 
-    s.balance >= 0 && s.balance <= 5 && studentIdsWithTransactions.includes(s.id)
-  ).length;
-
-  // Calculate percentage changes (mock data for now - you could track historical data)
-  const balanceChange = "+12.5%";
-  const overdraftChange = studentsWithNegativeBalance > 0 ? "+8%" : "0%";
 
   return (
     <div className="w-full space-y-8">
@@ -44,15 +38,29 @@ export default async function DashboardPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
+              Total Sales
+            </CardTitle>
+            <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{totalSales.toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Debit transactions completed
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
               Total Balance
             </CardTitle>
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">¥{totalBalance}</div>
-            <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-              <TrendingUp className="h-3 w-3 text-green-600" />
-              <span className="text-green-600">{balanceChange}</span> from last month
+            <div className="text-2xl font-bold">¥{totalBalance.toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Combined balance across all accounts
             </p>
           </CardContent>
         </Card>
@@ -72,21 +80,6 @@ export default async function DashboardPage() {
               ) : (
                 <span className="text-green-600">All accounts positive</span>
               )}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Low Balance
-            </CardTitle>
-            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{studentsWithLowBalance}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Students with ≤¥5
             </p>
           </CardContent>
         </Card>

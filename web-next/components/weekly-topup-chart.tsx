@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Bar, BarChart, CartesianGrid, XAxis } from "recharts"
+import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts"
 import {
   Card,
   CardContent,
@@ -35,11 +35,23 @@ export function WeeklyTopupChart({ data }: WeeklyTopupChartProps) {
   )
 
   // Calculate trend (comparing first half vs second half of data)
-  const midpoint = Math.floor(data.length / 2)
-  const firstHalfAvg = data.slice(0, midpoint).reduce((acc, curr) => acc + curr.amount, 0) / midpoint
-  const secondHalfAvg = data.slice(midpoint).reduce((acc, curr) => acc + curr.amount, 0) / (data.length - midpoint)
-  const trend = firstHalfAvg > 0 ? ((secondHalfAvg - firstHalfAvg) / firstHalfAvg * 100).toFixed(1) : "0.0"
-  const trendDirection = parseFloat(trend) >= 0 ? "up" : "down"
+  const { trend, trendDirection } = React.useMemo(() => {
+    if (data.length === 0) {
+      return { trend: "0.0", trendDirection: "up" as const }
+    }
+    
+    const midpoint = Math.floor(data.length / 2)
+    if (midpoint === 0) {
+      return { trend: "0.0", trendDirection: "up" as const }
+    }
+    
+    const firstHalfAvg = data.slice(0, midpoint).reduce((acc, curr) => acc + curr.amount, 0) / midpoint
+    const secondHalfAvg = data.slice(midpoint).reduce((acc, curr) => acc + curr.amount, 0) / (data.length - midpoint)
+    const trendValue = firstHalfAvg > 0 ? ((secondHalfAvg - firstHalfAvg) / firstHalfAvg * 100).toFixed(1) : "0.0"
+    const direction = parseFloat(trendValue) >= 0 ? "up" as const : "down" as const
+    
+    return { trend: trendValue, trendDirection: direction }
+  }, [data])
 
   return (
     <Card className="py-0">
@@ -65,47 +77,77 @@ export function WeeklyTopupChart({ data }: WeeklyTopupChartProps) {
         </div>
       </CardHeader>
       <CardContent className="px-2 sm:p-6">
-        <ChartContainer
-          config={chartConfig}
-          className="aspect-auto h-[250px] w-full"
-        >
-          <BarChart
-            accessibilityLayer
-            data={data}
-            margin={{
-              left: 12,
-              right: 12,
-            }}
+        {data.length === 0 ? (
+          <div className="flex h-[250px] items-center justify-center text-muted-foreground">
+            <p>No top-up data available for the selected period</p>
+          </div>
+        ) : (
+          <ChartContainer
+            config={chartConfig}
+            className="aspect-auto h-[250px] w-full"
           >
-            <CartesianGrid vertical={false} />
-            <XAxis
-              dataKey="week"
-              tickLine={false}
-              axisLine={false}
-              tickMargin={8}
-              minTickGap={32}
-            />
-            <ChartTooltip
-              content={
-                <ChartTooltipContent
-                  className="w-[150px]"
-                  nameKey="amount"
-                  labelFormatter={(value) => {
-                    return `Week of ${value}`
-                  }}
-                  formatter={(value) => {
-                    return `¥${Number(value).toLocaleString()}`
-                  }}
-                />
-              }
-            />
-            <Bar 
-              dataKey="amount" 
-              fill="var(--color-amount)" 
-              radius={[4, 4, 0, 0]}
-            />
-          </BarChart>
-        </ChartContainer>
+            <AreaChart
+              accessibilityLayer
+              data={data}
+              margin={{
+                left: 12,
+                right: 12,
+                top: 12,
+              }}
+            >
+              <defs>
+                <linearGradient id="fillAmount" x1="0" y1="0" x2="0" y2="1">
+                  <stop
+                    offset="5%"
+                    stopColor="var(--color-amount)"
+                    stopOpacity={0.8}
+                  />
+                  <stop
+                    offset="95%"
+                    stopColor="var(--color-amount)"
+                    stopOpacity={0.1}
+                  />
+                </linearGradient>
+              </defs>
+              <CartesianGrid vertical={false} />
+              <XAxis
+                dataKey="week"
+                tickLine={false}
+                axisLine={false}
+                tickMargin={8}
+                minTickGap={32}
+              />
+              <YAxis
+                tickLine={false}
+                axisLine={false}
+                tickMargin={8}
+                tickFormatter={(value) => `¥${value}`}
+              />
+              <ChartTooltip
+                content={
+                  <ChartTooltipContent
+                    className="w-[150px]"
+                    nameKey="amount"
+                    labelFormatter={(value) => {
+                      return `Week of ${value}`
+                    }}
+                    formatter={(value) => {
+                      return `¥${Number(value).toLocaleString()}`
+                    }}
+                  />
+                }
+              />
+              <Area
+                dataKey="amount"
+                type="natural"
+                fill="url(#fillAmount)"
+                fillOpacity={0.4}
+                stroke="var(--color-amount)"
+                strokeWidth={2}
+              />
+            </AreaChart>
+          </ChartContainer>
+        )}
       </CardContent>
     </Card>
   )
