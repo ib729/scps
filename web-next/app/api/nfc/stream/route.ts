@@ -3,17 +3,31 @@
  * 
  * Clients connect to this endpoint to receive real-time card tap notifications.
  * Uses Server-Sent Events (SSE) for lightweight server-to-client push.
+ * 
+ * Authentication: Requires valid session (logged-in user)
  */
 
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 import tapBroadcaster, { type TapEvent } from "@/lib/tap-events";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
+  // Verify authentication - only logged-in users can receive tap notifications
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+
+  if (!session) {
+    console.warn("[SSE] Unauthorized connection attempt");
+    return new Response("Unauthorized", { status: 401 });
+  }
+
   const { searchParams } = new URL(request.url);
   const lane = searchParams.get("lane") || "default";
 
-  console.log(`[SSE] Client connected to tap stream (lane: ${lane})`);
+  console.log(`[SSE] Client connected to tap stream (lane: ${lane}, user: ${session.user.email})`);
 
   // Create a TransformStream for SSE
   const stream = new TransformStream();

@@ -244,8 +244,24 @@ The tap broadcaster POSTs to `/api/nfc/tap` with a shared secret.
 - ✅ Shared secret validation (`NFC_TAP_SECRET`)
 - ✅ Zod schema validation for payload structure
 - ✅ 800ms debounce in `tap-broadcaster.py` (line 203)
+- ✅ SSE stream endpoint authenticated (requires login) - `web-next/app/api/nfc/stream/route.ts` (lines 17-25)
 - ⚠️ **Missing**: Timestamp validation (replay attack prevention)
 - ⚠️ **Missing**: Rate limiting on `/api/nfc/tap` endpoint
+
+**SSE Stream Security:**
+```typescript
+// web-next/app/api/nfc/stream/route.ts
+const session = await auth.api.getSession({
+  headers: await headers(),
+});
+
+if (!session) {
+  console.warn("[SSE] Unauthorized connection attempt");
+  return new Response("Unauthorized", { status: 401 });
+}
+```
+
+This ensures only logged-in staff can receive tap notifications while allowing multiple devices to connect simultaneously.
 
 **Threats**:
 - Replay attacks (reusing captured tap events)
@@ -518,7 +534,7 @@ ORDER BY total DESC;
 
 - [x] NFC tap events over HTTPS (production) ✅
 - [ ] 🟠 **HIGH**: Timestamp validation on tap events (replay attack prevention)
-- [ ] 🔴 **CRITICAL**: Authenticate SSE stream endpoint (`/api/nfc/stream`)
+- [x] SSE stream endpoint authenticated (requires login) ✅
 - [ ] IP whitelist for tap broadcaster (optional)
 - [ ] Nginx security headers enabled
 
@@ -540,18 +556,20 @@ ORDER BY total DESC;
 ### Priority Actions
 
 **Immediate (Critical 🔴):**
-1. Add authentication to `/api/nfc/stream` endpoint
-2. Remove default user bootstrap from `getCurrentUser()`
+1. Remove default user bootstrap from `getCurrentUser()`
 
 **High Priority (🟠):**
-3. Add timestamp validation to `/api/nfc/tap` endpoint
-4. Remove or soft-delete transaction deletion functionality
-5. Implement card UID masking in UI
+2. Add timestamp validation to `/api/nfc/tap` endpoint
+3. Remove or soft-delete transaction deletion functionality
+4. Implement card UID masking in UI
 
 **Medium Priority (🟡):**
-6. Implement rate limiting on API endpoints
-7. Add role-based access control
-8. Enable backup encryption
+5. Implement rate limiting on API endpoints
+6. Add role-based access control
+7. Enable backup encryption
+
+**Completed ✅:**
+- ~~Add authentication to `/api/nfc/stream` endpoint~~ (November 9, 2025)
 
 ## Security Gaps & Recommendations
 
@@ -559,40 +577,7 @@ This section documents identified security gaps and recommended mitigations disc
 
 ### Critical Gaps 🔴
 
-#### 1. Unauthenticated SSE Stream (/api/nfc/stream)
-
-**Location**: `web-next/app/api/nfc/stream/route.ts`
-
-**Issue**: The SSE endpoint for NFC tap events is publicly accessible without authentication. Any client can connect and receive real-time card tap notifications containing card UIDs.
-
-**Risk**: 
-- Information disclosure of card UIDs
-- Potential for unauthorized monitoring of POS activity
-- Privacy violation (card UIDs are PII)
-
-**Impact**: High - Exposes sensitive card data to unauthenticated users
-
-**Mitigation**:
-```typescript
-// Add session check to web-next/app/api/nfc/stream/route.ts
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
-
-export async function GET(request: Request) {
-  // Verify authentication
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
-  
-  if (!session) {
-    return new Response("Unauthorized", { status: 401 });
-  }
-  
-  // ... rest of SSE logic
-}
-```
-
-#### 2. Default User Bootstrap in Production
+#### 1. Default User Bootstrap in Production
 
 **Location**: `web-next/app/actions/users.ts` (lines 32-37)
 
@@ -621,7 +606,7 @@ if (users.length === 0) {
 
 ### High Priority Gaps 🟠
 
-#### 3. Transaction Deletion Without Audit Trail
+#### 2. Transaction Deletion Without Audit Trail
 
 **Location**: `web-next/lib/repositories/transactions.ts` (lines 73-77)
 
@@ -645,7 +630,7 @@ ALTER TABLE transactions ADD COLUMN deleted_at TEXT DEFAULT NULL;
 ALTER TABLE transactions ADD COLUMN deleted_by TEXT DEFAULT NULL;
 ```
 
-#### 4. Missing Timestamp Validation on NFC Taps
+#### 3. Missing Timestamp Validation on NFC Taps
 
 **Location**: `web-next/app/api/nfc/tap/route.ts`
 
@@ -659,7 +644,7 @@ ALTER TABLE transactions ADD COLUMN deleted_by TEXT DEFAULT NULL;
 
 **Mitigation**: See "NFC Tap Broadcasts" section above for timestamp validation code.
 
-#### 5. Full Card UID Exposure in UI
+#### 4. Full Card UID Exposure in UI
 
 **Location**: Multiple files (see "Card UID Protection" section)
 
@@ -676,7 +661,7 @@ ALTER TABLE transactions ADD COLUMN deleted_by TEXT DEFAULT NULL;
 
 ### Medium Priority Gaps 🟡
 
-#### 6. No Rate Limiting on API Endpoints
+#### 5. No Rate Limiting on API Endpoints
 
 **Location**: All API routes in `web-next/app/api/`
 
@@ -691,7 +676,7 @@ ALTER TABLE transactions ADD COLUMN deleted_by TEXT DEFAULT NULL;
 
 **Mitigation**: Implement rate limiting (see "NFC Tap Broadcasts" section).
 
-#### 7. No Role-Based Access Control
+#### 6. No Role-Based Access Control
 
 **Location**: All authenticated routes
 
@@ -706,7 +691,7 @@ ALTER TABLE transactions ADD COLUMN deleted_by TEXT DEFAULT NULL;
 
 **Mitigation**: Implement RBAC (see "Authentication & Authorization" section).
 
-#### 8. Backup Encryption Not Enabled
+#### 7. Backup Encryption Not Enabled
 
 **Location**: `scripts/cloud_backup_r2.sh`
 
@@ -722,7 +707,7 @@ ALTER TABLE transactions ADD COLUMN deleted_by TEXT DEFAULT NULL;
 
 ### Low Priority Gaps 🟢
 
-#### 9. No IP Whitelisting for Tap Broadcaster
+#### 8. No IP Whitelisting for Tap Broadcaster
 
 **Location**: `web-next/app/api/nfc/tap/route.ts`
 
@@ -734,7 +719,7 @@ ALTER TABLE transactions ADD COLUMN deleted_by TEXT DEFAULT NULL;
 
 **Mitigation**: Optional IP whitelist (see "NFC Tap Broadcasts" section).
 
-#### 10. Verbose Error Messages
+#### 9. Verbose Error Messages
 
 **Location**: Various server actions
 
