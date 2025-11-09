@@ -1,9 +1,5 @@
 # Security Guide
 
-## Overview
-
-The Stuco system handles student financial data and NFC card information, requiring careful attention to security. This guide covers authentication, secrets management, data protection, and hardening recommendations.
-
 **Last Updated**: November 2025  
 **Status**: Production-ready with recommended enhancements
 
