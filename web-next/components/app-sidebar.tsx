@@ -93,7 +93,7 @@ const navItems = [
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const router = useRouter()
-  const { theme, setTheme } = useTheme()
+  const { theme, setTheme, resolvedTheme } = useTheme()
   const [mounted, setMounted] = React.useState(false)
   const [showLogoutDialog, setShowLogoutDialog] = React.useState(false)
   const [showAccountDialog, setShowAccountDialog] = React.useState(false)
@@ -140,7 +140,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
   const handleToggleTheme = () => {
     if (!mounted) return
-    setTheme(theme === "dark" ? "light" : "dark")
+    setTheme(resolvedTheme === "dark" ? "light" : "dark")
   }
 
   const handleFormChange = (field: string, value: string) => {
@@ -314,12 +314,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                   Account
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={handleToggleTheme}>
-                  {mounted && theme === "dark" ? (
+                  {mounted && resolvedTheme === "dark" ? (
                     <Sun className="mr-2 h-4 w-4" />
                   ) : (
                     <Moon className="mr-2 h-4 w-4" />
                   )}
-                  {mounted && theme === "dark" ? "Light Mode" : "Dark Mode"}
+                  {mounted && resolvedTheme === "dark" ? "Light Mode" : "Dark Mode"}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleLogout} disabled={loading}>
