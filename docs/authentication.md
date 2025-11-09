@@ -108,42 +108,6 @@ CREATE TABLE session (
 
 The signup page requires an 8-digit code to create new accounts, adding an extra layer of security to prevent unauthorized signups.
 
-### Current Code
-
-**Default Code**: `12345678`
-
-⚠️ **Change this immediately for production!**
-
-### Configuring the Signup Code
-
-**Option 1: Hardcoded (Development Only)**
-
-Edit `web-next/app/(auth)/signup/page.tsx`:
-
-```typescript
-const SIGNUP_CODE = "12345678"; // Change this!
-```
-
-**Option 2: Environment Variable (Recommended for Production)**
-
-Update `web-next/app/(auth)/signup/page.tsx`:
-
-```typescript
-const SIGNUP_CODE = process.env.NEXT_PUBLIC_SIGNUP_CODE || "12345678";
-```
-
-Then add to `.env.local`:
-
-```env
-NEXT_PUBLIC_SIGNUP_CODE=your_secret_code
-```
-
-**Security Notes:**
-- Use a strong 8-digit code
-- Don't commit the code to public repositories
-- Change the code periodically
-- Keep track of who has the code
-
 ### How Signup Code Works
 
 1. User fills out signup form (name, email, password)
@@ -152,22 +116,6 @@ NEXT_PUBLIC_SIGNUP_CODE=your_secret_code
 4. User enters the 8-digit code
 5. If code matches, account is created
 6. If code is wrong, error message is shown
-
-**User Experience:**
-- ✅ Clean 8-digit OTP input using Shadcn Input OTP component
-- ✅ Button disabled until all 8 digits are entered
-- ✅ "Back" button to return to the form
-- ✅ Clear error messages for invalid codes
-- ✅ Auto-focuses on OTP input
-
-### Sharing the Code
-
-When sharing the signup code with authorized users:
-
-1. Share via secure channel (not email/SMS)
-2. Change the code periodically
-3. Keep track of who has the code
-4. Consider using different codes for different user groups
 
 ### Alternative Approaches
 
