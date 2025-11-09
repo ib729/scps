@@ -210,27 +210,15 @@ const isValid = bcrypt.compareSync(password, user.password_hash);
 
 ## Network Security
 
-### HTTPS/TLS
+### HTTPS/TLS ✅
 
-**Production Requirement**: Always use HTTPS for the web UI.
+**Status**: Configured via Cloudflare Tunnels with automatic HTTPS certificates.
 
-**Why**:
-- Protects NFC tap events containing card UIDs
-- Prevents session hijacking
-- Encrypts student financial data in transit
-- Secures Better Auth session cookies (marked secure in production)
-
-**Configuration:**
-```typescript
-// web-next/lib/auth.ts (lines 31-32)
-advanced: {
-  useSecureCookies: process.env.NODE_ENV === "production",
-}
-```
-
-**Setup**: See [Deployment Guide](deployment.md) for Let's Encrypt/Nginx configuration.
-
-**Note**: User has confirmed HTTPS certificate is already configured ✅
+**Security Features:**
+- ✅ Protects NFC tap events containing card UIDs
+- ✅ Prevents session hijacking
+- ✅ Encrypts student financial data in transit
+- ✅ Better Auth session cookies marked secure in production (`useSecureCookies: true`)
 
 ### NFC Tap Broadcasts ✅ (Partial)
 
