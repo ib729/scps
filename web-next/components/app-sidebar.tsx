@@ -344,7 +344,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <AlertDialog open={showLogoutDialog} onOpenChange={setShowLogoutDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Feature Not Available</AlertDialogTitle>
+            <AlertDialogTitle>Coming soon...</AlertDialogTitle>
             <AlertDialogDescription>
               This feature has not yet been implemented.
             </AlertDialogDescription>
