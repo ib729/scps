@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   Table,
@@ -25,6 +25,11 @@ interface StudentsTableProps {
 
 export function StudentsTable({ students, studentIdsWithTransactions }: StudentsTableProps) {
   const [searchQuery, setSearchQuery] = useState("");
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const filteredStudents = students.filter((student) =>
     student.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -32,14 +37,14 @@ export function StudentsTable({ students, studentIdsWithTransactions }: Students
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-4" suppressHydrationWarning>
+      <div className="flex gap-4">
         <Input
           placeholder="Search students..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="flex-1"
         />
-        <CreateStudentDialog />
+        {mounted && <CreateStudentDialog />}
       </div>
 
       <div className="border rounded-lg">
@@ -95,10 +100,12 @@ export function StudentsTable({ students, studentIdsWithTransactions }: Students
                     )}
                   </TableCell>
                   <TableCell className="text-right">
-                    <DeleteStudentDialog
-                      studentId={student.id}
-                      studentName={student.name}
-                    />
+                    {mounted && (
+                      <DeleteStudentDialog
+                        studentId={student.id}
+                        studentName={student.name}
+                      />
+                    )}
                   </TableCell>
                 </TableRow>
               ))

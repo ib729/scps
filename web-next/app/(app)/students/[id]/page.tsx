@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { UpdateStudentForm } from "./update-student-form";
 import { UpdateAccountForm } from "./update-account-form";
-import { AddCardDialog } from "./add-card-dialog";
+import { AddCardDialogWrapper } from "./add-card-dialog-wrapper";
 import { TransactionsList } from "./transactions-list";
 import { CardsList } from "./cards-list";
 import { formatCurrency } from "@/lib/currency";
@@ -115,7 +115,7 @@ export default async function StudentDetailPage({
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Cards</CardTitle>
-          <AddCardDialog studentId={studentId} />
+          <AddCardDialogWrapper studentId={studentId} />
         </CardHeader>
         <CardContent>
           <CardsList cards={cards} />

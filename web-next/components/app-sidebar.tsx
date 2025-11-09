@@ -257,39 +257,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <SidebarMenuButton
-                  size="lg"
-                  className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
-                >
-                  <Avatar className="h-8 w-8 rounded-lg">
-                    {user?.image && <AvatarImage src={user.image} alt={user.name} />}
-                    <AvatarFallback className="rounded-lg">
-                      {user?.name
-                        ? user.name
-                            .split(" ")
-                            .map((n) => n[0])
-                            .join("")
-                            .toUpperCase()
-                        : isPending ? "..." : "U"}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="grid flex-1 text-left text-sm leading-tight">
-                    <span className="truncate font-semibold">{user?.name || (isPending ? "Loading..." : "User")}</span>
-                    <span className="truncate text-xs">{user?.email || ""}</span>
-                  </div>
-                  <ChevronsUpDown className="ml-auto size-4" />
-                </SidebarMenuButton>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
-                side="bottom"
-                align="end"
-                sideOffset={4}
-              >
-                <DropdownMenuLabel className="p-0 font-normal">
-                  <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
+            {mounted ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <SidebarMenuButton
+                    size="lg"
+                    className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+                  >
                     <Avatar className="h-8 w-8 rounded-lg">
                       {user?.image && <AvatarImage src={user.image} alt={user.name} />}
                       <AvatarFallback className="rounded-lg">
@@ -299,42 +273,86 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                               .map((n) => n[0])
                               .join("")
                               .toUpperCase()
-                          : "U"}
+                          : isPending ? "..." : "U"}
                       </AvatarFallback>
                     </Avatar>
                     <div className="grid flex-1 text-left text-sm leading-tight">
-                      <span className="truncate font-semibold">{user?.name || "User"}</span>
+                      <span className="truncate font-semibold">{user?.name || (isPending ? "Loading..." : "User")}</span>
                       <span className="truncate text-xs">{user?.email || ""}</span>
                     </div>
-                  </div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => setShowAccountDialog(true)}>
-                  <User className="mr-2 h-4 w-4" />
-                  Account
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleToggleTheme}>
-                  {mounted && resolvedTheme === "dark" ? (
-                    <Sun className="mr-2 h-4 w-4" />
-                  ) : (
-                    <Moon className="mr-2 h-4 w-4" />
-                  )}
-                  {mounted && resolvedTheme === "dark" ? "Light Mode" : "Dark Mode"}
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout} disabled={loading}>
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Log out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+                    <ChevronsUpDown className="ml-auto size-4" />
+                  </SidebarMenuButton>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
+                  side="bottom"
+                  align="end"
+                  sideOffset={4}
+                >
+                  <DropdownMenuLabel className="p-0 font-normal">
+                    <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
+                      <Avatar className="h-8 w-8 rounded-lg">
+                        {user?.image && <AvatarImage src={user.image} alt={user.name} />}
+                        <AvatarFallback className="rounded-lg">
+                          {user?.name
+                            ? user.name
+                                .split(" ")
+                                .map((n) => n[0])
+                                .join("")
+                                .toUpperCase()
+                            : "U"}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="grid flex-1 text-left text-sm leading-tight">
+                        <span className="truncate font-semibold">{user?.name || "User"}</span>
+                        <span className="truncate text-xs">{user?.email || ""}</span>
+                      </div>
+                    </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setShowAccountDialog(true)}>
+                    <User className="mr-2 h-4 w-4" />
+                    Account
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleToggleTheme}>
+                    {resolvedTheme === "dark" ? (
+                      <Sun className="mr-2 h-4 w-4" />
+                    ) : (
+                      <Moon className="mr-2 h-4 w-4" />
+                    )}
+                    {resolvedTheme === "dark" ? "Light Mode" : "Dark Mode"}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleLogout} disabled={loading}>
+                    <LogOut className="mr-2 h-4 w-4" />
+                    Log out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <SidebarMenuButton
+                size="lg"
+                className="cursor-default"
+              >
+                <Avatar className="h-8 w-8 rounded-lg">
+                  <AvatarFallback className="rounded-lg">
+                    ...
+                  </AvatarFallback>
+                </Avatar>
+                <div className="grid flex-1 text-left text-sm leading-tight">
+                  <span className="truncate font-semibold">Loading...</span>
+                  <span className="truncate text-xs">&nbsp;</span>
+                </div>
+              </SidebarMenuButton>
+            )}
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
       <SidebarRail />
 
-      <Dialog open={showAccountDialog} onOpenChange={setShowAccountDialog}>
-        <DialogContent className="sm:max-w-[500px]">
+      {mounted && (
+        <Dialog open={showAccountDialog} onOpenChange={setShowAccountDialog}>
+          <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>Account Settings</DialogTitle>
             <DialogDescription>
@@ -427,6 +445,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           </Tabs>
         </DialogContent>
       </Dialog>
+      )}
     </Sidebar>
   )
 }
