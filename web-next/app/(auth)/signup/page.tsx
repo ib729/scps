@@ -74,7 +74,12 @@ export default function SignupPage() {
         }
 
         toast.success("Account created successfully!");
-        router.push("/dashboard");
+        
+        // Wait for session cookie to be set, then redirect
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
+        // Force a full page reload to ensure session is available on server
+        window.location.replace("/dashboard");
       } catch (error) {
         toast.error("An unexpected error occurred");
         setLoading(false);

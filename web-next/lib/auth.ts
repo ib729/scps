@@ -20,4 +20,14 @@ export const auth = betterAuth({
     "http://localhost:3000",
     "https://stuco.ivanbelousov.com",
   ],
+  session: {
+    cookieCache: {
+      enabled: true,
+      maxAge: 60 * 5, // 5 minutes
+    },
+  },
+  advanced: {
+    cookiePrefix: "better-auth",
+    useSecureCookies: process.env.NODE_ENV === "production",
+  },
 });
