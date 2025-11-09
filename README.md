@@ -18,18 +18,24 @@ A system for managing student snack bar payments using NFC cards, with Python CL
 
 1. **Prerequisites**: See [docs/getting-started.md](docs/getting-started.md) for platform-specific setup (Node.js, pnpm, build tools).
 2. **Database**: Ensure `stuco.db` exists or run `python init_db.py`.
-3. **Web UI**:
+3. **Authentication Setup**: Configure Better Auth for the web UI (see [web-next/AUTH_SETUP.md](web-next/AUTH_SETUP.md)):
+   ```
+   cd web-next
+   # Create .env.local with required variables (see AUTH_SETUP.md)
+   sqlite3 ../stuco.db < migrations/better_auth_schema.sql
+   ```
+4. **Web UI**:
    ```
    cd web-next
    pnpm install  # Auto-builds dependencies
    pnpm dev
    ```
-   Open http://localhost:3000.
-4. **NFC POS** (CLI):
+   Open http://localhost:3000 and create an account.
+5. **NFC POS** (CLI):
    ```
    python pos.py 6.5  # Charge ¥6.5 per tap
    ```
-5. **NFC Broadcaster** (for web UI taps):
+6. **NFC Broadcaster** (for web UI taps):
    ```
    python tap-broadcaster.py --simulate  # Test mode
    ```

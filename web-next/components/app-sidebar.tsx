@@ -1,7 +1,8 @@
 "use client"
 
 import * as React from "react"
-import { getCurrentUser, updateUserProfile, updateUserPassword } from "@/app/actions/users"
+import { useRouter } from "next/navigation"
+import { authClient } from "@/lib/auth-client"
 import {
   LayoutDashboard,
   Users,
@@ -91,49 +92,30 @@ const navItems = [
 ]
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const router = useRouter()
   const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = React.useState(false)
   const [showLogoutDialog, setShowLogoutDialog] = React.useState(false)
   const [showAccountDialog, setShowAccountDialog] = React.useState(false)
   const [loading, setLoading] = React.useState(false)
 
-  // User state
-  const [user, setUser] = React.useState<{
-    id: number;
-    name: string;
-    email: string;
-    avatar?: string;
-  } | null>(null)
+  // Get session from Better Auth
+  const { data: session, isPending } = authClient.useSession()
+  const user = session?.user
 
   // Form state for profile
   const [formData, setFormData] = React.useState({
     name: "",
     email: "",
-    avatar: "",
+    image: "",
   })
 
   // Form state for password
   const [passwordData, setPasswordData] = React.useState({
-    current_password: "",
-    new_password: "",
-    confirm_password: "",
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
   })
-
-  // Load user from database on mount
-  React.useEffect(() => {
-    const loadUser = async () => {
-      const result = await getCurrentUser()
-      if (result.success && result.user) {
-        setUser(result.user)
-        setFormData({
-          name: result.user.name,
-          email: result.user.email,
-          avatar: result.user.avatar || "",
-        })
-      }
-    }
-    loadUser()
-  }, [])
 
   // Wait until mounted to avoid hydration mismatch
   React.useEffect(() => {
@@ -146,12 +128,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       setFormData({
         name: user.name,
         email: user.email,
-        avatar: user.avatar || "",
+        image: user.image || "",
       })
       setPasswordData({
-        current_password: "",
-        new_password: "",
-        confirm_password: "",
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
       })
     }
   }, [showAccountDialog, user])
@@ -174,18 +156,16 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     
     setLoading(true)
     try {
-      const result = await updateUserProfile(user.id, {
+      const { data, error } = await authClient.updateUser({
         name: formData.name,
-        email: formData.email,
-        avatar: formData.avatar || undefined,
+        image: formData.image || undefined,
       })
       
-      if (result.success && result.user) {
-        setUser(result.user)
+      if (error) {
+        toast.error(error.message || "Failed to update profile")
+      } else {
         setShowAccountDialog(false)
         toast.success("Profile updated successfully!")
-      } else {
-        toast.error(result.error || "Failed to update profile")
       }
     } catch (error) {
       toast.error("An error occurred while updating profile")
@@ -197,32 +177,44 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const handleUpdatePassword = async () => {
     if (!user) return
     
-    if (passwordData.new_password !== passwordData.confirm_password) {
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
       toast.error("New passwords do not match")
       return
     }
     
-    if (passwordData.new_password.length < 6) {
-      toast.error("New password must be at least 6 characters")
+    if (passwordData.newPassword.length < 8) {
+      toast.error("New password must be at least 8 characters")
       return
     }
     
     setLoading(true)
     try {
-      const result = await updateUserPassword(user.id, {
-        current_password: passwordData.current_password,
-        new_password: passwordData.new_password,
+      const { data, error } = await authClient.changePassword({
+        currentPassword: passwordData.currentPassword,
+        newPassword: passwordData.newPassword,
+        revokeOtherSessions: false,
       })
       
-      if (result.success) {
+      if (error) {
+        toast.error(error.message || "Failed to update password")
+      } else {
         setShowAccountDialog(false)
         toast.success("Password updated successfully!")
-      } else {
-        toast.error(result.error || "Failed to update password")
       }
     } catch (error) {
       toast.error("An error occurred while updating password")
     } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleLogout = async () => {
+    setLoading(true)
+    try {
+      await authClient.signOut()
+      router.push("/login")
+    } catch (error) {
+      toast.error("Failed to sign out")
       setLoading(false)
     }
   }
@@ -272,7 +264,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                   className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
                 >
                   <Avatar className="h-8 w-8 rounded-lg">
-                    {user?.avatar && <AvatarImage src={user.avatar} alt={user.name} />}
+                    {user?.image && <AvatarImage src={user.image} alt={user.name} />}
                     <AvatarFallback className="rounded-lg">
                       {user?.name
                         ? user.name
@@ -280,11 +272,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                             .map((n) => n[0])
                             .join("")
                             .toUpperCase()
-                        : "U"}
+                        : isPending ? "..." : "U"}
                     </AvatarFallback>
                   </Avatar>
                   <div className="grid flex-1 text-left text-sm leading-tight">
-                    <span className="truncate font-semibold">{user?.name || "Loading..."}</span>
+                    <span className="truncate font-semibold">{user?.name || (isPending ? "Loading..." : "User")}</span>
                     <span className="truncate text-xs">{user?.email || ""}</span>
                   </div>
                   <ChevronsUpDown className="ml-auto size-4" />
@@ -299,7 +291,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 <DropdownMenuLabel className="p-0 font-normal">
                   <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                     <Avatar className="h-8 w-8 rounded-lg">
-                      {user?.avatar && <AvatarImage src={user.avatar} alt={user.name} />}
+                      {user?.image && <AvatarImage src={user.image} alt={user.name} />}
                       <AvatarFallback className="rounded-lg">
                         {user?.name
                           ? user.name
@@ -311,7 +303,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                       </AvatarFallback>
                     </Avatar>
                     <div className="grid flex-1 text-left text-sm leading-tight">
-                      <span className="truncate font-semibold">{user?.name || "Loading..."}</span>
+                      <span className="truncate font-semibold">{user?.name || "User"}</span>
                       <span className="truncate text-xs">{user?.email || ""}</span>
                     </div>
                   </div>
@@ -330,7 +322,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                   {mounted && theme === "dark" ? "Light Mode" : "Dark Mode"}
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => setShowLogoutDialog(true)}>
+                <DropdownMenuItem onClick={handleLogout} disabled={loading}>
                   <LogOut className="mr-2 h-4 w-4" />
                   Log out
                 </DropdownMenuItem>
@@ -340,22 +332,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarMenu>
       </SidebarFooter>
       <SidebarRail />
-      
-      <AlertDialog open={showLogoutDialog} onOpenChange={setShowLogoutDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Coming soon...</AlertDialogTitle>
-            <AlertDialogDescription>
-              This feature has not yet been implemented.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogAction onClick={() => setShowLogoutDialog(false)}>
-              Dismiss
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       <Dialog open={showAccountDialog} onOpenChange={setShowAccountDialog}>
         <DialogContent className="sm:max-w-[500px]">
@@ -391,11 +367,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="avatar">Profile Picture URL</Label>
+                <Label htmlFor="image">Profile Picture URL</Label>
                 <Input 
-                  id="avatar" 
-                  value={formData.avatar} 
-                  onChange={(e) => handleFormChange("avatar", e.target.value)}
+                  id="image" 
+                  value={formData.image} 
+                  onChange={(e) => handleFormChange("image", e.target.value)}
                   placeholder="Enter image URL" 
                 />
               </div>
@@ -414,8 +390,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 <Input 
                   id="current-password" 
                   type="password" 
-                  value={passwordData.current_password}
-                  onChange={(e) => handlePasswordChange("current_password", e.target.value)}
+                  value={passwordData.currentPassword}
+                  onChange={(e) => handlePasswordChange("currentPassword", e.target.value)}
                   placeholder="Enter current password" 
                 />
               </div>
@@ -424,9 +400,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 <Input 
                   id="new-password" 
                   type="password" 
-                  value={passwordData.new_password}
-                  onChange={(e) => handlePasswordChange("new_password", e.target.value)}
-                  placeholder="Enter new password (min 6 characters)" 
+                  value={passwordData.newPassword}
+                  onChange={(e) => handlePasswordChange("newPassword", e.target.value)}
+                  placeholder="Enter new password (min 8 characters)" 
                 />
               </div>
               <div className="space-y-2">
@@ -434,8 +410,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 <Input 
                   id="confirm-password" 
                   type="password" 
-                  value={passwordData.confirm_password}
-                  onChange={(e) => handlePasswordChange("confirm_password", e.target.value)}
+                  value={passwordData.confirmPassword}
+                  onChange={(e) => handlePasswordChange("confirmPassword", e.target.value)}
                   placeholder="Confirm new password" 
                 />
               </div>
