@@ -90,3 +90,43 @@ export function getStudentIdsWithTransactions(): number[] {
   return rows.map((row) => row.student_id);
 }
 
+export interface WeeklyTopupData {
+  week: string;
+  amount: number;
+  weekStart: string;
+}
+
+export function getWeeklyTopupData(weeks: number = 12): WeeklyTopupData[] {
+  const db = getDb();
+  
+  // Get top-up transactions from the last N weeks, grouped by week
+  const stmt = db.prepare(`
+    SELECT 
+      date(created_at, 'weekday 0', '-6 days') as week_start,
+      SUM(amount) as total_amount
+    FROM transactions
+    WHERE 
+      type = 'TOPUP' 
+      AND created_at >= date('now', '-${weeks} weeks')
+    GROUP BY week_start
+    ORDER BY week_start ASC
+  `);
+  
+  const results = stmt.all() as { week_start: string; total_amount: number }[];
+  
+  // Format the data for the chart
+  return results.map((row) => {
+    const date = new Date(row.week_start);
+    const weekLabel = date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    });
+    
+    return {
+      week: weekLabel,
+      amount: row.total_amount || 0,
+      weekStart: row.week_start,
+    };
+  });
+}
+

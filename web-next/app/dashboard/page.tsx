@@ -1,7 +1,8 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getAllStudents } from "@/lib/repositories/students";
-import { getRecentTransactions, getStudentIdsWithTransactions } from "@/lib/repositories/transactions";
+import { getRecentTransactions, getStudentIdsWithTransactions, getWeeklyTopupData } from "@/lib/repositories/transactions";
 import { Users, DollarSign, AlertTriangle, TrendingUp, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { WeeklyTopupChart } from "@/components/weekly-topup-chart";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +10,7 @@ export default async function DashboardPage() {
   const students = getAllStudents();
   const recentTransactions = getRecentTransactions(10);
   const studentIdsWithTransactions = getStudentIdsWithTransactions();
+  const weeklyTopupData = getWeeklyTopupData(12);
 
   const totalStudents = students.length;
   const totalBalance = students.reduce((sum, s) => sum + s.balance, 0);
@@ -89,6 +91,8 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      <WeeklyTopupChart data={weeklyTopupData} />
 
       <Card>
         <CardHeader>

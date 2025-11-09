@@ -25,7 +25,6 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Copy, Check } from "lucide-react";
-import { GravityStarsBackground } from "@/components/animate-ui/components/backgrounds/gravity-stars";
 import type { StudentWithAccount } from "@/lib/models";
 import { posCheckoutAction } from "@/app/actions/pos";
 import { getCardByUidAction, createCardAction } from "@/app/actions/cards";
@@ -567,38 +566,14 @@ export function PosForm({ students, studentIdsWithTransactions }: PosFormProps) 
               </AlertDescription>
             </Alert>
 
-            {/* Waiting card with GravityStarsBackground */}
-            <div className="border-2 border-primary/20 rounded-xl overflow-hidden flex-1 relative bg-card">
-              <GravityStarsBackground 
-                className="h-full"
-                starsCount={75}
-                starsSize={2}
-                starsOpacity={0.75}
-                glowIntensity={15}
-                glowAnimation="ease"
-                movementSpeed={0.3}
-                mouseInfluence={100}
-                mouseGravity="attract"
-                gravityStrength={75}
-                starsInteraction={false}
-              >
-                <CardContent className="flex items-center justify-center min-h-[400px] py-12 text-center relative z-10">
-                  <div className="space-y-6 max-w-2xl mx-auto">
-                    <div>
-                      <h3 className="text-3xl font-bold mb-3">Waiting for Card Tap</h3>
-                      <p className="text-muted-foreground text-xl">
-                        Ask the student to place their card on the reader
-                      </p>
-                    </div>
-                    <div className="pt-6 border-t">
-                      <p className="text-sm text-muted-foreground">
-                        A payment dialog will automatically appear when a card is detected
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </GravityStarsBackground>
-            </div>
+            {/* Waiting card with instructions */}
+            <Card className="border-2 border-primary/20 flex-1">
+              <CardContent className="flex items-center justify-center min-h-[400px] py-12 text-center">
+                  <div className="space-y-4 max-w-2xl mx-auto">
+                  <h3 className="text-2xl font-bold">Waiting for Card Tap...</h3>
+                </div>
+              </CardContent>
+            </Card>
           </>
         )}
 
