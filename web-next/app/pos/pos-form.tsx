@@ -29,6 +29,7 @@ import type { StudentWithAccount } from "@/lib/models";
 import { posCheckoutAction } from "@/app/actions/pos";
 import { getCardByUidAction, createCardAction } from "@/app/actions/cards";
 import { createStudentAction } from "@/app/actions/students";
+import { EncryptedText } from "@/components/ui/encrypted-text";
 
 interface PosFormProps {
   students: StudentWithAccount[];
@@ -569,8 +570,15 @@ export function PosForm({ students, studentIdsWithTransactions }: PosFormProps) 
             {/* Waiting card with instructions */}
             <Card className="border-2 border-primary/20 flex-1">
               <CardContent className="flex items-center justify-center min-h-[400px] py-12 text-center">
-                  <div className="space-y-4 max-w-2xl mx-auto">
-                  <h3 className="text-2xl font-bold">Waiting for Card Tap...</h3>
+                <div className="space-y-4 max-w-2xl mx-auto">
+                  <p className="text-lg font-normal">
+                    <EncryptedText
+                      text="Waiting for student to tap card..."
+                      encryptedClassName="text-neutral-500"
+                      revealedClassName="dark:text-white text-black"
+                      revealDelayMs={50}
+                    />
+                  </p>
                 </div>
               </CardContent>
             </Card>
