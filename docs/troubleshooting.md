@@ -2,6 +2,190 @@
 
 Common issues and solutions for the Stuco system.
 
+## Authentication Issues
+
+### Login/Signup Not Working
+
+**Problem**: Authentication isn't working after initial setup.
+
+**Symptoms**:
+- "Invalid credentials" error
+- Page redirects to login immediately
+- Session not persisting
+- Network errors on auth requests
+
+**Solutions**:
+
+1. **Verify Environment Variables**:
+   
+   Check `web-next/.env.local` contains:
+   ```env
+   DATABASE_PATH=/absolute/path/to/stuco.db
+   NEXT_PUBLIC_APP_URL=http://localhost:3000
+   BETTER_AUTH_SECRET=your_generated_secret
+   ```
+
+2. **Restart Development Server**:
+   
+   Environment variables only load on server start:
+   ```bash
+   # Stop current server (Ctrl+C)
+   cd web-next
+   pnpm dev
+   ```
+
+3. **Check Database Migration**:
+   
+   Verify Better Auth tables exist:
+   ```bash
+   sqlite3 stuco.db "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('user', 'session', 'account', 'verification');"
+   ```
+   
+   If tables are missing, run migration:
+   ```bash
+   cd web-next
+   sqlite3 ../stuco.db < migrations/better_auth_schema.sql
+   ```
+
+4. **Generate Better Auth Secret**:
+   
+   If missing or invalid:
+   ```bash
+   openssl rand -base64 32
+   ```
+   
+   Add to `.env.local`:
+   ```env
+   BETTER_AUTH_SECRET=generated_secret_here
+   ```
+
+5. **Check baseURL Configuration**:
+   
+   Verify `web-next/lib/auth.ts` has correct baseURL:
+   ```typescript
+   baseURL: process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+   ```
+   
+   And `web-next/lib/auth-client.ts`:
+   ```typescript
+   baseURL: typeof window !== 'undefined' ? window.location.origin : process.env.NEXT_PUBLIC_APP_URL
+   ```
+
+### "Module not found: better-auth"
+
+**Cause**: Dependencies not installed.
+
+**Solution**:
+```bash
+cd web-next
+pnpm install
+```
+
+### Session Not Persisting
+
+**Problem**: User is logged out after page refresh.
+
+**Solutions**:
+
+1. **Check Cookies Enabled**: Ensure browser allows cookies for localhost
+2. **Verify BETTER_AUTH_SECRET**: Must be set and consistent
+3. **Check baseURL**: Must match actual URL (http://localhost:3000)
+4. **Browser Console**: Check for CORS or cookie errors in dev tools
+
+### Microsoft OAuth Not Working
+
+**Problem**: Microsoft sign-in button not working or showing errors.
+
+**Solutions**:
+
+1. **Configure Azure AD Credentials**:
+   
+   Add to `.env.local`:
+   ```env
+   MICROSOFT_CLIENT_ID=your_client_id
+   MICROSOFT_CLIENT_SECRET=your_client_secret
+   ```
+
+2. **Verify Redirect URI**:
+   
+   In Azure Portal, ensure redirect URI matches:
+   - Development: `http://localhost:3000/api/auth/callback/microsoft`
+   - Production: `https://your-domain.com/api/auth/callback/microsoft`
+
+3. **Check Azure AD Configuration**:
+   - Application must be registered in Azure Portal
+   - Client secret must not be expired
+   - Redirect URI must be whitelisted
+
+### Signup Code Rejected
+
+**Problem**: Valid signup code is being rejected.
+
+**Solutions**:
+
+1. **Verify Code in Source**:
+   
+   Check `web-next/app/(auth)/signup/page.tsx`:
+   ```typescript
+   const SIGNUP_CODE = "12345678"; // Current code
+   ```
+
+2. **Check Environment Variable**:
+   
+   If using env var, verify `.env.local`:
+   ```env
+   NEXT_PUBLIC_SIGNUP_CODE=your_code
+   ```
+
+3. **Restart Server**: After changing code, restart dev server
+
+4. **No Spaces**: Ensure code has no leading/trailing spaces
+
+### "CORS error" or "Origin not allowed"
+
+**Solutions**:
+
+1. **Verify NEXT_PUBLIC_APP_URL**: Must match actual URL
+2. **Check trustedOrigins**: In `web-next/lib/auth.ts`
+3. **Browser Console**: Check exact error message
+
+### "Database error" or "Table not found"
+
+**Solutions**:
+
+1. **Run Migration**: See [Authentication Guide](authentication.md#database-setup)
+2. **Check DATABASE_PATH**: Must be absolute path
+3. **Verify Permissions**: Database file must be readable/writable
+
+### Testing Authentication
+
+After setup, verify authentication works:
+
+1. Navigate to `http://localhost:3000`
+2. Should redirect to `/login`
+3. Click "Sign up" to create account
+4. Fill in name, email, password
+5. Enter signup code (default: `12345678`)
+6. Should auto-login and redirect to `/dashboard`
+
+**Success Indicators**:
+- ✅ No errors in browser console
+- ✅ POST request to `/api/auth/sign-up/email` returns 200
+- ✅ Automatic redirect to `/dashboard` after signup
+- ✅ User name appears in sidebar
+- ✅ Logout works and redirects to `/login`
+
+**Debugging Tips**:
+
+1. **Browser Console** (F12): Check for JavaScript errors
+2. **Network Tab** (F12): Monitor API requests to `/api/auth/*`
+3. **Server Logs**: Check terminal where `pnpm dev` is running
+4. **Database Inspection**:
+   ```bash
+   sqlite3 stuco.db "SELECT * FROM user;"
+   sqlite3 stuco.db "SELECT * FROM session;"
+   ```
+
 ## Web UI Issues
 
 ### "Could not locate the bindings file" (better-sqlite3)

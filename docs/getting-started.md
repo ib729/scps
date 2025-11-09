@@ -133,7 +133,27 @@ This verifies all tools and provides installation instructions if missing.
    NFC_TAP_SECRET=your-secret-key   # For NFC authentication (optional for dev)
    ```
 
-5. **Test Database Connection** (optional):
+5. **Setup Authentication**:
+
+   Configure Better Auth for secure access:
+
+   ```bash
+   # Generate secret
+   openssl rand -base64 32
+   
+   # Add to .env.local
+   echo "BETTER_AUTH_SECRET=<generated_secret>" >> .env.local
+   ```
+
+   Run database migration:
+
+   ```bash
+   sqlite3 ../stuco.db < migrations/better_auth_schema.sql
+   ```
+
+   For detailed authentication setup, see [Authentication Guide](authentication.md).
+
+6. **Test Database Connection** (optional):
 
    ```bash
    node test-db.js
@@ -141,13 +161,15 @@ This verifies all tools and provides installation instructions if missing.
 
    Should output database stats and confirm connection.
 
-6. **Start Development Server**:
+7. **Start Development Server**:
 
    ```bash
    pnpm dev
    ```
 
-   Open [http://localhost:3000](http://localhost:3000).
+   Open [http://localhost:3000](http://localhost:3000) - you'll be redirected to login.
+   
+   Create your first account at `/signup` (default code: `12345678`).
 
 ### Legacy Manual Setup
 

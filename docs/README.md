@@ -13,6 +13,7 @@ Welcome to the documentation for the Student Council Management System. This sys
 - **[NFC Setup](nfc-setup.md)**: Configuring the NFC card reader and tap broadcaster with architecture details.
 
 ### System Administration
+- **[Authentication Guide](authentication.md)**: Better Auth setup, signup code configuration, Microsoft OAuth, and user management.
 - **[Database Guide](database.md)**: Schema details, migrations, backup procedures, and maintenance.
 - **[Deployment Guide](deployment.md)**: Production deployment with Docker, systemd, SSL, and reverse proxy setup.
 - **[Security Guide](security.md)**: Security best practices, secrets management, and hardening recommendations.
@@ -36,6 +37,7 @@ For the root project overview, see [../README.md](../README.md).
 ## Quick Links
 
 - **New to Stuco?** Start with [Getting Started](getting-started.md)
+- **Setting up authentication?** See [Authentication Guide](authentication.md)
 - **Deploying to production?** See [Deployment Guide](deployment.md) and [Security Guide](security.md)
 - **Extending the system?** Check [Development Guide](development.md) and [UI Components](ui-components.md)
 - **Having issues?** Look in [Troubleshooting](troubleshooting.md)
