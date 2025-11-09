@@ -67,6 +67,11 @@ In the `web-next/` directory:
 
 This verifies all tools and provides installation instructions if missing.
 
+**When to use which script:**
+- `check-prereqs.sh` - Run first to verify build tools are installed (gcc, make, python3, etc.)
+- `pnpm install` - Standard setup (recommended, includes postinstall for better-sqlite3)
+- `setup.sh` - Legacy manual setup if postinstall fails
+
 ## Database Setup
 
 1. **Initialize the Database**:
@@ -152,6 +157,22 @@ If automated setup fails:
 ./setup.sh  # Runs pnpm install + manual better-sqlite3 build
 pnpm dev
 ```
+
+### Docker Setup (Alternative)
+
+For containerized deployment:
+
+```bash
+cd web-next
+docker build -t stuco-web .
+docker run -p 3000:3000 \
+  -e DATABASE_PATH=/app/stuco.db \
+  -e NFC_TAP_SECRET=your-secret \
+  -v /path/to/stuco.db:/app/stuco.db \
+  stuco-web
+```
+
+See [Deployment Guide](deployment.md) for production setup.
 
 ## CLI Tools Setup
 
@@ -286,3 +307,5 @@ For more, see [Troubleshooting](troubleshooting.md).
 - Backup `stuco.db` regularly.
 
 Enjoy managing your snack bar!
+
+**Updated**: November 2025

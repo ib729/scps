@@ -1,4 +1,4 @@
-# Stuco Snack Bar Management System
+# Student Council Management System
 
 A system for managing student snack bar payments using NFC cards, with Python CLI tools and a modern Next.js web UI.
 
@@ -38,13 +38,24 @@ A system for managing student snack bar payments using NFC cards, with Python CL
 
 Comprehensive guides are in the [docs/ directory](docs/):
 
-- [Getting Started](docs/getting-started.md): Setup and installation.
+### Setup & Administration
+- [Getting Started](docs/getting-started.md): Installation and quick setup.
+- [Deployment Guide](docs/deployment.md): Production deployment (Docker, systemd, SSL).
+- [Security Guide](docs/security.md): Security best practices and hardening.
+- [Database Guide](docs/database.md): Schema, migrations, and maintenance.
+- [Scripts Reference](docs/scripts.md): Utility scripts documentation.
+
+### User Guides
 - [User Guide](docs/user-guide.md): How to use the system.
 - [NFC Setup](docs/nfc-setup.md): Configuring card readers.
-- [Database](docs/database.md): Schema and management.
-- [Development](docs/development.md): Building and extending.
+
+### Development
+- [Development Guide](docs/development.md): Architecture and extending the system.
+- [UI Components Guide](docs/ui-components.md): Custom components and animations.
+
+### Reference
+- [Troubleshooting](docs/troubleshooting.md): Common issues and solutions.
 - [Changelog](docs/changelog.md): Release notes.
-- [Troubleshooting](docs/troubleshooting.md): Common issues.
 
 ## License
 

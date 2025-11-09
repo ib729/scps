@@ -1,14 +1,27 @@
-# Stuco Documentation
+# Documentation
 
-Welcome to the documentation for the Stuco Snack Bar Management System. This system handles student payments via NFC cards, account management, and point-of-sale operations.
+Welcome to the documentation for the Student Council Management System. This system handles student payments via NFC cards, account management, and point-of-sale operations.
 
 ## Table of Contents
 
+### Getting Started
 - **[Getting Started](getting-started.md)**: Installation, prerequisites, and quick setup for web UI and CLI tools.
+- **[Scripts Reference](scripts.md)**: Documentation for all utility scripts (setup, database, NFC testing).
+
+### User Documentation
 - **[User Guide](user-guide.md)**: Step-by-step instructions for staff using the web interface and POS.
-- **[NFC Setup](nfc-setup.md)**: Configuring the NFC card reader and tap broadcaster.
-- **[Database Guide](database.md)**: Schema details, migrations, and connection information.
-- **[Development Guide](development.md)**: Architecture, building, and extending the system.
+- **[NFC Setup](nfc-setup.md)**: Configuring the NFC card reader and tap broadcaster with architecture details.
+
+### System Administration
+- **[Database Guide](database.md)**: Schema details, migrations, backup procedures, and maintenance.
+- **[Deployment Guide](deployment.md)**: Production deployment with Docker, systemd, SSL, and reverse proxy setup.
+- **[Security Guide](security.md)**: Security best practices, secrets management, and hardening recommendations.
+
+### Development
+- **[Development Guide](development.md)**: Architecture, tech stack, building, and extending the system.
+- **[UI Components Guide](ui-components.md)**: Custom components, animations, and design patterns.
+
+### Reference
 - **[Changelog](changelog.md)**: Release notes and recent changes.
 - **[Troubleshooting](troubleshooting.md)**: Common issues and solutions.
 
@@ -20,6 +33,15 @@ Welcome to the documentation for the Stuco Snack Bar Management System. This sys
 
 For the root project overview, see [../README.md](../README.md).
 
+## Quick Links
+
+- **New to Stuco?** Start with [Getting Started](getting-started.md)
+- **Deploying to production?** See [Deployment Guide](deployment.md) and [Security Guide](security.md)
+- **Extending the system?** Check [Development Guide](development.md) and [UI Components](ui-components.md)
+- **Having issues?** Look in [Troubleshooting](troubleshooting.md)
+
 ## Contributing
 
 This is an internal tool. See the [Development Guide](development.md) for technical details.
+
+**Updated**: November 2025

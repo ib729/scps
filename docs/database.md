@@ -179,11 +179,72 @@ See scripts for details.
 
 ## Backup and Maintenance
 
-- **Backup**: `cp stuco.db stuco.db.backup.$(date +%Y%m%d_%H%M%S)`
-- **Size**: Compact with `sqlite3 stuco.db "VACUUM;"`
-- **Integrity**: `sqlite3 stuco.db "PRAGMA integrity_check;"`
-- **Concurrent Access**: Use WAL: `sqlite3 stuco.db "PRAGMA journal_mode=WAL;"`
-- **Production**: Automate backups (cron), monitor locks.
+### Manual Backup
+
+```bash
+# Quick backup
+cp stuco.db stuco.db.backup.$(date +%Y%m%d_%H%M%S)
+
+# Backup with compression
+tar -czf stuco_backup_$(date +%Y%m%d_%H%M%S).tar.gz stuco.db stuco.db-wal stuco.db-shm
+```
+
+### Database Reset
+
+**Production Reset Script (`reset_db.py`):**
+```bash
+python reset_db.py
+# Interactive: prompts for confirmation, creates backup, optional admin user
+```
+
+Features:
+- Automatic backup to `db_backups/` directory
+- Confirmation prompt (type 'RESET')
+- Optional admin user creation with password hashing
+- Timestamped backups
+
+**Quick Reset Script (`reset_db.sh`):**
+```bash
+./reset_db.sh
+# Simpler bash version, auto-backups and reinitializes
+```
+
+### Migration Runner
+
+Run migrations with automatic backup:
+
+```bash
+./run_migration.sh migrate_cascade_delete.sql
+./run_migration.sh migrate_decimal_currency.sql
+```
+
+The script:
+- Creates timestamped backup before migration
+- Runs the SQL migration file
+- Tests foreign key constraints
+- Provides rollback instructions if issues occur
+
+### Maintenance Tasks
+
+- **Compact Database**: `sqlite3 stuco.db "VACUUM;"`
+- **Integrity Check**: `sqlite3 stuco.db "PRAGMA integrity_check;"`
+- **Enable WAL Mode**: `sqlite3 stuco.db "PRAGMA journal_mode=WAL;"`
+- **Check Size**: `du -h stuco.db*`
+
+### Automated Backups (Production)
+
+Add to crontab for daily backups:
+
+```bash
+# Edit crontab
+crontab -e
+
+# Add daily backup at 2 AM
+0 2 * * * cd /path/to/stuco && tar -czf db_backups/auto_backup_$(date +\%Y\%m\%d).tar.gz stuco.db stuco.db-wal stuco.db-shm
+
+# Keep only last 30 days
+0 3 * * * find /path/to/stuco/db_backups -name "auto_backup_*.tar.gz" -mtime +30 -delete
+```
 
 ## Troubleshooting
 
@@ -194,4 +255,28 @@ See scripts for details.
 
 For more, see [Troubleshooting](troubleshooting.md).
 
-**Updated**: November 2025 (Post-Migrations)
+## Quick Reference
+
+**Common Commands:**
+```bash
+# Initialize database
+python init_db.py
+
+# View schema
+sqlite3 stuco.db ".schema"
+
+# List all tables
+sqlite3 stuco.db ".tables"
+
+# Query students with balances
+sqlite3 stuco.db "SELECT s.name, a.balance FROM students s JOIN accounts a ON s.id = a.student_id;"
+
+# Backup
+./reset_db.sh  # Full reset with backup
+python reset_db.py  # Interactive reset
+
+# Migrations
+./run_migration.sh migration_file.sql
+```
+
+**Updated**: November 2025

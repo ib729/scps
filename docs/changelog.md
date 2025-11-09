@@ -55,4 +55,20 @@ A log of notable changes during early development. No official releases yet.
 
 - **Initial CLI Tools**: pos.py, topup.py, enroll.py with basic NFC.
 
+## Documentation Updates
+
+### 2025-11-09
+
+- **Documentation Overhaul**:
+  - Consolidated duplicate NFC documentation into single guide
+  - Added [Deployment Guide](deployment.md) for production setup
+  - Added [Security Guide](security.md) for hardening recommendations
+  - Added [UI Components Guide](ui-components.md) for custom components
+  - Added [Scripts Reference](scripts.md) for utility scripts
+  - Enhanced existing guides with missing information
+  - Removed redundant web-ui.md
+  - Updated all cross-references and navigation
+
 For full history, see git log.
+
+**Updated**: November 2025

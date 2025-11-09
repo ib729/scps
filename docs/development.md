@@ -21,6 +21,10 @@ This guide is for developers extending or maintaining the Stuco system. Covers a
 - **Database**: better-sqlite3 (native bindings auto-built).
 - **Real-time**: Server-Sent Events (SSE) for NFC taps.
 - **Notifications**: Sonner (toasts).
+- **Animation**: Motion (Framer Motion), animate-ui.
+- **3D/Graphics**: Three.js for background effects.
+- **Charts**: Recharts for analytics visualization.
+- **Theming**: next-themes for dark mode support.
 - See `web-next/package.json`.
 
 ### NFC
@@ -65,8 +69,11 @@ CLI Tools (Python) ↔ stuco.db (SQLite) ↔ Web UI (Next.js)
    - `/topup`: Funds (manual).
 
 4. **Components**:
-   - UI: Shadcn (button, table, dialog, etc.).
-   - Custom: PosForm, TapAlert (toasts), Nav.
+   - UI: Shadcn (button, table, dialog, drawer, sheet, etc.).
+   - Custom: PosForm, TapAlert (toasts), Nav, WeeklyTopupChart.
+   - Animation: FlipWords, EncryptedText.
+   - Backgrounds: HoleBackground, Fireworks, GravityStars (animate-ui).
+   - See [UI Components Guide](ui-components.md) for details.
 
 5. **API Routes** (`app/api/nfc/`):
    - `/tap`: POST from broadcaster.
@@ -206,12 +213,24 @@ pnpm build  # Includes TS check
 
 ### Best Practices
 
-- **Type Safety**: Use Zod for all inputs.
-- **Validation**: Server-side always.
-- **Errors**: User-friendly messages.
-- **Dynamic Rendering**: For DB pages.
-- **Revalidation**: After mutations.
-- **Currency**: Use helpers for tenths conversion.
+- **Type Safety**: Use Zod for all inputs, define schemas in `lib/models.ts`.
+- **Validation**: Server-side always, client-side for UX.
+- **Errors**: User-friendly messages with actionable suggestions.
+- **Dynamic Rendering**: For DB pages (`export const dynamic = 'force-dynamic'`).
+- **Revalidation**: After mutations (`revalidatePath`).
+- **Currency**: Use helpers in `lib/currency.ts` for tenths conversion.
+- **Components**: Prefer Shadcn UI components for consistency.
+- **Styling**: Use Tailwind utilities, avoid inline styles.
+- **Accessibility**: Use semantic HTML, ARIA labels, keyboard navigation.
+
+### Coding Conventions
+
+- **File Organization**: Group by feature (pages, actions, components).
+- **Naming**: camelCase for functions, PascalCase for components.
+- **Exports**: Named exports for utilities, default for pages/components.
+- **Comments**: Explain "why", not "what" (code should be self-documenting).
+- **Error Handling**: Always catch and handle errors gracefully.
+- **Database**: Use repositories for all DB access, never raw queries in pages.
 
 ## Potential Enhancements
 
@@ -223,6 +242,13 @@ From implementation notes:
 - Audit logs.
 - Dark mode toggle.
 
-See [Changelog](../changelog.md) for recent changes.
+See [Changelog](changelog.md) for recent changes.
+
+## Additional Resources
+
+- [UI Components Guide](ui-components.md) - Custom components and animations
+- [Deployment Guide](deployment.md) - Production setup
+- [Security Guide](security.md) - Security best practices
+- [Scripts Reference](scripts.md) - Utility scripts documentation
 
 **Updated**: November 2025
