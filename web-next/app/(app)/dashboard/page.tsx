@@ -99,10 +99,10 @@ export default async function DashboardPage() {
               recentTransactions.map((tx) => (
                 <div
                   key={tx.id}
-                  className="flex items-center justify-between"
+                  className="flex items-center justify-between gap-4"
                 >
-                  <div className="flex items-center gap-4">
-                    <div className={`flex h-9 w-9 items-center justify-center rounded-full ${
+                  <div className="flex items-center gap-4 min-w-0 flex-1">
+                    <div className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full ${
                       tx.type === "TOPUP" 
                         ? "bg-green-100 dark:bg-green-900/20" 
                         : tx.type === "DEBIT"
@@ -117,24 +117,24 @@ export default async function DashboardPage() {
                         <ArrowDownRight className="h-4 w-4 text-red-600" />
                       )}
                     </div>
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium leading-none">
+                    <div className="space-y-1 min-w-0 flex-1">
+                      <p className="text-sm font-medium leading-none truncate">
                         {tx.student_name}
                       </p>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-sm text-muted-foreground break-words">
                         {tx.description || "-"}
                       </p>
                     </div>
                   </div>
-                  <div className="text-right space-y-1">
+                  <div className="text-right space-y-1 flex-shrink-0">
                     <p
-                      className={`text-sm font-medium ${
+                      className={`text-sm font-medium whitespace-nowrap ${
                         tx.amount >= 0 ? "text-green-600" : "text-red-600"
                       }`}
                     >
                       {tx.amount >= 0 ? "+" : ""}¥{formatCurrency(Math.abs(tx.amount))}
                     </p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-xs text-muted-foreground whitespace-nowrap">
                       {new Date(tx.created_at).toLocaleDateString()}
                     </p>
                   </div>
