@@ -1,5 +1,6 @@
 import { getAllTransactions } from "@/lib/repositories/transactions";
-import { TransactionsTable } from "./transactions-table";
+import { DataTable } from "./data-table";
+import { columns } from "./columns";
 
 export const dynamic = "force-dynamic";
 
@@ -8,7 +9,7 @@ export default async function TransactionsPage() {
 
   return (
     <div className="w-full space-y-6">
-      <TransactionsTable transactions={transactions} />
+      <DataTable columns={columns} data={transactions} />
     </div>
   );
 }
