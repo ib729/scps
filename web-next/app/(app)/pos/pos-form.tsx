@@ -75,6 +75,9 @@ export function PosForm({ students, studentIdsWithTransactions }: PosFormProps) 
   const selectedStudent = students.find((s) => s.id === parseInt(studentId));
   const dialogStudent = students.find((s) => s.id === dialogStudentId);
 
+  // State to trigger re-animation of the encrypted text
+  const [animationKey, setAnimationKey] = useState(0);
+
   // WebSocket connection for tap events (only in tap-first mode)
   const { isConnected, statusMessage: tapStatus } = useNFCWebSocket({
     lane: "default",
@@ -84,6 +87,17 @@ export function PosForm({ students, studentIdsWithTransactions }: PosFormProps) 
       handleCardTap(event.card_uid);
     },
   });
+
+  // Repeat the encryption animation every 3 seconds when in tap-first mode
+  useEffect(() => {
+    if (mode !== "tap-first") return;
+    
+    const interval = setInterval(() => {
+      setAnimationKey((prev) => prev + 1);
+    }, 5000); // Change this value to adjust repeat frequency
+    
+    return () => clearInterval(interval);
+  }, [mode]);
 
   const copyTransactionId = async (txId: number) => {
     await navigator.clipboard.writeText(txId.toString());
@@ -522,6 +536,7 @@ export function PosForm({ students, studentIdsWithTransactions }: PosFormProps) 
                 <div className="space-y-4 max-w-2xl mx-auto">
                   <p className="text-lg font-normal">
                     <EncryptedText
+                      key={animationKey}
                       text="Waiting for student to tap card..."
                       encryptedClassName="text-neutral-500"
                       revealedClassName="dark:text-white text-black"
