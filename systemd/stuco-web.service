@@ -1,0 +1,23 @@
+[Unit]
+Description=Stuco Web Server (Next.js with WebSocket)
+After=network.target
+
+[Service]
+Type=simple
+User=qiss
+WorkingDirectory=/home/qiss/stuco/web-next
+Environment="NODE_ENV=production"
+Environment="PORT=3000"
+Environment="HOSTNAME=0.0.0.0"
+ExecStart=/usr/bin/node /home/qiss/stuco/web-next/server.js
+StandardOutput=journal
+StandardError=journal
+Restart=on-failure
+RestartSec=5
+
+# Reload environment on restart
+ExecStartPre=/bin/sleep 2
+
+[Install]
+WantedBy=multi-user.target
+

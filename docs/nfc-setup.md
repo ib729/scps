@@ -6,14 +6,21 @@ This guide sets up NFC tap support for the Stuco POS system, enabling card taps 
 
 **NFC Flow (POS Only)**:
 1. Student taps card on PN532 reader.
-2. `tap-broadcaster.py` detects UID and POSTs to `/api/nfc/tap`.
-3. Next.js broadcasts via SSE to connected browsers.
+2. `tap-broadcaster.py` detects UID and sends via WebSocket to `/api/nfc/ws`.
+3. Next.js broadcasts via WebSocket to connected browsers.
 4. POS UI auto-selects student.
 5. Staff enters amount and charges.
 
 **Top-ups**: Manual selection only (no taps).
 
+**Architecture**:
+- **WebSocket-based**: Lower latency, bidirectional communication
+- **Card presence tracking**: Prevents duplicate tap detections
+- **Auto-reconnection**: Both broadcaster and clients reconnect automatically
+- **Server-side deduplication**: Additional protection against duplicates
+
 **Recent Updates**:
+- **WebSocket upgrade**: Replaced HTTP POST + SSE with full WebSocket architecture
 - POS modes: "Tap Card" (NFC) vs "Manual".
 - Global toasts: Alerts on non-POS pages guide to POS.
 - Unenrolled cards: Options to enroll + POS/Top-up/Only.
@@ -30,7 +37,7 @@ This guide sets up NFC tap support for the Stuco POS system, enabling card taps 
 
    ```bash
    source .venv/bin/activate
-   pip install -r requirements.txt  # Includes requests, nfcpy
+   pip install -r requirements.txt  # Includes websockets, nfcpy
    ```
 
    For I2C (libnfc):
@@ -57,14 +64,23 @@ This guide sets up NFC tap support for the Stuco POS system, enabling card taps 
 
 ## Tap Broadcaster Setup
 
-`tap-broadcaster.py` reads cards and broadcasts to web UI.
+`tap-broadcaster.py` reads cards and broadcasts to web UI via WebSocket.
+
+### Features
+
+- **WebSocket connection**: Persistent connection with automatic reconnection
+- **Card presence tracking**: Detects when cards are removed, prevents duplicates
+- **Async operation**: Non-blocking, efficient resource usage
+- **Graceful error handling**: Exponential backoff on connection failures
+- **Simulation mode**: Test without hardware
+- **Test mode**: Send single test tap
 
 ### Environment Variables
 
 - `NEXTJS_URL`: Web server (default: http://localhost:3000).
 - `NFC_TAP_SECRET`: Auth secret (matches web UI).
 - `POS_LANE_ID`: For multi-lane (default: "default").
-- `PN532_DEVICE`: Reader device (default: i2c:/dev/i2c-1:pn532).
+- `PN532_DEVICE`: Reader device (default: tty:AMA0:pn532 for UART).
 
 ### Usage
 
@@ -97,16 +113,33 @@ python tap-broadcaster.py --test  # Sends fake UID "DEADBEEF"
 ```
 
 **Output**:
-- `[NFC] Waiting for card tap...`
-- `[OK] Tap broadcast: DEADBEEF → 1 listener(s)`
+```
+╔═══════════════════════════════════════════════════════════════╗
+║         NFC Tap Broadcaster for Stuco POS System             ║
+║                    WebSocket Version                         ║
+╠═══════════════════════════════════════════════════════════════╣
+║ Server:  http://localhost:3000                               ║
+║ Lane:    default                                             ║
+║ Device:  tty:AMA0:pn532                                      ║
+║ Secret:  [SET]                                               ║
+║ Mode:    HARDWARE                                            ║
+╚═══════════════════════════════════════════════════════════════╝
+
+[WS] Connecting to ws://localhost:3000/api/nfc/ws...
+[WS] Connected successfully
+[WS] Authenticated successfully (lane: default)
+[NFC] Starting card reader loop on tty:AMA0:pn532
+[NFC] Waiting for card tap...
+[OK] Tap broadcast: DEADBEEF
+```
 
 ### Multi-Lane Setup
 
 For multiple checkouts:
 
-- Broadcaster 1: `POS_LANE_ID=lane-a python tap-broadcaster.py --device usb1`
-- Broadcaster 2: `POS_LANE_ID=lane-b python tap-broadcaster.py --device usb2`
-- POS URL: `/pos?lane=lane-a` (filters SSE).
+- Broadcaster 1: `POS_LANE_ID=lane-a python tap-broadcaster.py --device tty:AMA0:pn532`
+- Broadcaster 2: `POS_LANE_ID=lane-b python tap-broadcaster.py --device tty:USB0:pn532`
+- POS URL: `/pos?lane=lane-a` (filters WebSocket events).
 
 ## Systemd Service (Production)
 
@@ -172,40 +205,61 @@ For multiple checkouts:
 
 ## API Endpoints
 
-### POST /api/nfc/tap
+### WebSocket /api/nfc/ws
 
-Receives broadcasts.
+Main WebSocket endpoint for bidirectional communication.
 
-**Payload**:
+**Connection**: `ws://localhost:3000/api/nfc/ws?lane=default`
+
+**Authentication** (Python broadcaster):
+```json
+{
+  "type": "auth",
+  "role": "broadcaster",
+  "secret": "your-secret",
+  "lane": "default"
+}
+```
+
+**Authentication** (Browser client):
+```json
+{
+  "type": "auth",
+  "role": "client"
+}
+```
+*Note: Browser clients authenticate via session cookie*
+
+**Tap Event** (broadcaster → server):
+```json
+{
+  "type": "tap",
+  "card_uid": "DEADBEEF",
+  "lane": "default",
+  "reader_ts": "2025-11-09T12:00:00Z"
+}
+```
+
+**Tap Event** (server → clients):
 ```json
 {
   "card_uid": "DEADBEEF",
   "lane": "default",
   "reader_ts": "2025-11-09T12:00:00Z",
-  "secret": "your-secret"
+  "timestamp": "2025-11-09T12:00:00.123Z"
 }
 ```
 
-**Response**:
+**Ping/Pong** (keepalive every 30s):
 ```json
-{
-  "success": true,
-  "listeners": 1
-}
+{"type": "ping"}
+{"type": "pong"}
 ```
 
-### GET /api/nfc/stream
+### POST /api/nfc/tap (Legacy)
 
-SSE for real-time taps (Tap Card mode).
-
-**Query**: `?lane=default` (filter).
-
-**Events**:
-```
-data: {"type":"connected","lane":"default"}
-data: {"card_uid":"DEADBEEF","lane":"default","ts":"..."}
-data: {"type":"keepalive"}
-```
+HTTP POST endpoint maintained for backwards compatibility. 
+Use WebSocket endpoint for new implementations.
 
 ## Troubleshooting
 
@@ -218,25 +272,66 @@ data: {"type":"keepalive"}
 
 ### "Disconnected" in UI
 
-- Verify web UI running: `curl http://localhost:3000/api/nfc/stream`.
-- Check secret matches in env files.
-- Browser: Open dev tools, check SSE connection.
+- **WebSocket connection**: Check browser console for WS errors
+- **Server running**: Verify Next.js is running on port 3000
+- **Secret mismatch**: Check NFC_TAP_SECRET matches in both .env files
+- **Network**: Test `curl http://localhost:3000/api/nfc/tap` (GET for health)
+- **Broadcaster logs**: Check for `[WS] Authenticated successfully`
+
+### Broadcaster Won't Connect
+
+- **Server URL**: Verify NEXTJS_URL is correct (http://localhost:3000)
+- **WebSocket support**: Ensure Next.js version supports WebSockets
+- **Firewall**: Check if WebSocket port is blocked
+- **Logs**: Look for `[WS] Connection error` or `[WS] Authentication failed`
+- **Test mode**: Run `python tap-broadcaster.py --test` to verify connection
+
+### Duplicate Taps
+
+Should be prevented by:
+- **Card presence tracking** in Python broadcaster (1.5s debounce)
+- **Server-side deduplication** in Next.js (1s debounce)
+
+If still seeing duplicates:
+- Check logs for `[TapBroadcaster] Duplicate tap ignored` messages
+- Verify `DEBOUNCE_SECONDS` setting in tap-broadcaster.py
+- Card may be making poor contact with reader
 
 ### Taps Not Auto-Selecting
 
 - Enrolled? Check cards table: `sqlite3 stuco.db "SELECT * FROM cards;"`
 - Mode: Ensure "Tap Card" selected in POS.
 - Lane: Match POS URL query param.
+- **WebSocket**: Check browser console shows "Connected" status
 
 ### Service Issues
 
-- `systemctl status`: Check if running.
-- Logs: `journalctl -u tap-broadcaster`.
+- `systemctl status tap-broadcaster`: Check if running.
+- `journalctl -u tap-broadcaster -f`: Live logs.
 - Paths: Verify WorkingDirectory, ExecStart in service file.
+- **Restart**: `sudo systemctl restart tap-broadcaster`
 
 ### Simulation for Testing
 
-Use `--simulate` to test UI without hardware.
+Use `--simulate` to test UI without hardware:
+```bash
+python tap-broadcaster.py --simulate
+# Type UIDs like: DEADBEEF
+```
+
+### WebSocket Debugging
+
+**Browser console**:
+```javascript
+// Check WebSocket connection
+console.log("WebSocket ready state:", ws.readyState);
+// 0=CONNECTING, 1=OPEN, 2=CLOSING, 3=CLOSED
+```
+
+**Python broadcaster**:
+- Look for `[WS] Connected successfully` and `[WS] Authenticated successfully`
+- Connection errors show as `[WS] Connection error:` with details
+- Reconnection attempts show backoff timing
 
 ## Security (Production)
 

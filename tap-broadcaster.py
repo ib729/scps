@@ -1,33 +1,84 @@
 #!/usr/bin/env python3
 """
-NFC Tap Broadcaster
+NFC Tap Broadcaster - WebSocket Version
 
 Listens for card taps on the PN532 reader and broadcasts them to the
-Next.js web UI via HTTP POST to /api/nfc/tap.
+Next.js web UI via WebSocket connection.
+
+Features:
+- WebSocket connection with automatic reconnection
+- Card presence tracking to prevent duplicate taps
+- Continuous reader mode (keeps NFC connection open)
+- Proper debouncing with UID tracking
+- Simulation and test modes
+- UART, USB, and I2C device support
+- Graceful shutdown handling
 
 Usage:
     python tap-broadcaster.py --url http://localhost:3000 --secret YOUR_SECRET
-    python tap-broadcaster.py --simulate  # For testing without hardware
+    python tap-broadcaster.py --simulate  # Test mode without hardware
+    python tap-broadcaster.py --test      # Send single test tap and exit
 """
 
 import argparse
+import asyncio
 import binascii
+import json
 import os
 import re
+import signal
 import subprocess
 import sys
 import time
 from datetime import datetime, timezone
+from typing import Optional, Callable
 
 try:
-    import requests
+    import websockets
 except ImportError:
-    print("Error: requests module not found. Install with: pip install requests")
+    print("Error: websockets module not found. Install with: pip install websockets")
     sys.exit(1)
 
 
-def read_uid_from_pn532(device):
-    """Read card UID from PN532 reader."""
+# Global state for card tracking
+class CardState:
+    """Track card presence and prevent duplicate taps"""
+    def __init__(self):
+        self.last_uid: Optional[str] = None
+        self.last_tap_time: float = 0
+        self.debounce_seconds: float = 1.5
+    
+    def should_broadcast(self, uid: str) -> bool:
+        """Check if this UID should be broadcast (not a duplicate)"""
+        current_time = time.time()
+        
+        # New card or card was removed and re-tapped
+        if uid != self.last_uid or (current_time - self.last_tap_time) > self.debounce_seconds:
+            self.last_uid = uid
+            self.last_tap_time = current_time
+            return True
+        
+        return False
+    
+    def reset(self):
+        """Reset state when card is removed"""
+        self.last_uid = None
+
+
+card_state = CardState()
+shutdown_event = asyncio.Event()
+
+
+def read_uid_from_pn532(device: str) -> Optional[str]:
+    """
+    Read card UID from PN532 reader (blocking).
+    
+    Args:
+        device: Device string (e.g., 'tty:AMA0:pn532', 'usb:001:003', 'i2c:/dev/i2c-1:pn532')
+    
+    Returns:
+        Card UID as hex string, or None if no card detected
+    """
     # Check if device is I2C (nfcpy doesn't support I2C, use libnfc instead)
     if device.startswith("i2c") or "i2c" in device.lower():
         return read_uid_from_libnfc()
@@ -42,18 +93,27 @@ def read_uid_from_pn532(device):
     uid_hex = {"val": None}
 
     def on_connect(tag):
-        uid_hex["val"] = binascii.hexlify(tag.identifier).decode().upper()
-        return False  # Release immediately
+        """Callback when card is detected"""
+        uid = binascii.hexlify(tag.identifier).decode().upper()
+        uid_hex["val"] = uid
+        return False  # Release immediately for single-read mode
 
-    with nfc.ContactlessFrontend(device) as clf:
-        print(f"[NFC] Waiting for card tap on {device}...")
-        clf.connect(rdwr={"on-connect": on_connect})
+    try:
+        with nfc.ContactlessFrontend(device) as clf:
+            clf.connect(rdwr={"on-connect": on_connect}, terminate=lambda: shutdown_event.is_set())
+        return uid_hex["val"]
+    except Exception as e:
+        # Return None on error - caller will handle retry
+        return None
 
-    return uid_hex["val"]
 
-
-def read_uid_from_libnfc():
-    """Read card UID using libnfc command-line tool (for I2C devices)."""
+def read_uid_from_libnfc() -> Optional[str]:
+    """
+    Read card UID using libnfc command-line tool (for I2C devices).
+    
+    Returns:
+        Card UID as hex string, or None if no card detected
+    """
     try:
         # Use nfc-list which is faster and doesn't wait for card removal
         # 5-second timeout allows time for I2C initialization
@@ -83,48 +143,257 @@ def read_uid_from_libnfc():
         # Timeout means no card was detected, return None to try again
         return None
     except Exception as e:
-        print(f"Error reading from libnfc: {e}")
+        # Return None on error - caller will handle retry
         return None
 
 
-def broadcast_tap(url, card_uid, lane, secret=None):
-    """POST the tap event to the Next.js API."""
-    endpoint = f"{url}/api/nfc/tap"
+async def broadcast_tap_ws(websocket, card_uid: str, lane: str) -> bool:
+    """
+    Send tap event via WebSocket.
     
-    payload = {
-        "card_uid": card_uid,
-        "lane": lane,
-        "reader_ts": datetime.now(timezone.utc).isoformat(),
-    }
+    Args:
+        websocket: WebSocket connection
+        card_uid: Card UID to broadcast
+        lane: Lane identifier
     
-    if secret:
-        payload["secret"] = secret
-
+    Returns:
+        True if successful, False otherwise
+    """
     try:
-        response = requests.post(
-            endpoint,
-            json=payload,
-            timeout=5,
-            headers={"Content-Type": "application/json"}
-        )
+        message = {
+            "type": "tap",
+            "card_uid": card_uid,
+            "lane": lane,
+            "reader_ts": datetime.now(timezone.utc).isoformat(),
+        }
         
-        if response.status_code == 200:
-            data = response.json()
-            listeners = data.get("listeners", 0)
-            print(f"[OK] Tap broadcast: {card_uid} → {listeners} listener(s)")
-            return True
-        else:
-            print(f"[ERROR] Server returned {response.status_code}: {response.text}")
-            return False
-            
-    except requests.exceptions.RequestException as e:
+        await websocket.send(json.dumps(message))
+        print(f"[OK] Tap broadcast: {card_uid}")
+        return True
+        
+    except Exception as e:
         print(f"[ERROR] Failed to broadcast tap: {e}")
         return False
 
 
-def main():
+async def nfc_reader_loop(websocket, device: str, lane: str):
+    """
+    Continuous NFC reader loop with card presence tracking.
+    
+    Args:
+        websocket: WebSocket connection
+        device: NFC device string
+        lane: Lane identifier
+    """
+    print(f"[NFC] Starting card reader loop on {device}")
+    print("[NFC] Waiting for card tap...")
+    
+    loop = asyncio.get_event_loop()
+    
+    while not shutdown_event.is_set():
+        try:
+            # Read UID in thread pool (blocking call)
+            uid = await loop.run_in_executor(None, read_uid_from_pn532, device)
+            
+            if uid:
+                # Check if we should broadcast this tap
+                if card_state.should_broadcast(uid):
+                    await broadcast_tap_ws(websocket, uid, lane)
+                else:
+                    # Card still present, don't rebroadcast
+                    pass
+                
+                # Small delay to prevent excessive polling
+                await asyncio.sleep(0.1)
+            else:
+                # No card detected, reset state
+                card_state.reset()
+                
+                # Small delay before next poll
+                await asyncio.sleep(0.1)
+                
+        except asyncio.CancelledError:
+            print("[NFC] Reader loop cancelled")
+            break
+        except Exception as e:
+            print(f"[ERROR] Reader error: {e}")
+            await asyncio.sleep(1)  # Wait before retry on error
+
+
+async def simulation_mode(websocket, lane: str):
+    """
+    Interactive simulation mode - manually type UIDs.
+    
+    Args:
+        websocket: WebSocket connection
+        lane: Lane identifier
+    """
+    print("[SIMULATE] Manual UID entry mode. Type UID hex (or 'quit'):")
+    
+    loop = asyncio.get_event_loop()
+    
+    while not shutdown_event.is_set():
+        try:
+            # Read input in thread pool (blocking call)
+            uid = await loop.run_in_executor(None, lambda: input("> ").strip())
+            
+            if uid.lower() in ("q", "quit", "exit"):
+                break
+            
+            if not uid:
+                continue
+            
+            await broadcast_tap_ws(websocket, uid.upper(), lane)
+            
+        except (EOFError, KeyboardInterrupt):
+            break
+        except Exception as e:
+            print(f"[ERROR] Simulation error: {e}")
+    
+    print("\n[EXIT] Exiting simulation mode.")
+
+
+async def authenticate_websocket(websocket, secret: Optional[str], lane: str):
+    """
+    Authenticate with the WebSocket server.
+    
+    Args:
+        websocket: WebSocket connection
+        secret: Shared secret for authentication
+        lane: Lane identifier
+    """
+    auth_message = {
+        "type": "auth",
+        "role": "broadcaster",
+        "secret": secret or "",
+        "lane": lane,
+    }
+    
+    await websocket.send(json.dumps(auth_message))
+    
+    # Wait for auth response
+    response = await websocket.recv()
+    data = json.loads(response)
+    
+    if data.get("type") == "auth_success":
+        print(f"[WS] Authenticated successfully (lane: {lane})")
+        return True
+    else:
+        print(f"[WS] Authentication failed: {data.get('message', 'Unknown error')}")
+        return False
+
+
+async def websocket_broadcaster(url: str, secret: Optional[str], lane: str, device: str, simulate: bool):
+    """
+    Main WebSocket broadcaster with automatic reconnection.
+    
+    Args:
+        url: Server URL (http://localhost:3000)
+        secret: Shared secret for authentication
+        lane: Lane identifier
+        device: NFC device string
+        simulate: Whether to run in simulation mode
+    """
+    # Convert HTTP URL to WebSocket URL
+    ws_url = url.replace("http://", "ws://").replace("https://", "wss://")
+    ws_url = f"{ws_url}/api/nfc/ws"
+    
+    retry_delay = 1
+    max_retry_delay = 60
+    
+    while not shutdown_event.is_set():
+        try:
+            print(f"[WS] Connecting to {ws_url}...")
+            
+            async with websockets.connect(
+                ws_url,
+                ping_interval=30,
+                ping_timeout=10,
+                close_timeout=5,
+            ) as websocket:
+                print("[WS] Connected successfully")
+                
+                # Authenticate
+                if not await authenticate_websocket(websocket, secret, lane):
+                    print("[WS] Disconnecting due to auth failure")
+                    await asyncio.sleep(5)
+                    continue
+                
+                # Reset retry delay on successful connection
+                retry_delay = 1
+                
+                # Start NFC reader or simulation
+                if simulate:
+                    await simulation_mode(websocket, lane)
+                else:
+                    await nfc_reader_loop(websocket, device, lane)
+                
+        except websockets.exceptions.WebSocketException as e:
+            print(f"[WS] Connection error: {e}")
+        except ConnectionRefusedError:
+            print(f"[WS] Connection refused - is the server running?")
+        except Exception as e:
+            print(f"[WS] Unexpected error: {e}")
+        
+        if shutdown_event.is_set():
+            break
+        
+        # Exponential backoff for reconnection
+        print(f"[WS] Reconnecting in {retry_delay}s...")
+        await asyncio.sleep(retry_delay)
+        retry_delay = min(retry_delay * 2, max_retry_delay)
+
+
+async def test_mode(url: str, secret: Optional[str], lane: str):
+    """
+    Test mode - send a single test tap and exit.
+    
+    Args:
+        url: Server URL
+        secret: Shared secret
+        lane: Lane identifier
+    
+    Returns:
+        0 if successful, 1 otherwise
+    """
+    ws_url = url.replace("http://", "ws://").replace("https://", "wss://")
+    ws_url = f"{ws_url}/api/nfc/ws"
+    
+    print("[TEST] Sending test tap event...")
+    test_uid = "DEADBEEF"
+    
+    try:
+        async with websockets.connect(ws_url, ping_interval=None) as websocket:
+            # Authenticate
+            if not await authenticate_websocket(websocket, secret, lane):
+                print("[TEST] Authentication failed")
+                return 1
+            
+            # Send test tap
+            success = await broadcast_tap_ws(websocket, test_uid, lane)
+            
+            if success:
+                print("[TEST] Test tap sent successfully")
+                return 0
+            else:
+                print("[TEST] Failed to send test tap")
+                return 1
+                
+    except Exception as e:
+        print(f"[TEST] Error: {e}")
+        return 1
+
+
+def signal_handler(signum, frame):
+    """Handle shutdown signals gracefully"""
+    print("\n[SIGNAL] Shutdown signal received")
+    shutdown_event.set()
+
+
+async def main():
+    """Main entry point"""
     parser = argparse.ArgumentParser(
-        description="Broadcast NFC card taps to Next.js web UI"
+        description="Broadcast NFC card taps to Next.js web UI via WebSocket"
     )
     parser.add_argument(
         "--url",
@@ -143,8 +412,8 @@ def main():
     )
     parser.add_argument(
         "--device",
-        default=os.getenv("PN532_DEVICE", "i2c:/dev/i2c-1:pn532"),
-        help="nfcpy device string (default: i2c:/dev/i2c-1:pn532 or $PN532_DEVICE)",
+        default=os.getenv("PN532_DEVICE", "tty:AMA0:pn532"),
+        help="NFC device string (default: tty:AMA0:pn532 or $PN532_DEVICE)",
     )
     parser.add_argument(
         "--simulate",
@@ -158,53 +427,47 @@ def main():
     )
     
     args = parser.parse_args()
+    
+    # Setup signal handlers
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
 
     print(f"""
 ╔═══════════════════════════════════════════════════════════════╗
 ║         NFC Tap Broadcaster for Stuco POS System             ║
+║                    WebSocket Version                         ║
 ╠═══════════════════════════════════════════════════════════════╣
 ║ Server:  {args.url:<52} ║
 ║ Lane:    {args.lane:<52} ║
 ║ Device:  {args.device:<52} ║
 ║ Secret:  {'[SET]' if args.secret else '[NOT SET]':<52} ║
+║ Mode:    {'TEST' if args.test else 'SIMULATE' if args.simulate else 'HARDWARE':<52} ║
 ╚═══════════════════════════════════════════════════════════════╝
 """)
 
-    # Test mode
+    # Test mode - send single tap and exit
     if args.test:
-        print("[TEST] Sending test tap event...")
-        test_uid = "DEADBEEF"
-        success = broadcast_tap(args.url, test_uid, args.lane, args.secret)
-        sys.exit(0 if success else 1)
-
-    # Simulation mode
-    if args.simulate:
-        print("[SIMULATE] Manual UID entry mode. Type UID hex (or 'quit'):")
-        while True:
-            try:
-                uid = input("> ").strip()
-                if uid.lower() in ("q", "quit", "exit"):
-                    break
-                if not uid:
-                    continue
-                broadcast_tap(args.url, uid.upper(), args.lane, args.secret)
-            except (KeyboardInterrupt, EOFError):
-                break
-        print("\n[EXIT] Shutting down.")
-        return
-
-    # Hardware mode
-    print("[NFC] Starting card reader loop. Press Ctrl+C to stop.")
+        exit_code = await test_mode(args.url, args.secret, args.lane)
+        sys.exit(exit_code)
+    
+    # Main broadcaster mode
     try:
-        while True:
-            uid = read_uid_from_pn532(args.device)
-            if uid:
-                broadcast_tap(args.url, uid, args.lane, args.secret)
-                time.sleep(0.8)  # Debounce
+        await websocket_broadcaster(
+            args.url,
+            args.secret,
+            args.lane,
+            args.device,
+            args.simulate
+        )
     except KeyboardInterrupt:
-        print("\n[EXIT] Shutting down.")
+        pass
+    
+    print("[EXIT] Shutting down.")
 
 
 if __name__ == "__main__":
-    main()
-
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("\n[EXIT] Interrupted.")
+        sys.exit(0)

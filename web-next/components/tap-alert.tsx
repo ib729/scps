@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import {
   Drawer,
@@ -18,6 +18,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { getCardByUidAction, createCardAction } from "@/app/actions/cards";
 import { getStudentByIdAction, createStudentAction } from "@/app/actions/students";
 import type { Card } from "@/lib/models";
+import { useNFCWebSocket } from "@/lib/use-nfc-websocket";
 
 /**
  * Global tap alert component
@@ -28,7 +29,6 @@ import type { Card } from "@/lib/models";
 export function TapAlert() {
   const router = useRouter();
   const pathname = usePathname();
-  const eventSourceRef = useRef<EventSource | null>(null);
   const [open, setOpen] = useState(false);
   const [cardUid, setCardUid] = useState<string>("");
   const [cardData, setCardData] = useState<Card | null>(null);
@@ -39,57 +39,40 @@ export function TapAlert() {
   const [enrollmentError, setEnrollmentError] = useState("");
   const [enrollmentLoading, setEnrollmentLoading] = useState(false);
 
-  useEffect(() => {
-    // Only listen for taps on non-POS pages
-    if (pathname === "/pos") {
-      return;
-    }
+  // Handle card tap event
+  const handleCardTap = async (uid: string) => {
+    setCardUid(uid);
+    setLoading(true);
+    setOpen(true);
 
-    const eventSource = new EventSource("/api/nfc/stream?lane=default");
-    eventSourceRef.current = eventSource;
-
-    eventSource.onmessage = async (event) => {
-      try {
-        const data = JSON.parse(event.data);
-
-        if (data.type === "connected" || data.type === "keepalive") {
-          return;
-        }
-
-        // Card tap detected on non-POS page
-        if (data.card_uid) {
-          setCardUid(data.card_uid);
-          setLoading(true);
-          setOpen(true);
-
-          // Look up the card to get student info
-          const result = await getCardByUidAction(data.card_uid);
-          if (result.success && result.data) {
-            setCardData(result.data);
-            
-            // Fetch student details
-            const studentResult = await getStudentByIdAction(result.data.student_id);
-            if (studentResult.success && studentResult.data) {
-              setStudentName(studentResult.data.name);
-            } else {
-              setStudentName(`Student ID: ${result.data.student_id}`);
-            }
-          } else {
-            setCardData(null);
-            setStudentName("Unknown Card");
-          }
-          setLoading(false);
-        }
-      } catch (error) {
-        console.error("[TapAlert] SSE parse error:", error);
-        setLoading(false);
+    // Look up the card to get student info
+    const result = await getCardByUidAction(uid);
+    if (result.success && result.data) {
+      setCardData(result.data);
+      
+      // Fetch student details
+      const studentResult = await getStudentByIdAction(result.data.student_id);
+      if (studentResult.success && studentResult.data) {
+        setStudentName(studentResult.data.name);
+      } else {
+        setStudentName(`Student ID: ${result.data.student_id}`);
       }
-    };
+    } else {
+      setCardData(null);
+      setStudentName("Unknown Card");
+    }
+    setLoading(false);
+  };
 
-    return () => {
-      eventSource.close();
-    };
-  }, [pathname]);
+  // WebSocket connection for tap events (only on non-POS pages)
+  useNFCWebSocket({
+    lane: "default",
+    autoConnect: pathname !== "/pos",
+    onTap: (event) => {
+      console.log("[TapAlert] Card tap detected:", event.card_uid);
+      handleCardTap(event.card_uid);
+    },
+  });
 
   const handleGoToPOS = () => {
     setOpen(false);

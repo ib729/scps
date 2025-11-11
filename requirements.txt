@@ -1,5 +1,8 @@
-# HTTP client for NFC tap broadcaster
+# HTTP client for NFC tap broadcaster (legacy)
 requests==2.32.3
+
+# WebSocket client for NFC tap broadcaster
+websockets==13.1
 
 # NFC card reader support
 nfcpy==1.0.4

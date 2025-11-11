@@ -1,5 +1,5 @@
 [Unit]
-Description=NFC Tap Broadcaster for Stuco POS
+Description=NFC Tap Broadcaster for Stuco POS (WebSocket)
 After=network.target
 
 [Service]
@@ -7,9 +7,9 @@ Type=simple
 User=qiss
 WorkingDirectory=/home/qiss/stuco
 Environment="NEXTJS_URL=http://localhost:3000"
-Environment="NFC_TAP_SECRET=your-secret-here"
+Environment="NFC_TAP_SECRET=55ae2c9e1779b316d6d11b00d13c32a721e599ee21465dd927ed46dc1f3dd125"
 Environment="POS_LANE_ID=default"
-Environment="PN532_DEVICE=i2c:/dev/i2c-1:pn532"
+Environment="PN532_DEVICE=tty:USB0:pn532"
 ExecStart=/home/qiss/stuco/.venv/bin/python -u /home/qiss/stuco/tap-broadcaster.py
 StandardOutput=journal
 StandardError=journal

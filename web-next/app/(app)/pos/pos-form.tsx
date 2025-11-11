@@ -31,6 +31,7 @@ import { getCardByUidAction, createCardAction } from "@/app/actions/cards";
 import { createStudentAction } from "@/app/actions/students";
 import { EncryptedText } from "@/components/ui/encrypted-text";
 import { toDisplayValue, formatCurrency } from "@/lib/currency";
+import { useNFCWebSocket } from "@/lib/use-nfc-websocket";
 
 interface PosFormProps {
   students: StudentWithAccount[];
@@ -51,11 +52,8 @@ export function PosForm({ students, studentIdsWithTransactions }: PosFormProps) 
   const [transactionId, setTransactionId] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [tapStatus, setTapStatus] = useState<string>("");
-  const [isConnected, setIsConnected] = useState<boolean>(false);
   const router = useRouter();
   const searchParams = useSearchParams();
-  const eventSourceRef = useRef<EventSource | null>(null);
 
   // Dialog state for Tap mode
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -77,6 +75,16 @@ export function PosForm({ students, studentIdsWithTransactions }: PosFormProps) 
   const selectedStudent = students.find((s) => s.id === parseInt(studentId));
   const dialogStudent = students.find((s) => s.id === dialogStudentId);
 
+  // WebSocket connection for tap events (only in tap-first mode)
+  const { isConnected, statusMessage: tapStatus } = useNFCWebSocket({
+    lane: "default",
+    autoConnect: mode === "tap-first",
+    onTap: (event) => {
+      console.log("[POS] Card tap detected:", event.card_uid);
+      handleCardTap(event.card_uid);
+    },
+  });
+
   const copyTransactionId = async (txId: number) => {
     await navigator.clipboard.writeText(txId.toString());
     setCopied(true);
@@ -94,64 +102,7 @@ export function PosForm({ students, studentIdsWithTransactions }: PosFormProps) 
     }
   }, [searchParams]);
 
-  // Connect to SSE stream for tap events (only in tap-first mode)
-  useEffect(() => {
-    if (mode !== "tap-first") {
-      setIsConnected(false);
-      setTapStatus("");
-      return;
-    }
-
-    setTapStatus("Connecting to card reader...");
-    setIsConnected(false);
-
-    const lane = "default"; // Could be configurable
-    const eventSource = new EventSource(`/api/nfc/stream?lane=${lane}`);
-    eventSourceRef.current = eventSource;
-
-    eventSource.onopen = () => {
-      console.log("[POS] SSE connection opened");
-    };
-
-    eventSource.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        
-        if (data.type === "connected") {
-          setIsConnected(true);
-          setTapStatus("Connected to card reader");
-          return;
-        }
-
-        if (data.type === "keepalive") {
-          // Connection is alive, ensure we're marked as connected
-          setIsConnected(true);
-          return;
-        }
-
-        // Card tap event
-        if (data.card_uid) {
-          handleCardTap(data.card_uid);
-        }
-      } catch (error) {
-        console.error("[POS] SSE parse error:", error);
-      }
-    };
-
-    eventSource.onerror = (err) => {
-      console.error("[POS] SSE connection error:", err);
-      setIsConnected(false);
-      setTapStatus("Disconnected from reader");
-    };
-
-    return () => {
-      eventSource.close();
-      setIsConnected(false);
-    };
-  }, [mode]);
-
   const handleCardTap = async (uid: string) => {
-    setTapStatus(`Card detected: ${uid}`);
     setCardUid(uid);
 
     // Look up the card to find the student
@@ -163,13 +114,11 @@ export function PosForm({ students, studentIdsWithTransactions }: PosFormProps) 
       setEnrollName("");
       setEnrollError("");
       setEnrollDialogOpen(true);
-      setTapStatus("");
       return;
     }
 
     if (cardResult.data.status !== "active") {
       setError(`Card ${uid} is not active`);
-      setTapStatus("");
       return;
     }
 
@@ -177,7 +126,6 @@ export function PosForm({ students, studentIdsWithTransactions }: PosFormProps) 
     
     if (!student) {
       setError("Student not found");
-      setTapStatus("");
       return;
     }
 
@@ -189,7 +137,6 @@ export function PosForm({ students, studentIdsWithTransactions }: PosFormProps) 
     setDialogStaff("");
     setDialogError("");
     setDialogOpen(true);
-    setTapStatus("");
   };
 
   const handleEnrollCard = async (action: 'checkout' | 'topup' | 'none') => {

@@ -366,7 +366,9 @@ rclone ls r2:stuco-db-backups/
 
 **Location**: `tap-broadcaster.py` (root)
 
-**Purpose**: Broadcast NFC card taps to web UI via HTTP POST + SSE.
+**Purpose**: Broadcast NFC card taps to web UI via WebSocket connection.
+
+**Version**: WebSocket v2.0 (async, with card presence tracking)
 
 **Usage:**
 
@@ -380,11 +382,11 @@ python tap-broadcaster.py --simulate
 
 **Hardware Mode (PN532 Reader):**
 ```bash
-# UART connection
+# UART connection (recommended for Raspberry Pi)
 python tap-broadcaster.py --device tty:AMA0:pn532
 
 # USB connection
-python tap-broadcaster.py --device usb:001:003
+python tap-broadcaster.py --device tty:USB0:pn532
 
 # I2C connection (uses libnfc)
 python tap-broadcaster.py --device i2c:/dev/i2c-1:pn532
@@ -399,7 +401,7 @@ python tap-broadcaster.py --test
 - `--url` - Next.js server URL (default: http://localhost:3000)
 - `--secret` - Shared secret for authentication
 - `--lane` - POS lane identifier (default: 'default')
-- `--device` - NFC reader device string
+- `--device` - NFC reader device string (default: tty:AMA0:pn532)
 - `--simulate` - Manual UID entry mode
 - `--test` - Send single test tap and exit
 
@@ -410,49 +412,73 @@ python tap-broadcaster.py --test
 - `PN532_DEVICE` - Default device
 
 **Features:**
-- Reads card UIDs from PN532 reader
-- POSTs to `/api/nfc/tap` endpoint
-- 800ms debouncing to prevent double-taps
+- **WebSocket connection** with automatic reconnection
+- **Card presence tracking** - detects card removal, prevents duplicates
+- **Async operation** - efficient, non-blocking
+- **Smart debouncing** - 1.5s per-card tracking
+- **Exponential backoff** - intelligent reconnection on failures
 - Supports TTY, USB, and I2C connections
-- Graceful error handling
-- Comprehensive logging
+- Graceful signal handling (SIGINT, SIGTERM)
+- Comprehensive logging with connection status
 
 **Output:**
 ```
 ╔═══════════════════════════════════════════════════════════════╗
 ║         NFC Tap Broadcaster for Stuco POS System             ║
+║                    WebSocket Version                         ║
 ╠═══════════════════════════════════════════════════════════════╣
 ║ Server:  http://localhost:3000                               ║
 ║ Lane:    default                                             ║
 ║ Device:  tty:AMA0:pn532                                      ║
 ║ Secret:  [SET]                                               ║
+║ Mode:    HARDWARE                                            ║
 ╚═══════════════════════════════════════════════════════════════╝
 
-[NFC] Waiting for card tap on tty:AMA0:pn532...
-[OK] Tap broadcast: DEADBEEF → 1 listener(s)
+[WS] Connecting to ws://localhost:3000/api/nfc/ws...
+[WS] Connected successfully
+[WS] Authenticated successfully (lane: default)
+[NFC] Starting card reader loop on tty:AMA0:pn532
+[NFC] Waiting for card tap...
+[OK] Tap broadcast: DEADBEEF
 ```
 
 **When to Use:**
 - Development: `--simulate` for testing without hardware
 - Production: Run as systemd service (see tap-broadcaster.service)
 - Testing: `--test` to verify server connectivity
+- Debugging: Watch logs for WebSocket connection status
 
 **Systemd Service:**
 
-See `tap-broadcaster.service` for systemd configuration.
+See `systemd/tap-broadcaster.service` for systemd configuration.
 
 ```bash
 # Install service
-sudo cp tap-broadcaster.service /etc/systemd/system/
+sudo cp systemd/tap-broadcaster.service /etc/systemd/system/
+sudo systemctl daemon-reload
 sudo systemctl enable tap-broadcaster
 sudo systemctl start tap-broadcaster
 
 # Check status
 sudo systemctl status tap-broadcaster
 
-# View logs
+# View logs (live)
 journalctl -u tap-broadcaster -f
+
+# View recent logs
+journalctl -u tap-broadcaster -n 100
 ```
+
+**Dependencies:**
+- `websockets>=13.1` - WebSocket client library
+- `nfcpy>=1.0.4` - NFC reader library (TTY/USB)
+- `libnfc-bin` - For I2C connections (optional)
+
+**Troubleshooting:**
+- Connection issues: Check `[WS]` log messages
+- Auth failures: Verify NFC_TAP_SECRET matches server
+- Reader issues: Check `[NFC]` log messages and hardware connections
+- Duplicate taps: Should be handled automatically; check debounce logs
 
 ## CLI Tools
 
