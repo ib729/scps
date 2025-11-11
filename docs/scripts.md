@@ -134,7 +134,7 @@ python reset_db.py
 ⚠️  WARNING: This will DELETE all existing data!
 Type 'RESET' to confirm: RESET
 
-1. Creating backup: db_backups/stuco_backup_20251109_143022.db
+1. Creating backup: db_backups/stuco_backup_20251110_005702.db
 ✓ Backup created
 
 2. Removing old database files
@@ -212,7 +212,7 @@ Admin password: ********
 ```
 === Student Deletion Fix Migration ===
 
-1. Creating backup: stuco.db.backup.20251109_143522
+1. Creating backup: stuco.db.backup.20251110_005702
    ✓ Backup created
 
 2. Running migration...
@@ -224,10 +224,10 @@ Admin password: ********
 === Migration Complete ===
 
 Student deletion should now work properly!
-Backup saved as: stuco.db.backup.20251109_143522
+Backup saved as: stuco.db.backup.20251110_005702
 
 If you encounter any issues, restore the backup with:
-  cp stuco.db.backup.20251109_143522 stuco.db
+  cp stuco.db.backup.20251110_005702 stuco.db
 ```
 
 **When to Use:**
@@ -281,26 +281,26 @@ rclone config
 ============================================================
 STUCO Cloudflare R2 Database Backup (rclone)
 ============================================================
-Timestamp: 20241209_020000
+Timestamp: 20251110_005702
 
 ------------------------------------------------------------
 Step 1: Creating compressed backup
 ------------------------------------------------------------
 ✓ All database files included
-✓ Local backup created: db_backups/stuco_backup_20241209_020000.tar.gz (45K)
+✓ Local backup created: db_backups/stuco_backup_20251110_005702.tar.gz (45K)
 
 ------------------------------------------------------------
 Step 2: Uploading to Cloudflare R2
 ------------------------------------------------------------
 Remote: r2:stuco-db-backups/
-File: stuco_backup_20241209_020000.tar.gz
+File: stuco_backup_20251110_005702.tar.gz
 ✓ Upload successful!
 
 ------------------------------------------------------------
 Step 3: Backup Summary
 ------------------------------------------------------------
 Local backups: 5 files (225K total)
-Latest backup: db_backups/stuco_backup_20241209_020000.tar.gz (45K)
+Latest backup: db_backups/stuco_backup_20251110_005702.tar.gz (45K)
 
 Checking R2 bucket contents...
 R2 backups: 12 files
@@ -309,8 +309,8 @@ R2 backups: 12 files
 ✓ Backup Complete!
 ============================================================
 
-Local:  db_backups/stuco_backup_20241209_020000.tar.gz
-Remote: r2:stuco-db-backups/stuco_backup_20241209_020000.tar.gz
+Local:  db_backups/stuco_backup_20251110_005702.tar.gz
+Remote: r2:stuco-db-backups/stuco_backup_20251110_005702.tar.gz
 ```
 
 **When to Use:**
@@ -345,7 +345,7 @@ Remote: r2:stuco-db-backups/stuco_backup_20241209_020000.tar.gz
 rclone ls r2:stuco-db-backups/
 
 # Restore specific backup
-./scripts/restore_from_r2.sh stuco_backup_20241209_020000.tar.gz
+./scripts/restore_from_r2.sh stuco_backup_20251110_005702.tar.gz
 ```
 
 **Steps:**
@@ -758,5 +758,5 @@ chown stuco:stuco stuco.db*
 - [NFC Setup](nfc-setup.md) - NFC configuration
 - [Deployment Guide](deployment.md) - Production deployment
 
-**Updated**: November 2025
+**Last updated: November 11, 2025**
 

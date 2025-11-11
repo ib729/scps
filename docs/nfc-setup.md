@@ -31,6 +31,102 @@ This guide sets up NFC tap support for the Stuco POS system, enabling card taps 
 - **Software**: Python 3.9+, nfcpy (TTY/USB) or libnfc-bin (I2C).
 - **Web UI**: Running Next.js with NFC endpoints.
 
+## WebSocket Server Setup (Self-Hosted Node.js)
+
+Since you're self-hosting on Node.js (not Vercel), a custom server is required for WebSocket support.
+
+### What is Required
+
+1. **Custom Server** (`web-next/server.js`):
+   - Node.js HTTP server with WebSocket support using `ws` package.
+   - Handles Next.js requests and WebSocket connections at `ws://localhost:3000/api/nfc/ws`.
+
+2. **Node.js-Compatible Broadcaster** (`web-next/lib/tap-events-node.js`):
+   - CommonJS version for the custom server.
+   - Includes deduplication logic.
+
+3. **Dependencies**: `ws@^8.18.0` in `web-next/package.json`.
+
+### Installation Steps
+
+1. **Install WebSocket Package**:
+   ```bash
+   cd /home/qiss/stuco/web-next
+   pnpm install ws@^8.18.0
+   ```
+
+2. **Install Python WebSocket Library**:
+   ```bash
+   cd /home/qiss/stuco
+   source .venv/bin/activate
+   pip install websockets==13.1
+   ```
+
+3. **Update package.json Scripts** (if not already):
+   - `dev`: Uses custom server for development.
+   - `start`: For production.
+
+4. **Start the Server**:
+
+   **Development:**
+   ```bash
+   cd /home/qiss/stuco/web-next
+   pnpm dev
+   ```
+
+   You should see:
+   ```
+   > Ready on http://localhost:3000
+   > WebSocket server ready on ws://localhost:3000/api/nfc/ws
+   ```
+
+   **Production:**
+   ```bash
+   cd /home/qiss/stuco/web-next
+   pnpm build
+   pnpm start
+   ```
+
+5. **Configure Shared Secret**:
+   Generate and set `NFC_TAP_SECRET` in `web-next/.env.local`:
+   ```bash
+   openssl rand -hex 32
+   ```
+   ```
+   NFC_TAP_SECRET=your-generated-secret
+   ```
+
+6. **Test Connection**:
+   ```bash
+   cd /home/qiss/stuco
+   source .venv/bin/activate
+   python tap-broadcaster.py --test --secret your-generated-secret
+   ```
+
+   Expected:
+   ```
+   [WS] Connected successfully
+   [WS] Authenticated successfully (lane: default)
+   [OK] Tap broadcast: DEADBEEF
+   [TEST] Test tap sent successfully
+   ```
+
+### Systemd Service for Web UI (Production)
+
+Update `stuco-web.service` to use custom server:
+
+```ini
+[Service]
+...
+ExecStart=/usr/bin/node /home/qiss/stuco/web-next/server.js
+...
+```
+
+Or with pnpm:
+```ini
+ExecStart=/usr/bin/pnpm start
+```
+
 ## Installation
 
 1. **Python Dependencies**:
@@ -41,7 +137,6 @@ This guide sets up NFC tap support for the Stuco POS system, enabling card taps 
    ```
 
    For I2C (libnfc):
-
    ```bash
    sudo apt install libnfc-bin libnfc-dev
    ```
@@ -57,10 +152,33 @@ This guide sets up NFC tap support for the Stuco POS system, enabling card taps 
 3. **Web UI Config**:
 
    In `web-next/.env.local`:
-
    ```
    NFC_TAP_SECRET=your-strong-secret  # Shared with broadcaster
    ```
+
+## NFC Device Configuration
+
+### USB Device Setup
+
+- **Default**: `tty:USB0:pn532` for USB-connected PN532 with CH340 serial converter.
+- **Detect Device**:
+  ```bash
+  lsusb | grep -i ch340  # Or similar serial converter
+  ls -l /dev/ttyUSB*
+  ```
+- **Update Broadcaster**:
+  ```bash
+  PN532_DEVICE=tty:USB0:pn532 python tap-broadcaster.py
+  ```
+
+### UART Device Setup
+
+- **Default**: `tty:AMA0:pn532` for GPIO UART.
+- **Enable UART** (Raspberry Pi):
+  ```bash
+  sudo raspi-config  # Interface Options → Serial Port → No login shell, Yes hardware
+  sudo reboot
+  ```
 
 ## Tap Broadcaster Setup
 
@@ -95,7 +213,7 @@ python tap-broadcaster.py --simulate
 
 ```bash
 python tap-broadcaster.py --device tty:AMA0:pn532  # UART
-python tap-broadcaster.py --device usb:001:003     # USB (check lsusb)
+python tap-broadcaster.py --device tty:USB0:pn532  # USB
 ```
 
 #### Hardware (I2C - libnfc)
@@ -281,7 +399,7 @@ Use WebSocket endpoint for new implementations.
 ### Broadcaster Won't Connect
 
 - **Server URL**: Verify NEXTJS_URL is correct (http://localhost:3000)
-- **WebSocket support**: Ensure Next.js version supports WebSockets
+- **WebSocket support**: Ensure custom server is running (shows "WebSocket server ready")
 - **Firewall**: Check if WebSocket port is blocked
 - **Logs**: Look for `[WS] Connection error` or `[WS] Authentication failed`
 - **Test mode**: Run `python tap-broadcaster.py --test` to verify connection
@@ -301,7 +419,7 @@ If still seeing duplicates:
 
 - Enrolled? Check cards table: `sqlite3 stuco.db "SELECT * FROM cards;"`
 - Mode: Ensure "Tap Card" selected in POS.
-- Lane: Match POS URL query param.
+- Lane: Match ?lane= in URL.
 - **WebSocket**: Check browser console shows "Connected" status
 
 ### Service Issues
@@ -333,6 +451,11 @@ console.log("WebSocket ready state:", ws.readyState);
 - Connection errors show as `[WS] Connection error:` with details
 - Reconnection attempts show backoff timing
 
+**Common WebSocket Errors:**
+- "Cannot find module 'ws'": Run `pnpm install` in web-next.
+- "Cannot find module './lib/tap-events-node'": Verify file exists.
+- Port in use: Kill process `sudo lsof -ti:3000 | xargs kill -9`.
+
 ## Security (Production)
 
 - **HTTPS**: Configure Next.js SSL.
@@ -343,7 +466,7 @@ console.log("WebSocket ready state:", ws.readyState);
 ## Architecture
 
 ```
-PN532 Reader ─USB/UART─ Raspberry Pi ─HTTP POST─ Next.js Server ─SSE─ Browser (POS)
+PN532 Reader ─USB/UART─ Raspberry Pi ─WebSocket─ Next.js Server (Custom) ─WebSocket─ Browser (POS)
                           │
                      tap-broadcaster.py
 ```
@@ -356,52 +479,6 @@ PN532 Reader ─USB/UART─ Raspberry Pi ─HTTP POST─ Next.js Server ─SSE�
 4. Monitor logs: `journalctl -f`.
 5. Backup DB regularly.
 
-## Architecture & Implementation
-
-### System Components
-
-```
-┌──────────────┐   USB/UART   ┌─────────────────┐   HTTP POST   ┌──────────────┐
-│  PN532 NFC   │─────────────▶│  Raspberry Pi   │──────────────▶│  Next.js     │
-│   Reader     │              │  tap-broad-     │               │  /api/nfc/   │
-└──────────────┘              │  caster.py      │               │  tap         │
-                              └─────────────────┘               └──────┬───────┘
-                                                                       │
-                                                                       │ Broadcast
-                                                                       ▼
-                              ┌─────────────────┐   SSE Stream  ┌──────────────┐
-                              │   POS Browser   │◀──────────────│  Next.js     │
-                              │   (Client)      │               │  /api/nfc/   │
-                              └─────────────────┘               │  stream      │
-                                                                └──────────────┘
-```
-
-### Backend Components
-
-**Event Backbone (`lib/tap-events.ts`):**
-- In-memory event broadcaster using TypeScript
-- Manages SSE subscribers with thread-safe listener management
-- Broadcasts tap events to all connected clients
-
-**API Endpoints:**
-- `/api/nfc/tap` - POST endpoint receiving tap events from Python broadcaster
-- `/api/nfc/stream` - Server-Sent Events (SSE) endpoint for real-time tap streaming
-- Validates shared secret for authentication
-- 30-second keepalive to maintain connection
-
-**Server Actions (`app/actions/pos.ts`):**
-- Accepts either `student_id` or `card_uid`
-- Auto-resolves student from card UID
-- Validates card status (active/revoked)
-- Logs card UID with every transaction
-
-### Performance Metrics
-
-- SSE Latency: <50ms (local network)
-- Tap-to-UI: ~500ms (including card lookup)
-- Database Queries: <10ms (SQLite is local)
-- Concurrent Users: 50+ browsers (SSE scales well)
-
 See [User Guide](user-guide.md) for workflows, [Troubleshooting](troubleshooting.md) for issues.
 
-**Updated**: November 2025 (Consolidated NFC Documentation)
+**Last updated: November 11, 2025**

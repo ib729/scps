@@ -348,4 +348,4 @@ For persistent issues, check logs, git revert, or ask for help.
 
 See specific guides for more details.
 
-**Updated**: November 2025
+**Last updated: November 11, 2025**

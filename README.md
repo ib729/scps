@@ -63,6 +63,12 @@ Comprehensive guides are in the [docs/ directory](docs/):
 - [Troubleshooting](docs/troubleshooting.md): Common issues and solutions.
 - [Changelog](docs/changelog.md): Release notes.
 
+## Community
+
+We strive to create a welcoming and inclusive environment for all contributors. Please read our [Code of Conduct](CODE_OF_CONDUCT.md) before participating in our community.
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+**Last updated: November 11, 2025**

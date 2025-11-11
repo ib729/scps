@@ -196,6 +196,64 @@ sudo systemctl restart tap-broadcaster
 sudo systemctl stop stuco-web
 ```
 
+**Quick Start After Reboot:**
+
+When you reboot your system:
+
+1. ✅ Network starts
+2. ✅ `stuco-web` service starts automatically
+3. ✅ Next.js server loads with WebSocket support
+4. ✅ `tap-broadcaster` service starts automatically
+5. ✅ Connects to Next.js via WebSocket
+6. ✅ Ready to detect NFC card taps
+
+**Total startup time:** ~10-15 seconds
+
+**Verify after reboot:**
+```bash
+# 1. Check services are running
+sudo systemctl status stuco-web tap-broadcaster
+
+# 2. Test web server
+curl http://localhost:3000
+
+# 3. Check NFC broadcaster logs
+journalctl -u tap-broadcaster -n 20
+
+# Should show:
+# [WS] Connected successfully
+# [WS] Authenticated successfully
+# [NFC] Waiting for card tap...
+```
+
+**Helper Scripts:**
+You also have these scripts available:
+
+```bash
+# Test NFC connection
+./test-nfc.sh
+
+# Run broadcaster with all settings (if you stop the service)
+./run-nfc.sh --simulate
+```
+
+**Access Your Application:**
+Once services are running:
+- **Web UI:** http://localhost:3000 (or http://your-ip:3000)
+- **POS Page:** http://localhost:3000/pos
+- **Dashboard:** http://localhost:3000/dashboard
+
+#### Production Ready Checklist
+
+✅ Next.js built for production  
+✅ WebSocket server configured  
+✅ NFC broadcaster configured  
+✅ USB device detected  
+✅ Authentication secret set  
+✅ Auto-start on boot enabled  
+✅ Restart on failure enabled  
+✅ Logs configured (journalctl)  
+
 ## Reverse Proxy with Nginx
 
 Use nginx as a reverse proxy for SSL termination and improved performance.
@@ -460,6 +518,45 @@ tar -czf stuco_full_backup_$(date +%Y%m%d).tar.gz \
 
 ## Troubleshooting
 
+### Service Failed to Start
+
+**Check logs:**
+```bash
+journalctl -u stuco-web -n 50
+journalctl -u tap-broadcaster -n 50
+```
+
+**Common issues:**
+- Port 3000 already in use
+- USB device unplugged
+- Build files missing (run `cd web-next && pnpm build`)
+
+### NFC Not Detecting Cards
+
+**Check device:**
+```bash
+ls -l /dev/ttyUSB0
+```
+
+**Restart broadcaster:**
+```bash
+sudo systemctl restart tap-broadcaster
+journalctl -u tap-broadcaster -f
+```
+
+### WebSocket Not Connecting
+
+**Check web server:**
+```bash
+curl http://localhost:3000
+sudo systemctl status stuco-web
+```
+
+**Restart both services:**
+```bash
+sudo systemctl restart stuco-web tap-broadcaster
+```
+
 ### Web UI Won't Start
 
 ```bash
@@ -492,6 +589,18 @@ NODE_OPTIONS="--max-old-space-size=512" pnpm start
 Environment="NODE_OPTIONS=--max-old-space-size=512"
 ```
 
+**Configuration Files:**
+All configuration is in:
+- `/etc/systemd/system/stuco-web.service`
+- `/etc/systemd/system/tap-broadcaster.service`
+
+To modify:
+```bash
+sudo nano /etc/systemd/system/stuco-web.service
+sudo systemctl daemon-reload
+sudo systemctl restart stuco-web
+```
+
 ## Security Checklist
 
 - [ ] Strong NFC_TAP_SECRET set (32+ hex chars)
@@ -512,5 +621,5 @@ Environment="NODE_OPTIONS=--max-old-space-size=512"
 - Review [Security Guide](security.md) for hardening
 - Test disaster recovery procedures
 
-**Updated**: November 2025
+**Last updated: November 11, 2025**
 

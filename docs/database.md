@@ -240,10 +240,7 @@ Add to crontab for daily backups:
 crontab -e
 
 # Add daily backup at 2 AM
-0 2 * * * cd /path/to/stuco && tar -czf db_backups/auto_backup_$(date +\%Y\%m\%d).tar.gz stuco.db stuco.db-wal stuco.db-shm
-
-# Keep only last 30 days
-0 3 * * * find /path/to/stuco/db_backups -name "auto_backup_*.tar.gz" -mtime +30 -delete
+0 2 * * * cd /path/to/stuco && tar -czf db_backups/auto_$(date +\%Y\%m\%d).tar.gz stuco.db*
 ```
 
 ### Cloud Backups with Cloudflare R2
@@ -334,7 +331,7 @@ To restore a database from R2:
 rclone ls r2:stuco-db-backups/
 
 # Restore specific backup
-./scripts/restore_from_r2.sh stuco_backup_20241209_020000.tar.gz
+./scripts/restore_from_r2.sh stuco_backup_20251110_005702.tar.gz
 ```
 
 The restore script will:
@@ -352,13 +349,13 @@ rclone ls r2:stuco-db-backups/
 rclone lsl r2:stuco-db-backups/
 
 # Download a backup without restoring
-rclone copy r2:stuco-db-backups/stuco_backup_20241209_020000.tar.gz db_backups/
+rclone copy r2:stuco-db-backups/stuco_backup_20251110_005702.tar.gz db_backups/
 
 # Check total space used
 rclone size r2:stuco-db-backups/
 
 # Delete old backups (optional)
-rclone delete r2:stuco-db-backups/stuco_backup_20241201_020000.tar.gz
+rclone delete r2:stuco-db-backups/stuco_backup_20251110_005702.tar.gz
 
 # Delete backups older than 90 days
 rclone delete r2:stuco-db-backups/ --min-age 90d
@@ -398,4 +395,4 @@ python reset_db.py  # Interactive reset
 ./scripts/run_migration.sh migration_file.sql
 ```
 
-**Updated**: November 2025
+**Last updated: November 11, 2025**

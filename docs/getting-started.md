@@ -330,4 +330,4 @@ For more, see [Troubleshooting](troubleshooting.md).
 
 Enjoy managing your snack bar!
 
-**Updated**: November 2025
+**Last updated: November 11, 2025**

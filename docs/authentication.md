@@ -321,5 +321,5 @@ Potential authentication improvements:
 - [Security Guide](security.md) - Security best practices
 - [Deployment Guide](deployment.md) - Production setup
 
-**Updated**: November 2025
+**Last updated: November 11, 2025**
 

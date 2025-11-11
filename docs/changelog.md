@@ -71,4 +71,4 @@ A log of notable changes during early development. No official releases yet.
 
 For full history, see git log.
 
-**Updated**: November 2025
+**Last updated: November 11, 2025**

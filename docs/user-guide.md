@@ -161,4 +161,4 @@ View history on Transactions page or per student.
 - **Logs**: Browser console for web errors.
 
 **Version**: 1.1 (NFC + Decimal Support)  
-**Updated**: November 2025
+**Last updated: November 11, 2025**

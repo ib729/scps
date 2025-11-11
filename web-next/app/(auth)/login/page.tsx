@@ -71,8 +71,10 @@ export default function LoginPage() {
             <Label htmlFor="email">Email</Label>
             <Input
               id="email"
+              name="email"
               type="email"
               placeholder=""
+              autoComplete="username email"
               required
               value={formData.email}
               onChange={(e) =>
@@ -87,7 +89,9 @@ export default function LoginPage() {
             </div>
             <Input
               id="password"
+              name="password"
               type="password"
+              autoComplete="current-password"
               required
               value={formData.password}
               onChange={(e) =>

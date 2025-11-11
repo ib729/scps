@@ -1,6 +1,6 @@
-# WebSocket NFC Upgrade - Testing Guide
+# Testing Guide
 
-This guide provides comprehensive testing procedures for the WebSocket-based NFC tap detection system.
+This guide provides comprehensive testing procedures for the WebSocket-based NFC tap detection system and overall functionality.
 
 ## Prerequisites
 
@@ -416,3 +416,4 @@ If tests fail, collect:
 4. systemd logs: `journalctl -u tap-broadcaster -n 200`
 5. Environment details: OS, Python version, Next.js version
 
+**Last updated: November 11, 2025**

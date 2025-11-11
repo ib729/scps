@@ -46,4 +46,4 @@ For the root project overview, see [../README.md](../README.md).
 
 This is an internal tool. See the [Development Guide](development.md) for technical details.
 
-**Updated**: November 2025
+**Last updated: November 11, 2025**

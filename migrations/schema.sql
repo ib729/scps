@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS cards (
 CREATE TABLE IF NOT EXISTS accounts (
   student_id INTEGER PRIMARY KEY,
   balance INTEGER NOT NULL DEFAULT 0,            -- tenths of CNY, e.g., 55 = ¥5.5
-  max_overdraft_week INTEGER NOT NULL DEFAULT 200,-- tenths of CNY, e.g., 200 = ¥20.0/week
+  max_overdraft_week INTEGER NOT NULL DEFAULT 0,-- tenths of CNY, e.g., 200 = ¥20.0/week
   FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE CASCADE
 );
 

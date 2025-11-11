@@ -523,5 +523,5 @@ When creating new components:
 - [React Hook Form](https://react-hook-form.com)
 - [Zod](https://zod.dev)
 
-**Updated**: November 2025
+**Last updated: November 11, 2025**
 

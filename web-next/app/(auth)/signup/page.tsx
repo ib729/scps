@@ -125,8 +125,10 @@ export default function SignupPage() {
             <Label htmlFor="name">Full Name</Label>
             <Input
               id="name"
+              name="name"
               type="text"
               placeholder=""
+              autoComplete="name"
               required
               value={formData.name}
               onChange={(e) =>
@@ -139,8 +141,10 @@ export default function SignupPage() {
             <Label htmlFor="email">Email</Label>
             <Input
               id="email"
+              name="email"
               type="email"
               placeholder=""
+              autoComplete="username email"
               required
               value={formData.email}
               onChange={(e) =>
@@ -153,7 +157,9 @@ export default function SignupPage() {
             <Label htmlFor="password">Password</Label>
             <Input
               id="password"
+              name="password"
               type="password"
+              autoComplete="new-password"
               required
               value={formData.password}
               onChange={(e) =>

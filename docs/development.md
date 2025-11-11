@@ -251,4 +251,4 @@ See [Changelog](changelog.md) for recent changes.
 - [Security Guide](security.md) - Security best practices
 - [Scripts Reference](scripts.md) - Utility scripts documentation
 
-**Updated**: November 2025
+**Last updated: November 11, 2025**
