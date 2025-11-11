@@ -34,7 +34,6 @@ export function CreateStudentDialog() {
     if (result.success) {
       setOpen(false);
       setName("");
-      router.refresh();
     } else {
       setError(result.error || "Failed to create student");
     }

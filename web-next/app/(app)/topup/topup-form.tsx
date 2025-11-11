@@ -95,7 +95,6 @@ export function TopupForm({ students, studentIdsWithTransactions }: TopupFormPro
       setTransactionId(result.data.transaction.id);
       setAmount("");
       setDescription("");
-      router.refresh();
     } else {
       setError(result.error || "Failed to process top-up");
     }
@@ -124,7 +123,6 @@ export function TopupForm({ students, studentIdsWithTransactions }: TopupFormPro
       setAdjustTransactionId(result.data.transaction.id);
       setAdjustAmount("");
       setAdjustDescription("");
-      router.refresh();
     } else {
       setAdjustError(result.error || "Failed to adjust balance");
     }

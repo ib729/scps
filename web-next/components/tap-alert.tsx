@@ -124,9 +124,8 @@ export function TapAlert() {
         router.push(`/pos?card=${cardUid}`);
       } else if (destination === 'topup') {
         router.push(`/topup?student=${studentResult.data.id}`);
-      } else {
-        router.refresh();
       }
+      // If destination is 'none', just close the drawer - Next.js will auto-revalidate
     } catch (error) {
       setEnrollmentError("An unexpected error occurred");
       console.error("Enrollment error:", error);

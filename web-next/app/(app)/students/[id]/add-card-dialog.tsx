@@ -42,7 +42,6 @@ export function AddCardDialog({ studentId }: AddCardDialogProps) {
     if (result.success) {
       setOpen(false);
       setCardUid("");
-      router.refresh();
     } else {
       setError(result.error || "Failed to create card");
     }

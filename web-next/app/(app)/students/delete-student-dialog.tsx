@@ -37,7 +37,6 @@ export function DeleteStudentDialog({
 
     if (result.success) {
       setOpen(false);
-      router.refresh();
     } else {
       setError(result.error || "Failed to delete student");
     }

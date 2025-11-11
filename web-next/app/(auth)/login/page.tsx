@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -65,9 +64,6 @@ export default function LoginPage() {
         <CardTitle className="text-3xl font-bold tracking-tight">
           Welcome back
         </CardTitle>
-        <CardDescription className="text-base">
-          Enter your email and password to access your account
-        </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleLogin} className="grid gap-4">
@@ -76,7 +72,7 @@ export default function LoginPage() {
             <Input
               id="email"
               type="email"
-              placeholder="hello@example.com"
+              placeholder=""
               required
               value={formData.email}
               onChange={(e) =>

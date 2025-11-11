@@ -185,7 +185,6 @@ export function PosForm({ students, studentIdsWithTransactions }: PosFormProps) 
       // Success! Close enrollment dialog
       setEnrollDialogOpen(false);
       setEnrollName("");
-      router.refresh();
 
       // Handle the selected action
       if (action === 'checkout') {
@@ -239,7 +238,6 @@ export function PosForm({ students, studentIdsWithTransactions }: PosFormProps) 
       setDescription("");
       setStudentId("");
       setCardUid("");
-      router.refresh();
     } else {
       setError(result.error || "Failed to process checkout");
     }
@@ -277,7 +275,6 @@ export function PosForm({ students, studentIdsWithTransactions }: PosFormProps) 
       setDialogStaff("");
       setDialogStudentId(0);
       setDialogCardUid("");
-      router.refresh();
     } else {
       setDialogError(result.error || "Failed to process checkout");
     }

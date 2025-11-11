@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 
-const SIGNUP_CODE = "uGFk@j3A"; // 8-digit code required to create account
+const SIGNUP_CODE = "uGFk@j3A";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -117,7 +117,6 @@ export default function SignupPage() {
               Create an account
             </CardTitle>
             <CardDescription className="text-base">
-              Enter your information to get started with STUCO
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -127,7 +126,7 @@ export default function SignupPage() {
             <Input
               id="name"
               type="text"
-              placeholder="John Doe"
+              placeholder=""
               required
               value={formData.name}
               onChange={(e) =>
@@ -141,7 +140,7 @@ export default function SignupPage() {
             <Input
               id="email"
               type="email"
-              placeholder="hello@example.com"
+              placeholder=""
               required
               value={formData.email}
               onChange={(e) =>
