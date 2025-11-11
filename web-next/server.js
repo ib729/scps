@@ -123,6 +123,12 @@ function handleWebSocketConnection(ws, request) {
   async function handleAuthentication(ws, message, lane) {
     const role = message.role;
 
+    // Silently reject invalid or missing roles (likely browser noise)
+    if (!role || (role !== 'broadcaster' && role !== 'client')) {
+      ws.close(1008, 'Invalid role');
+      return;
+    }
+
     if (role === 'broadcaster') {
       // Authenticate Python broadcaster with shared secret
       const expectedSecret = process.env.NFC_TAP_SECRET;
@@ -130,7 +136,10 @@ function handleWebSocketConnection(ws, request) {
       if (!expectedSecret) {
         console.warn('[WS] NFC_TAP_SECRET not configured - allowing broadcaster');
       } else if (message.secret !== expectedSecret) {
-        console.warn('[WS] Broadcaster authentication failed');
+        // Only log if a secret was actually provided (real attempt, not browser noise)
+        if (message.secret) {
+          console.warn('[WS] Broadcaster authentication failed - invalid secret provided');
+        }
         ws.send(JSON.stringify({
           type: 'auth_failed',
           message: 'Invalid secret'
