@@ -12,7 +12,7 @@ export function getAllStudents(): StudentWithAccount[] {
       s.id, 
       s.name,
       COALESCE(a.balance, 0) as balance,
-      COALESCE(a.max_overdraft_week, 200) as max_overdraft_week
+      COALESCE(a.max_overdraft_week, 0) as max_overdraft_week
     FROM students s
     LEFT JOIN accounts a ON s.id = a.student_id
     ORDER BY s.name ASC
@@ -27,7 +27,7 @@ export function getStudentById(id: number): StudentWithAccount | undefined {
       s.id, 
       s.name,
       COALESCE(a.balance, 0) as balance,
-      COALESCE(a.max_overdraft_week, 200) as max_overdraft_week
+      COALESCE(a.max_overdraft_week, 0) as max_overdraft_week
     FROM students s
     LEFT JOIN accounts a ON s.id = a.student_id
     WHERE s.id = ?
@@ -45,7 +45,7 @@ export function createStudent(data: CreateStudent): Student {
   const db = getDb();
   const insertStudent = db.prepare("INSERT INTO students (name) VALUES (?)");
   const createAccount = db.prepare(
-    "INSERT INTO accounts (student_id, balance, max_overdraft_week) VALUES (?, 0, 200)"
+    "INSERT INTO accounts (student_id, balance, max_overdraft_week) VALUES (?, 0, 0)"
   );
 
   const result = db.transaction(() => {
@@ -77,7 +77,7 @@ export function searchStudents(query: string): StudentWithAccount[] {
       s.id, 
       s.name,
       COALESCE(a.balance, 0) as balance,
-      COALESCE(a.max_overdraft_week, 200) as max_overdraft_week
+      COALESCE(a.max_overdraft_week, 0) as max_overdraft_week
     FROM students s
     LEFT JOIN accounts a ON s.id = a.student_id
     WHERE s.name LIKE ?
