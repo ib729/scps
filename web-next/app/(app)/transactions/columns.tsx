@@ -1,11 +1,19 @@
 "use client";
 
 import { ColumnDef } from "@tanstack/react-table";
-import { ArrowUpDown, Copy, Check } from "lucide-react";
+import { ArrowUpDown, Copy, Check, MoreHorizontal } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import type { TransactionWithStudent } from "@/lib/models";
 import { formatCurrency } from "@/lib/currency";
 
@@ -27,6 +35,111 @@ function CopyButton({ txId }: { txId: number }) {
     >
       {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
     </Button>
+  );
+}
+
+function TransactionDetailsDialog({ tx }: { tx: TransactionWithStudent }) {
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button variant="link" className="h-auto p-0 text-blue-500 hover:text-blue-700 font-medium">
+          Read more
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Transaction Details</DialogTitle>
+          <DialogDescription>
+            Complete information for transaction #{tx.id}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Transaction ID</p>
+              <p className="text-sm font-mono">{tx.id}</p>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Date</p>
+              <p className="text-sm">
+                {new Date(tx.created_at + "Z").toLocaleString("en-US", {
+                  year: "numeric",
+                  month: "long",
+                  day: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  hour12: false,
+                  timeZone: "Asia/Singapore",
+                })}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Student</p>
+              <Link
+                href={`/students/${tx.student_id}`}
+                className="text-sm hover:underline font-medium text-primary"
+              >
+                {tx.student_name}
+              </Link>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Type</p>
+              <div className="mt-1">
+                <Badge
+                  variant={
+                    tx.type === "TOPUP"
+                      ? "default"
+                      : tx.type === "DEBIT"
+                      ? "destructive"
+                      : "secondary"
+                  }
+                >
+                  {tx.type}
+                </Badge>
+              </div>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Amount</p>
+              <p
+                className={`text-sm font-bold ${
+                  tx.amount >= 0 ? "text-green-600" : "text-red-600"
+                }`}
+              >
+                {tx.amount >= 0 ? "+" : ""}¥{formatCurrency(Math.abs(tx.amount))}
+              </p>
+            </div>
+            {tx.overdraft_component > 0 && (
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Overdraft Component</p>
+                <p className="text-sm font-bold text-orange-600">
+                  ¥{formatCurrency(tx.overdraft_component)}
+                </p>
+              </div>
+            )}
+            {tx.staff && (
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Staff</p>
+                <p className="text-sm">{tx.staff}</p>
+              </div>
+            )}
+            {tx.card_uid && (
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Card UID</p>
+                <p className="text-sm font-mono">{tx.card_uid}</p>
+              </div>
+            )}
+          </div>
+          {tx.description && (
+            <div>
+              <p className="text-sm font-medium text-muted-foreground mb-2">Description</p>
+              <p className="text-sm bg-muted p-3 rounded-md whitespace-pre-wrap break-words">
+                {tx.description}
+              </p>
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -139,9 +252,24 @@ export const columns: ColumnDef<TransactionWithStudent>[] = [
     header: "Description",
     cell: ({ row }) => {
       const tx = row.original;
+      const description = tx.description || "";
+      const maxLength = 50;
+      const isTruncated = description.length > maxLength;
+      
       return (
-        <div>
-          {tx.description || "-"}
+        <div className="max-w-xs">
+          {description ? (
+            <>
+              <p className="text-sm break-words">
+                {isTruncated ? description.slice(0, maxLength) + "..." : description}
+              </p>
+              {isTruncated && (
+                <TransactionDetailsDialog tx={tx} />
+              )}
+            </>
+          ) : (
+            <span className="text-muted-foreground">-</span>
+          )}
           {tx.overdraft_component > 0 && (
             <p className="text-xs text-orange-600 mt-1">
               Overdraft: ¥{formatCurrency(tx.overdraft_component)}
