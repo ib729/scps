@@ -120,14 +120,13 @@ export default function SignupPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSignup} className="grid gap-4">
+            <form onSubmit={handleSignup} className="grid gap-4" method="post" action="/api/auth/signup">
           <div className="grid gap-2">
             <Label htmlFor="name">Full Name</Label>
             <Input
               id="name"
               name="name"
               type="text"
-              placeholder=""
               autoComplete="name"
               required
               value={formData.name}
@@ -143,8 +142,7 @@ export default function SignupPage() {
               id="email"
               name="email"
               type="email"
-              placeholder=""
-              autoComplete="username email"
+              autoComplete="email"
               required
               value={formData.email}
               onChange={(e) =>

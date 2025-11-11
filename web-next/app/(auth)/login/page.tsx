@@ -66,15 +66,14 @@ export default function LoginPage() {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleLogin} className="grid gap-4">
+        <form onSubmit={handleLogin} className="grid gap-4" method="post" action="/api/auth/signin">
           <div className="grid gap-2">
             <Label htmlFor="email">Email</Label>
             <Input
               id="email"
               name="email"
               type="email"
-              placeholder=""
-              autoComplete="username email"
+              autoComplete="email"
               required
               value={formData.email}
               onChange={(e) =>
@@ -101,7 +100,7 @@ export default function LoginPage() {
             />
           </div>
           <Button type="submit" className="w-full" disabled={loading} size="lg">
-            {loading ? "Signing in..." : "Login"}
+            {loading ? "Signing in..." : "Sign in"}
           </Button>
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
