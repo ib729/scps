@@ -74,6 +74,11 @@ export function TapAlert() {
     },
   });
 
+  // Don't render the drawer on the POS page (POS has its own dialog)
+  if (pathname === "/pos") {
+    return null;
+  }
+
   const handleGoToPOS = () => {
     setOpen(false);
     setShowEnrollmentForm(false);
