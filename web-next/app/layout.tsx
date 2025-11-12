@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL('https://scps.ivanbelousov.com'),
   title: {
-    default: 'SCPS - Student Council Payment System',
+    default: 'Student Council Payment System (SCPS)',
     template: '%s | SCPS'
   },
   description: 'Secure NFC-enabled payment system for student snack bar purchases. Manage student accounts, cards, and transactions efficiently.',

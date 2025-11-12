@@ -11,5 +11,5 @@ Disallow: /api
 Allow: /login
 Allow: /signup
 
-# Sitemap location (create this later)
+# Sitemap location
 Sitemap: https://scps.ivanbelousov.com/sitemap.xml

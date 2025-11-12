@@ -1,68 +1,97 @@
-# Student Council Payment System (SCPS) 
+# Student Council Payment System (SCPS)
 
-A system for managing student snack bar payments using NFC cards, with Python CLI tools and a modern Next.js web UI.
+A system for managing student snack bar payments using NFC cards. It includes Python CLI tools for quick operations and a modern web interface built with Next.js.
 
-## Overview
+## What It Does
 
-- **Purpose**: Manage student accounts, NFC cards, transactions, and POS operations for a snack bar.
-- **Database**: SQLite (`stuco.db`) with tables for students, cards, accounts, transactions, and overdraft tracking.
-- **CLI Tools**:
-  - `pos.py`: NFC-enabled point-of-sale for charging via card taps.
-  - `topup.py`: Add funds to student accounts.
-  - `enroll.py`: Enroll new students and cards.
-- **Web UI**: Full-featured interface in `web-next/` using Next.js 16, TypeScript, and Shadcn UI.
-- **NFC Integration**: PN532 reader connected to Raspberry Pi, broadcasting taps to web UI via `tap-broadcaster.py`.
-- **Platform**: Raspberry Pi 4 Model B running Raspberry Pi OS (ARM64). This is the only tested and supported platform.
+This system helps manage everything related to student snack bar purchases:
+
+- **Students and Accounts**: Keep track of student accounts, NFC cards, and balances
+- **Database**: Uses SQLite (`stuco.db`) to store students, cards, accounts, transactions, and overdraft information
+- **Point of Sale**: CLI tools for processing payments via NFC card taps
+- **Web Interface**: A full-featured dashboard built with Next.js 16, TypeScript, and Tailwind CSS
+- **NFC Hardware**: Works with PN532 NFC readers connected to a Raspberry Pi
+- **Platform**: Built and tested on Raspberry Pi 4 Model B running Raspberry Pi OS Lite (ARM64)
+
+## CLI Tools
+
+Three Python scripts handle quick operations:
+
+- `pos.py` - Point-of-sale terminal for charging students via card taps
+- `topup.py` - Add money to student accounts
+- `enroll.py` - Register new students and link their NFC cards
 
 ## Quick Start
 
-1. **Prerequisites**: See [docs/getting-started.md](docs/getting-started.md) for platform-specific setup (Node.js, pnpm, build tools).
-2. **Database**: Ensure `stuco.db` exists or run `python init_db.py`.
-3. **Authentication Setup**: Configure Better Auth for the web UI (see [docs/authentication.md](docs/authentication.md)):
-   ```
-   cd web-next
-   # Create .env.local with required variables (see docs/authentication.md)
-   sqlite3 ../stuco.db < migrations/better_auth_schema.sql
-   ```
-4. **Web UI**:
-   ```
-   cd web-next
-   pnpm install  # Auto-builds dependencies
-   pnpm dev
-   ```
-   Open http://localhost:3000 and create an account.
-5. **NFC POS** (CLI):
-   ```
-   python pos.py 6.5  # Charge ¥6.5 per tap
-   ```
-6. **NFC Broadcaster** (for web UI taps):
-   ```
-   python tap-broadcaster.py --simulate  # Test mode
-   ```
+### 1. Prerequisites
+Check out [docs/getting-started.md](docs/getting-started.md) for setting up Node.js, pnpm, and other build tools.
 
-## Full Documentation
+### 2. Set Up the Database
+Make sure `stuco.db` exists, or create it:
+```bash
+python init_db.py
+```
 
-Comprehensive guides are in the [docs/ directory](docs/):
+### 3. Configure Authentication
+The web UI uses Better Auth. See [docs/authentication.md](docs/authentication.md) for details:
+```bash
+cd web-next
+# Create .env.local with your config (check the docs)
+sqlite3 ../stuco.db < migrations/better_auth_schema.sql
+```
 
-### Setup & Administration
-- [Getting Started](docs/getting-started.md): Installation and quick setup.
-- [Deployment Guide](docs/deployment.md): Production deployment (Docker, systemd, SSL).
-- [Security Guide](docs/security.md): Security best practices and hardening.
-- [Database Guide](docs/database.md): Schema, migrations, and maintenance.
-- [Scripts Reference](docs/scripts.md): Utility scripts documentation.
+### 4. Start the Web Interface
+For development:
+```bash
+cd web-next
+pnpm install  # Installs and builds dependencies
+pnpm dev
+```
 
-### User Guides
-- [User Guide](docs/user-guide.md): How to use the system.
-- [NFC Setup](docs/nfc-setup.md): Configuring card readers.
+For production:
+```bash
+cd web-next
+pnpm build  
+pnpm start
+```
+
+Then open http://localhost:3000 and create your account.
+
+### 5. Use the NFC Point of Sale
+Charge students by tapping their cards:
+```bash
+python pos.py 6.5  # Charges ¥6.5 per tap
+```
+
+### 6. Run the NFC Broadcaster
+This broadcasts NFC taps to the web UI in real-time:
+```bash
+python tap-broadcaster.py --simulate  # Test mode without hardware
+```
+
+## Documentation
+
+Everything is documented in the [docs/](docs/) folder:
+
+### Setup and Administration
+- [Getting Started](docs/getting-started.md) - Installation and initial setup
+- [Deployment Guide](docs/deployment.md) - Running in production with Docker, systemd, and SSL
+- [Security Guide](docs/security.md) - Keeping your system secure
+- [Database Guide](docs/database.md) - Understanding the database schema and migrations
+- [Scripts Reference](docs/scripts.md) - Documentation for utility scripts
+
+### Using the System
+- [User Guide](docs/user-guide.md) - How to use the system day-to-day
+- [NFC Setup](docs/nfc-setup.md) - Setting up your card readers
 
 ### Development
-- [Development Guide](docs/development.md): Architecture and extending the system.
-- [UI Components Guide](docs/ui-components.md): Custom components and animations.
+- [Development Guide](docs/development.md) - System architecture and how to extend it
+- [UI Components Guide](docs/ui-components.md) - Custom components and animations
 
-### Reference
-- [Troubleshooting](docs/troubleshooting.md): Common issues and solutions.
-- [Changelog](docs/changelog.md): Release notes.
+### Help
+- [Troubleshooting](docs/troubleshooting.md) - Solutions to common problems
+- [Changelog](docs/changelog.md) - What's new in each version
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.

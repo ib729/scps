@@ -16,15 +16,19 @@ This guide is for developers extending or maintaining the Stuco system. Covers a
 
 - **Framework**: Next.js 16 (App Router).
 - **Language**: TypeScript 5+.
-- **Styling**: Tailwind CSS 4, Shadcn UI (neutral theme, no gradients).
+- **Runtime**: React 19.2.0.
+- **Styling**: Tailwind CSS 4, Radix UI components (via Shadcn).
 - **Forms/Validation**: React Hook Form, Zod.
+- **Authentication**: Better Auth with email/password support.
 - **Database**: better-sqlite3 (native bindings auto-built).
-- **Real-time**: Server-Sent Events (SSE) for NFC taps.
+- **Real-time**: WebSocket + Server-Sent Events (SSE) for NFC taps.
+- **Custom Server**: Node.js HTTP server with WebSocket support (server.js).
 - **Notifications**: Sonner (toasts).
 - **Animation**: Motion (Framer Motion), animate-ui.
 - **3D/Graphics**: Three.js for background effects.
 - **Charts**: Recharts for analytics visualization.
-- **Theming**: next-themes for dark mode support.
+- **Theming**: next-themes for dark mode support (already implemented).
+- **Icons**: Lucide React.
 - See `web-next/package.json`.
 
 ### NFC
@@ -40,12 +44,14 @@ This guide is for developers extending or maintaining the Stuco system. Covers a
 ```
 CLI Tools (Python) ↔ stuco.db (SQLite) ↔ Web UI (Next.js)
                            │
-                      NFC Reader ─ tap-broadcaster.py ─ API
+                      NFC Reader ─ tap-broadcaster.py ─ WebSocket/API ─ UI
 ```
 
 - **Shared DB**: All components access the same SQLite file.
-- **NFC Flow**: Hardware → Python broadcaster → Next.js API → SSE → UI.
+- **NFC Flow**: Hardware → Python broadcaster → Next.js WebSocket/API → Real-time UI updates.
+- **Authentication**: Better Auth with session-based authentication (protected routes).
 - **Server Actions**: Mutations in web UI use Next.js actions (atomic, typed).
+- **Custom Server**: server.js handles WebSocket connections alongside Next.js.
 
 ### Web UI Layers
 
@@ -62,22 +68,26 @@ CLI Tools (Python) ↔ stuco.db (SQLite) ↔ Web UI (Next.js)
    - All: Zod validation, error handling, revalidation.
 
 3. **Pages** (`app/`):
-   - `/dashboard`: Stats, recent tx.
-   - `/students` / `[id]`: List/detail.
-   - `/transactions`: History with filters.
-   - `/pos`: Sales (Tap/Manual modes).
-   - `/topup`: Funds (manual).
+   - `/` (root): Redirects to /dashboard or /login based on auth.
+   - `/login`, `/signup`: Authentication pages.
+   - `/dashboard`: Stats, recent transactions, charts.
+   - `/students` / `[id]`: List/detail with cards and transaction history.
+   - `/transactions`: Full transaction history with filters.
+   - `/pos`: Point of sale (Tap/Manual modes).
+   - `/topup`: Add funds (manual entry).
 
 4. **Components**:
-   - UI: Shadcn (button, table, dialog, drawer, sheet, etc.).
-   - Custom: PosForm, TapAlert (toasts), Nav, WeeklyTopupChart.
+   - UI: Radix UI via Shadcn (button, table, dialog, drawer, sheet, sidebar, etc.).
+   - Layout: AppSidebar, PageHeader, ThemeProvider.
+   - Custom: PosForm, TopupForm, TapAlert (toasts), WeeklyTopupChart.
    - Animation: FlipWords, EncryptedText.
    - Backgrounds: HoleBackground, Fireworks, GravityStars (animate-ui).
    - See [UI Components Guide](ui-components.md) for details.
 
-5. **API Routes** (`app/api/nfc/`):
-   - `/tap`: POST from broadcaster.
-   - `/stream`: SSE for taps.
+5. **API Routes** (`app/api/`):
+   - `/auth/[...all]`: Better Auth authentication endpoints.
+   - `/nfc/tap`: POST endpoint for NFC tap events from broadcaster.
+   - **WebSocket**: Handled by custom server.js for real-time NFC events.
 
 **Rendering**: Dynamic (`force-dynamic`) for DB pages.
 
@@ -87,15 +97,16 @@ CLI Tools (Python) ↔ stuco.db (SQLite) ↔ Web UI (Next.js)
 
 ```
 stuco/
-├── stuco.db
-├── schema.sql
-├── init_db.py
-├── pos.py          # CLI POS
-├── topup.py        # CLI top-up
-├── enroll.py       # CLI enroll
-├── tap-broadcaster.py  # NFC broadcaster
-├── requirements.txt
-└── docs/
+├── stuco.db                # SQLite database
+├── init_db.py              # Database initialization
+├── pos.py                  # CLI POS
+├── topup.py                # CLI top-up
+├── enroll.py               # CLI enroll
+├── tap-broadcaster.py      # NFC broadcaster (WebSocket client)
+├── requirements.txt        # Python dependencies
+├── migrations/
+│   └── schema.sql          # Database schema
+└── docs/                   # Documentation
 ```
 
 ### Web UI (web-next/)
@@ -103,27 +114,44 @@ stuco/
 ```
 web-next/
 ├── app/
-│   ├── actions/     # Server actions
-│   ├── api/nfc/     # NFC endpoints
-│   ├── dashboard/   # Page
-│   ├── students/    # Pages + [id]
-│   ├── pos/         # Page + form
-│   ├── topup/       # Page + form
-│   ├── transactions/ # Page
-│   └── layout.tsx   # Root layout + Toaster
+│   ├── (app)/           # Protected routes with layout
+│   │   ├── dashboard/
+│   │   ├── students/    # + [id] detail pages
+│   │   ├── pos/
+│   │   ├── topup/
+│   │   ├── transactions/
+│   │   └── layout.tsx   # Auth-protected layout with sidebar
+│   ├── (auth)/          # Public auth routes
+│   │   ├── login/
+│   │   └── signup/
+│   ├── actions/         # Server actions
+│   ├── api/
+│   │   ├── auth/        # Better Auth endpoints
+│   │   └── nfc/         # NFC endpoints
+│   ├── layout.tsx       # Root layout with ThemeProvider
+│   ├── page.tsx         # Home (redirects)
+│   └── sitemap.ts       # SEO sitemap
 ├── components/
-│   ├── ui/          # Shadcn components
-│   └── tap-alert.tsx # Global NFC toast
+│   ├── ui/              # Radix UI components (via Shadcn)
+│   ├── animate-ui/      # Custom animations
+│   ├── app-sidebar.tsx  # Navigation sidebar
+│   ├── page-header.tsx
+│   ├── tap-alert.tsx    # Global NFC toast
+│   └── theme-provider.tsx
 ├── lib/
-│   ├── db.ts
-│   ├── models.ts
-│   ├── currency.ts
-│   └── repositories/ # DB access
-├── public/          # Static assets
-├── .env.local       # DATABASE_PATH, NFC_TAP_SECRET
-├── next.config.js
-├── package.json     # Scripts: dev, build, lint
-└── tailwind.config.js
+│   ├── auth.ts          # Better Auth config
+│   ├── auth-client.ts   # Client-side auth
+│   ├── db.ts            # Database connection
+│   ├── models.ts        # Zod schemas
+│   ├── currency.ts      # Currency helpers
+│   ├── use-nfc-websocket.ts
+│   └── repositories/    # Typed DB access
+├── public/
+│   └── robots.txt       # SEO configuration
+├── Dockerfile           # Production container
+├── server.js            # Custom Node server with WebSocket
+├── next.config.ts       # Next.js configuration
+└── package.json         # Dependencies and scripts
 ```
 
 ## Setup for Development
@@ -133,9 +161,17 @@ See [Getting Started](../getting-started.md).
 **Web UI Specific**:
 
 1. `cd web-next && pnpm install` (auto-builds better-sqlite3).
-2. Set `.env.local`: `DATABASE_PATH=/absolute/path/to/stuco.db`.
-3. `pnpm dev` (port 3000).
-4. Edit: Hot reload.
+2. Create `.env.local` with required variables:
+   ```bash
+   DATABASE_PATH=/absolute/path/to/stuco.db
+   BETTER_AUTH_SECRET=your-secret-key-here
+   BETTER_AUTH_URL=http://localhost:3000
+   NEXT_PUBLIC_APP_URL=https://scps.ivanbelousov.com
+   NFC_TAP_SECRET=your-nfc-secret-here
+   ```
+3. Run auth migrations: `sqlite3 ../stuco.db < migrations/better_auth_schema.sql`
+4. `pnpm dev` (starts custom server on port 3000 with WebSocket support).
+5. Edit: Hot reload enabled.
 
 **CLI**:
 
@@ -153,19 +189,26 @@ See [Getting Started](../getting-started.md).
 **Development**:
 
 ```bash
-pnpm dev  # http://localhost:3000
+pnpm dev  # Runs custom server.js with WebSocket on http://localhost:3000
 ```
 
 **Production Build**:
 
 ```bash
-pnpm build  # Optimizes, checks types
-pnpm start  # Runs on 3000
+pnpm build   # Optimizes, checks types, creates standalone output
+pnpm start   # Runs production server with WebSocket on port 3000
+```
+
+**Docker**:
+
+```bash
+docker build -t scps-web .
+docker run -p 3000:3000 -v /path/to/stuco.db:/app/stuco.db scps-web
 ```
 
 - **Env**: Set `NODE_ENV=production`.
-- **HTTPS**: Use reverse proxy (nginx) for SSL.
-- **Raspberry Pi**: Run as service (systemd, PM2).
+- **HTTPS**: Use Cloudflare Tunnel or reverse proxy (nginx) for SSL.
+- **Raspberry Pi**: Run as systemd service or via Docker.
 
 **Lint/Type Check**:
 
@@ -196,7 +239,8 @@ pnpm build  # Includes TS check
 
 3. **NFC Enhancement**:
    - Extend `/api/nfc/tap` handler.
-   - Update SSE in `/stream`.
+   - Update WebSocket handlers in `server.js`.
+   - Modify client WebSocket hook in `lib/use-nfc-websocket.ts`.
 
 ### Testing
 
@@ -232,15 +276,24 @@ pnpm build  # Includes TS check
 - **Error Handling**: Always catch and handle errors gracefully.
 - **Database**: Use repositories for all DB access, never raw queries in pages.
 
+## Implemented Features
+
+- ✅ Authentication with Better Auth (email/password, session management)
+- ✅ Dark mode support (system/light/dark themes)
+- ✅ Analytics charts (weekly top-up visualization)
+- ✅ Real-time NFC updates via WebSocket
+- ✅ Responsive UI with sidebar navigation
+- ✅ SEO optimization (robots.txt, sitemap, metadata)
+
 ## Potential Enhancements
 
-From implementation notes:
-- Authentication (users table ready).
-- Reports/Exports (CSV/PDF).
-- Bulk operations.
-- Analytics charts.
-- Audit logs.
-- Dark mode toggle.
+- Microsoft OAuth integration (configured but not enabled)
+- Reports/Exports (CSV/PDF)
+- Bulk operations (import students, bulk top-ups)
+- Advanced analytics dashboards
+- Audit logs and activity tracking
+- Student accounts & self-served top-ups
+
 
 See [Changelog](changelog.md) for recent changes.
 
@@ -251,4 +304,4 @@ See [Changelog](changelog.md) for recent changes.
 - [Security Guide](security.md) - Security best practices
 - [Scripts Reference](scripts.md) - Utility scripts documentation
 
-**Last updated: November 11, 2025**
+**Last updated: November 12, 2025**
