@@ -114,9 +114,9 @@ export function AppSidebar({ user: initialUser, ...props }: AppSidebarProps) {
   const [deletePassword, setDeletePassword] = React.useState("")
 
   // Use server-provided user data as the primary source
-  // Only use useSession for reactive updates (e.g., after sign out)
-  const { data: session } = authClient.useSession()
-  const user = session?.user || initialUser
+  // Removed useSession to prevent automatic polling that causes page refreshes every 30 seconds
+  // Server-side auth in layout.tsx handles session validation, so client-side polling is unnecessary
+  const user = initialUser
 
   // Form state for profile
   const [formData, setFormData] = React.useState({

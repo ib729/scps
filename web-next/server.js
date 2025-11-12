@@ -199,8 +199,8 @@ function handleWebSocketConnection(ws, request) {
         }
       });
 
-      // Start ping interval
-      startPingInterval();
+      // Browser clients don't need ping keepalive - they maintain connection naturally
+      // Removing ping interval to prevent page refresh every 30 seconds
 
     } else {
       ws.send(JSON.stringify({
