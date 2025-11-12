@@ -23,9 +23,10 @@ import { toDisplayValue, formatCurrency } from "@/lib/currency";
 interface TopupFormProps {
   students: StudentWithAccount[];
   studentIdsWithTransactions: number[];
+  userName: string;
 }
 
-export function TopupForm({ students, studentIdsWithTransactions }: TopupFormProps) {
+export function TopupForm({ students, studentIdsWithTransactions, userName }: TopupFormProps) {
   const [studentId, setStudentId] = useState<string>("");
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
@@ -37,6 +38,13 @@ export function TopupForm({ students, studentIdsWithTransactions }: TopupFormPro
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  // Auto-fill staff name with current user's name
+  useEffect(() => {
+    if (userName && !staff) {
+      setStaff(userName);
+    }
+  }, [userName, staff]);
 
   // Auto-select student from query parameter
   useEffect(() => {
@@ -53,11 +61,19 @@ export function TopupForm({ students, studentIdsWithTransactions }: TopupFormPro
   const [adjustAmount, setAdjustAmount] = useState("");
   const [adjustDescription, setAdjustDescription] = useState("");
   const [adjustStaff, setAdjustStaff] = useState("");
+
   const [adjustError, setAdjustError] = useState("");
   const [adjustSuccess, setAdjustSuccess] = useState("");
   const [adjustTransactionId, setAdjustTransactionId] = useState<number | null>(null);
   const [adjustCopied, setAdjustCopied] = useState(false);
   const [adjustLoading, setAdjustLoading] = useState(false);
+
+  // Auto-fill adjust staff name with current user's name
+  useEffect(() => {
+    if (userName && !adjustStaff) {
+      setAdjustStaff(userName);
+    }
+  }, [userName, adjustStaff]);
 
   const selectedStudent = students.find((s) => s.id === parseInt(studentId));
   const selectedAdjustStudent = students.find((s) => s.id === parseInt(adjustStudentId));

@@ -36,11 +36,12 @@ import { useNFCWebSocket } from "@/lib/use-nfc-websocket";
 interface PosFormProps {
   students: StudentWithAccount[];
   studentIdsWithTransactions: number[];
+  userName: string;
 }
 
 type WorkflowMode = "tap-first" | "manual";
 
-export function PosForm({ students, studentIdsWithTransactions }: PosFormProps) {
+export function PosForm({ students, studentIdsWithTransactions, userName }: PosFormProps) {
   const [mode, setMode] = useState<WorkflowMode>("tap-first");
   const [studentId, setStudentId] = useState<string>("");
   const [cardUid, setCardUid] = useState<string>("");
@@ -55,6 +56,13 @@ export function PosForm({ students, studentIdsWithTransactions }: PosFormProps) 
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  // Auto-fill staff name with current user's name
+  useEffect(() => {
+    if (userName && !staff) {
+      setStaff(userName);
+    }
+  }, [userName, staff]);
+
   // Dialog state for Tap mode
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogStudentId, setDialogStudentId] = useState<number>(0);
@@ -64,6 +72,13 @@ export function PosForm({ students, studentIdsWithTransactions }: PosFormProps) 
   const [dialogStaff, setDialogStaff] = useState("");
   const [dialogError, setDialogError] = useState("");
   const [dialogLoading, setDialogLoading] = useState(false);
+
+  // Auto-fill dialog staff name with current user's name
+  useEffect(() => {
+    if (userName && !dialogStaff) {
+      setDialogStaff(userName);
+    }
+  }, [userName, dialogStaff]);
 
   // Enrollment dialog state for unknown cards
   const [enrollDialogOpen, setEnrollDialogOpen] = useState(false);
@@ -148,7 +163,7 @@ export function PosForm({ students, studentIdsWithTransactions }: PosFormProps) 
     setDialogCardUid(uid);
     setDialogAmount("");
     setDialogDescription("");
-    setDialogStaff("");
+    setDialogStaff(userName);
     setDialogError("");
     setDialogOpen(true);
   };
@@ -193,7 +208,7 @@ export function PosForm({ students, studentIdsWithTransactions }: PosFormProps) 
         setDialogCardUid(enrollCardUid);
         setDialogAmount("");
         setDialogDescription("");
-        setDialogStaff("");
+        setDialogStaff(userName);
         setDialogError("");
         setDialogOpen(true);
       } else if (action === 'topup') {

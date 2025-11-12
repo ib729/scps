@@ -17,7 +17,6 @@ import {
   Sun,
   Eye,
   EyeOff,
-  Palette,
 } from "lucide-react"
 import { useTheme } from "next-themes"
 
@@ -212,7 +211,7 @@ export function AppSidebar({ user: initialUser, ...props }: AppSidebarProps) {
     try {
       const { data, error } = await authClient.updateUser({
         name: formData.name,
-        image: formData.image || undefined,
+        image: formData.image || null,
       })
       
       if (error) {
@@ -443,10 +442,9 @@ export function AppSidebar({ user: initialUser, ...props }: AppSidebarProps) {
             </DialogDescription>
           </DialogHeader>
           <Tabs defaultValue="profile" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="profile">Profile</TabsTrigger>
               <TabsTrigger value="security">Security</TabsTrigger>
-              <TabsTrigger value="preferences">Preferences</TabsTrigger>
             </TabsList>
             <TabsContent value="profile" className="space-y-4">
               <div className="space-y-2">
@@ -482,10 +480,21 @@ export function AppSidebar({ user: initialUser, ...props }: AppSidebarProps) {
                 {formData.image && (
                   <div className="mt-3">
                     <Label className="text-xs text-muted-foreground mb-2 block">Preview:</Label>
-                    <Avatar className="h-16 w-16">
-                      <AvatarImage src={formData.image} alt={formData.name} />
-                      <AvatarFallback>{formData.name.charAt(0).toUpperCase()}</AvatarFallback>
-                    </Avatar>
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-16 w-16">
+                        <AvatarImage src={formData.image} alt={formData.name} />
+                        <AvatarFallback>{formData.name.charAt(0).toUpperCase()}</AvatarFallback>
+                      </Avatar>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleFormChange("image", "")}
+                        disabled={loading}
+                      >
+                        Remove Picture
+                      </Button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -633,49 +642,6 @@ export function AppSidebar({ user: initialUser, ...props }: AppSidebarProps) {
                     className="w-full"
                   >
                     Delete Account
-                  </Button>
-                </div>
-              </div>
-            </TabsContent>
-            <TabsContent value="preferences" className="space-y-4">
-              <div className="space-y-4">
-                <div>
-                  <h3 className="text-sm font-semibold mb-1">Appearance</h3>
-                  <p className="text-xs text-muted-foreground">
-                    Customize how the application looks on your device
-                  </p>
-                </div>
-                
-                <div className="flex items-center justify-between p-4 border rounded-lg">
-                  <div className="flex items-center gap-3">
-                    {resolvedTheme === "dark" ? (
-                      <Moon className="h-5 w-5 text-muted-foreground" />
-                    ) : (
-                      <Sun className="h-5 w-5 text-muted-foreground" />
-                    )}
-                    <div>
-                      <Label className="text-sm font-medium">Theme</Label>
-                      <p className="text-xs text-muted-foreground">
-                        {resolvedTheme === "dark" ? "Dark mode" : "Light mode"}
-                      </p>
-                    </div>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleToggleTheme}
-                  >
-                    {resolvedTheme === "dark" ? (
-                      <>
-                        <Sun className="mr-2 h-4 w-4" />
-                        Light
-                      </>
-                    ) : (
-                      <>
-                        <Moon className="mr-2 h-4 w-4" />
-                        Dark
-                      </>
-                    )}
                   </Button>
                 </div>
               </div>
