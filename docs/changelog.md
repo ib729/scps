@@ -2,6 +2,74 @@
 
 A log of notable changes during early development. No official releases yet.
 
+## 2025-11-12
+
+### Added
+- **Authentication System**:
+  - Integrated Better Auth for secure user management.
+  - Invite-only signup with session-based authentication.
+  - Protected routes and API endpoints.
+  - User management with role-based access control.
+  - See [Authentication Guide](authentication.md) for setup details.
+
+- **Node.js Backend with WebSocket**:
+  - Replaced Python SSE with Node.js WebSocket server for real-time NFC communication.
+  - Bidirectional communication for instant tap detection and feedback.
+  - Custom `server.js` handles both Next.js app and WebSocket connections.
+  - Improved reliability and connection handling.
+
+- **Automated Cloud Backups**:
+  - Database auto-backup system to Cloudflare R2.
+  - Scheduled backups with retention policies.
+  - Restore scripts for disaster recovery.
+  - See [Scripts Reference](scripts.md) for backup configuration.
+
+- **USB Reset Flow**:
+  - Automated USB device reset for NFC reader recovery.
+  - Handles reader disconnection/reconnection gracefully.
+  - Reduces need for manual intervention.
+
+- **SEO Enhancements**:
+  - Added sitemap.ts for dynamic sitemap generation.
+  - robots.txt for search engine crawling rules.
+  - Enhanced metadata and Open Graph tags.
+  - Improved page titles and descriptions.
+
+- **Community Files**:
+  - CODE_OF_CONDUCT.md for community guidelines.
+  - CONTRIBUTING.md with contribution guidelines.
+  - Moved SECURITY.md to project root for better visibility.
+
+### Changed
+- **Backend Architecture**:
+  - Major migration from Python-based SSE to Node.js WebSocket.
+  - Custom WebSocket protocol for NFC tap events.
+  - Better error handling and connection recovery.
+  - Improved tap-broadcaster.py with enhanced logging.
+
+- **UI/UX Improvements**:
+  - Refined POS page layout and workflow.
+  - Enhanced students page with better visual hierarchy.
+  - Improved table layouts and text wrapping.
+  - Better responsive design for mobile devices.
+  - Added loading states and skeleton screens.
+
+- **Documentation Structure**:
+  - Reorganized documentation with table of contents.
+  - Enhanced cross-references between guides.
+  - Added more troubleshooting scenarios.
+  - Updated all setup instructions for new backend.
+
+### Fixed
+- **Dark Mode**: Fixed theme toggle persistence issues.
+- **Session Handling**: Resolved cookie session errors.
+- **Visual Bugs**: 
+  - Fixed alignment issues across multiple pages.
+  - Corrected text wrap behavior in data tables.
+  - Resolved render logic issues on POS page.
+- **WebSocket**: Improved connection stability and reconnection logic.
+- **Overdraft**: Fixed overdraft limit edit functionality.
+
 ## 2025-11-09
 
 ### Added
@@ -71,4 +139,4 @@ A log of notable changes during early development. No official releases yet.
 
 For full history, see git log.
 
-**Last updated: November 11, 2025**
+**Last updated: November 12, 2025**
