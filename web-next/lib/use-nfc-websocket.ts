@@ -306,6 +306,7 @@ export function useNFCWebSocket(
 
   /**
    * Auto-connect on mount if enabled
+   * Use empty deps to only run on mount/unmount, not on every render
    */
   useEffect(() => {
     if (autoConnect) {
@@ -316,17 +317,27 @@ export function useNFCWebSocket(
     return () => {
       disconnect();
     };
-  }, [autoConnect]); // Only run on mount/unmount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty deps: only run once on mount
 
   /**
    * Reconnect when lane changes
+   * Note: lane is in getWebSocketUrl callback deps, so URL will update
+   * We DON'T need to reconnect - just disconnect and let autoConnect handle it
    */
   useEffect(() => {
-    if (isConnected && autoConnect) {
+    // Only disconnect if already connected when lane changes
+    // The mount effect will reconnect with new lane
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       console.log("[NFC WS] Lane changed, reconnecting...");
-      reconnect();
+      disconnect();
+      // Re-connect with new lane
+      if (autoConnect) {
+        setTimeout(() => connect(), 100);
+      }
     }
-  }, [lane]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lane]); // Only lane as dependency
 
   return {
     isConnected,

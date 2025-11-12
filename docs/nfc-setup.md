@@ -456,6 +456,106 @@ console.log("WebSocket ready state:", ws.readyState);
 - "Cannot find module './lib/tap-events-node'": Verify file exists.
 - Port in use: Kill process `sudo lsof -ti:3000 | xargs kill -9`.
 
+### WebSocket Authentication Troubleshooting
+
+**Problem**: Broadcaster shows "Authentication failed" errors repeatedly.
+
+**Symptoms:**
+```
+[WS] Broadcaster authentication failed - invalid secret provided
+[WS] Connection closed (code: 1008, reason: Authentication failed)
+```
+
+**Solutions:**
+
+1. **Verify Secret Configuration**:
+   
+   The `NFC_TAP_SECRET` must be identical in both locations:
+   
+   - Web server: `web-next/.env.local`
+   - Broadcaster: `.env.broadcaster` (for systemd) or environment variable
+   
+   ```bash
+   # Check web server secret
+   grep NFC_TAP_SECRET web-next/.env.local
+   
+   # Check broadcaster secret
+   grep NFC_TAP_SECRET .env.broadcaster
+   ```
+
+2. **Generate New Secret** (if needed):
+   
+   ```bash
+   # Generate new secret
+   NEW_SECRET=$(openssl rand -hex 32)
+   echo $NEW_SECRET
+   
+   # Add to web-next/.env.local
+   echo "NFC_TAP_SECRET=$NEW_SECRET" >> web-next/.env.local
+   
+   # Add to .env.broadcaster
+   echo "NFC_TAP_SECRET=$NEW_SECRET" > .env.broadcaster
+   chmod 600 .env.broadcaster
+   ```
+
+3. **Restart Services**:
+   
+   After updating secrets, restart both services:
+   ```bash
+   # Restart web server
+   cd web-next
+   pnpm dev  # or restart systemd service
+   
+   # Restart broadcaster
+   sudo systemctl restart tap-broadcaster
+   ```
+
+4. **Check Systemd Service Configuration**:
+   
+   Verify `systemd/tap-broadcaster.service` loads the environment file:
+   ```ini
+   EnvironmentFile=/home/qiss/stuco/.env.broadcaster
+   ```
+   
+   After editing:
+   ```bash
+   sudo systemctl daemon-reload
+   sudo systemctl restart tap-broadcaster
+   ```
+
+5. **Rate Limiting**:
+   
+   Too many failed auth attempts will trigger rate limiting (5 attempts/minute).
+   If rate limited, wait 5 minutes or restart the web server:
+   ```bash
+   cd web-next
+   # Restart development server (Ctrl+C, then pnpm dev)
+   ```
+
+6. **Check Logs for Details**:
+   
+   The enhanced logging shows connection details:
+   ```bash
+   # Web server logs
+   cd web-next
+   # Check console output
+   
+   # Broadcaster logs
+   sudo journalctl -u tap-broadcaster -f
+   ```
+   
+   Look for:
+   - Connection ID and IP address
+   - Masked secrets (first 4 and last 4 chars)
+   - Auth attempt count
+   - Rate limit warnings
+
+**Security Notes:**
+- Never commit `.env.local` or `.env.broadcaster` to version control
+- Use strong secrets (32+ hex characters)
+- Different secrets for dev/staging/production
+- Rotate secrets periodically
+
 ## Security (Production)
 
 - **HTTPS**: Configure Next.js SSL.

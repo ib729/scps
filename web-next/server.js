@@ -12,10 +12,88 @@ const { createServer } = require('http');
 const { parse } = require('url');
 const next = require('next');
 const { WebSocketServer } = require('ws');
+const crypto = require('crypto');
 
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = process.env.HOSTNAME || 'localhost';
 const port = parseInt(process.env.PORT || '3000', 10);
+
+// Rate limiting: Track failed auth attempts per IP
+const failedAttempts = new Map(); // ip -> { count, firstAttempt, blocked }
+const RATE_LIMIT_WINDOW = 60000; // 1 minute window
+const MAX_FAILED_ATTEMPTS = 5; // Max attempts per window
+const BLOCK_DURATION = 300000; // 5 minutes block
+
+// Connection tracking
+let connectionCounter = 0;
+
+/**
+ * Get client IP address from request
+ */
+function getClientIP(request) {
+  const forwarded = request.headers['x-forwarded-for'];
+  if (forwarded) {
+    return forwarded.split(',')[0].trim();
+  }
+  return request.socket.remoteAddress || 'unknown';
+}
+
+/**
+ * Mask secret for logging (show first 4 and last 4 chars)
+ */
+function maskSecret(secret) {
+  if (!secret || secret.length < 12) return '[INVALID]';
+  return `${secret.slice(0, 4)}...${secret.slice(-4)}`;
+}
+
+/**
+ * Check if IP is rate limited
+ */
+function isRateLimited(ip) {
+  const now = Date.now();
+  const record = failedAttempts.get(ip);
+  
+  if (!record) return false;
+  
+  // Check if block expired
+  if (record.blocked && (now - record.blocked < BLOCK_DURATION)) {
+    return true;
+  }
+  
+  // Reset if window expired
+  if (now - record.firstAttempt > RATE_LIMIT_WINDOW) {
+    failedAttempts.delete(ip);
+    return false;
+  }
+  
+  return record.count >= MAX_FAILED_ATTEMPTS;
+}
+
+/**
+ * Record failed authentication attempt
+ */
+function recordFailedAttempt(ip) {
+  const now = Date.now();
+  const record = failedAttempts.get(ip);
+  
+  if (!record || (now - record.firstAttempt > RATE_LIMIT_WINDOW)) {
+    failedAttempts.set(ip, { count: 1, firstAttempt: now, blocked: null });
+  } else {
+    record.count++;
+    if (record.count >= MAX_FAILED_ATTEMPTS) {
+      record.blocked = now;
+      console.warn(`[WS Rate Limit] IP ${ip} blocked for ${BLOCK_DURATION / 1000}s after ${record.count} failed attempts`);
+    }
+    failedAttempts.set(ip, record);
+  }
+}
+
+/**
+ * Clear failed attempts for IP (on successful auth)
+ */
+function clearFailedAttempts(ip) {
+  failedAttempts.delete(ip);
+}
 
 const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
@@ -75,10 +153,22 @@ function handleWebSocketConnection(ws, request) {
   let pingInterval = null;
   let tapUnsubscribe = null;
 
+  // Connection tracking and metadata
+  const connectionId = ++connectionCounter;
+  const connectedAt = new Date().toISOString();
+  const clientIP = getClientIP(request);
+  const userAgent = request.headers['user-agent'] || 'unknown';
+  const origin = request.headers['origin'] || request.headers['referer'] || 'unknown';
+  
   const url = new URL(request.url, `http://${request.headers.host}`);
   const lane = url.searchParams.get('lane') || 'default';
 
-  console.log('[WS] New connection attempt');
+  console.log(`[WS #${connectionId}] New connection from ${clientIP}`);
+  console.log(`[WS #${connectionId}] User-Agent: ${userAgent}`);
+  console.log(`[WS #${connectionId}] Origin: ${origin}`);
+  
+  // Rate limiting is applied later, only for failed broadcaster authentication
+  // Browser clients are not rate limited
 
   // Handle incoming messages
   ws.on('message', async (data) => {
@@ -123,23 +213,47 @@ function handleWebSocketConnection(ws, request) {
   async function handleAuthentication(ws, message, lane) {
     const role = message.role;
 
+    console.log(`[WS #${connectionId}] Auth attempt - Role: ${role || 'none'}, IP: ${clientIP}`);
+
     // Silently reject invalid or missing roles (likely browser noise)
     if (!role || (role !== 'broadcaster' && role !== 'client')) {
+      console.warn(`[WS #${connectionId}] Invalid role rejected: ${role}`);
       ws.close(1008, 'Invalid role');
       return;
     }
 
     if (role === 'broadcaster') {
+      // Check rate limiting for broadcaster authentication attempts
+      if (isRateLimited(clientIP)) {
+        console.warn(`[WS #${connectionId}] Broadcaster auth rejected - IP ${clientIP} is rate limited`);
+        ws.send(JSON.stringify({
+          type: 'auth_failed',
+          message: 'Rate limit exceeded. Too many failed authentication attempts.'
+        }));
+        ws.close(1008, 'Rate limit exceeded');
+        return;
+      }
+      
       // Authenticate Python broadcaster with shared secret
       const expectedSecret = process.env.NFC_TAP_SECRET;
+      const providedSecret = message.secret;
+      
+      console.log(`[WS #${connectionId}] Broadcaster auth - Expected: ${maskSecret(expectedSecret)}, Provided: ${maskSecret(providedSecret)}`);
       
       if (!expectedSecret) {
-        console.warn('[WS] NFC_TAP_SECRET not configured - allowing broadcaster');
-      } else if (message.secret !== expectedSecret) {
-        // Only log if a secret was actually provided (real attempt, not browser noise)
-        if (message.secret) {
-          console.warn('[WS] Broadcaster authentication failed - invalid secret provided');
+        console.warn(`[WS #${connectionId}] NFC_TAP_SECRET not configured - allowing broadcaster (INSECURE!)`);
+      } else if (providedSecret !== expectedSecret) {
+        // Record failed attempt (only for broadcaster)
+        recordFailedAttempt(clientIP);
+        
+        // Only log details if a secret was actually provided (real attempt, not browser noise)
+        if (providedSecret) {
+          const record = failedAttempts.get(clientIP);
+          console.warn(`[WS #${connectionId}] Broadcaster auth failed - IP: ${clientIP}, Attempts: ${record?.count || 1}/${MAX_FAILED_ATTEMPTS}`);
+        } else {
+          console.warn(`[WS #${connectionId}] Broadcaster auth failed - no secret provided (browser noise?)`);
         }
+        
         ws.send(JSON.stringify({
           type: 'auth_failed',
           message: 'Invalid secret'
@@ -148,14 +262,19 @@ function handleWebSocketConnection(ws, request) {
         return;
       }
 
+      // Clear any failed attempts on successful auth
+      clearFailedAttempts(clientIP);
+
       connectionInfo = {
         role: 'broadcaster',
         lane: message.lane || lane,
+        ip: clientIP,
+        connectedAt,
       };
 
       authenticated = true;
 
-      console.log(`[WS] Broadcaster authenticated (lane: ${connectionInfo.lane})`);
+      console.log(`[WS #${connectionId}] ✓ Broadcaster authenticated successfully (lane: ${connectionInfo.lane})`);
 
       ws.send(JSON.stringify({
         type: 'auth_success',
@@ -167,18 +286,21 @@ function handleWebSocketConnection(ws, request) {
       startPingInterval();
 
     } else if (role === 'client') {
-      // For browser clients, we can't easily verify session here
-      // So we'll allow the connection and rely on the Next.js app
-      // to handle authentication at the application level
+      // Browser clients are NOT rate limited
+      // We trust Next.js app-level authentication for browser clients
+      // Rate limiting only applies to broadcaster authentication failures
       
       connectionInfo = {
         role: 'client',
         lane: lane,
+        ip: clientIP,
+        connectedAt,
+        userAgent,
       };
 
       authenticated = true;
 
-      console.log(`[WS] Client authenticated (lane: ${lane})`);
+      console.log(`[WS #${connectionId}] ✓ Browser client authenticated (lane: ${lane})`);
 
       ws.send(JSON.stringify({
         type: 'auth_success',
@@ -195,6 +317,7 @@ function handleWebSocketConnection(ws, request) {
 
         // Send tap to client
         if (ws.readyState === ws.OPEN) {
+          console.log(`[WS #${connectionId}] Sending tap event to client: ${event.card_uid}`);
           ws.send(JSON.stringify(event));
         }
       });
@@ -203,6 +326,7 @@ function handleWebSocketConnection(ws, request) {
       // Removing ping interval to prevent page refresh every 30 seconds
 
     } else {
+      console.warn(`[WS #${connectionId}] Invalid role: ${role}`);
       ws.send(JSON.stringify({
         type: 'auth_failed',
         message: 'Invalid role'
@@ -214,7 +338,7 @@ function handleWebSocketConnection(ws, request) {
   // Handle tap events from broadcaster
   function handleTapEvent(message) {
     if (!message.card_uid) {
-      console.warn('[WS] Tap event missing card_uid');
+      console.warn(`[WS #${connectionId}] Tap event missing card_uid`);
       return;
     }
 
@@ -229,9 +353,9 @@ function handleWebSocketConnection(ws, request) {
     const broadcasted = tapBroadcaster.broadcast(tapEvent);
 
     if (broadcasted) {
-      console.log(`[WS] Tap received and broadcast: ${tapEvent.card_uid} (lane: ${tapEvent.lane})`);
+      console.log(`[WS #${connectionId}] Tap received and broadcast: ${tapEvent.card_uid} (lane: ${tapEvent.lane})`);
     } else {
-      console.log(`[WS] Tap ignored (duplicate): ${tapEvent.card_uid}`);
+      console.log(`[WS #${connectionId}] Tap ignored (duplicate): ${tapEvent.card_uid}`);
     }
   }
 
@@ -248,7 +372,8 @@ function handleWebSocketConnection(ws, request) {
 
   // Handle connection close
   ws.on('close', (code, reason) => {
-    console.log(`[WS] Connection closed (code: ${code}, reason: ${reason || 'none'})`);
+    const duration = Date.now() - new Date(connectedAt).getTime();
+    console.log(`[WS #${connectionId}] Connection closed (code: ${code}, reason: ${reason || 'none'}, duration: ${(duration / 1000).toFixed(1)}s, role: ${connectionInfo?.role || 'unauthenticated'})`);
     
     // Cleanup
     if (pingInterval) {
@@ -262,7 +387,7 @@ function handleWebSocketConnection(ws, request) {
 
   // Handle errors
   ws.on('error', (error) => {
-    console.error('[WS] Socket error:', error);
+    console.error(`[WS #${connectionId}] Socket error:`, error);
   });
 }
 
