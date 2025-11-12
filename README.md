@@ -1,4 +1,4 @@
-# Student Council Management System
+# Student Council Payment System (SCPS) 
 
 A system for managing student snack bar payments using NFC cards, with Python CLI tools and a modern Next.js web UI.
 
