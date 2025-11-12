@@ -35,7 +35,7 @@ python tap-broadcaster.py --test --secret test-secret-123
 **Expected output**:
 ```
 ╔═══════════════════════════════════════════════════════════════╗
-║         NFC Tap Broadcaster for Stuco POS System             ║
+║         NFC Tap Broadcaster for SCPS POS System              ║
 ║                    WebSocket Version                         ║
 ╠═══════════════════════════════════════════════════════════════╣
 ║ Server:  http://localhost:3000                               ║
@@ -304,7 +304,7 @@ journalctl -u tap-broadcaster -f
 
 **Expected status output**:
 ```
-● tap-broadcaster.service - NFC Tap Broadcaster for Stuco POS (WebSocket)
+● tap-broadcaster.service - NFC Tap Broadcaster for SCPS POS (WebSocket)
    Loaded: loaded (/etc/systemd/system/tap-broadcaster.service; enabled)
    Active: active (running) since ...
 ```

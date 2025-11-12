@@ -1,12 +1,12 @@
 # UI Components Guide
 
-Documentation for custom UI components, animations, and design patterns used in the Stuco web interface.
+Documentation for custom UI components, animations, and design patterns used in the SCPS web interface.
 
 ## Overview
 
-The Stuco web UI uses a combination of:
+The SCPS web UI uses a combination of:
 - **Shadcn UI**: Pre-built, accessible components based on Radix UI
-- **Custom Components**: Purpose-built for Stuco functionality
+- **Custom Components**: Purpose-built for SCPS functionality
 - **Animation Libraries**: Motion (Framer Motion) and animate-ui
 - **Charting**: Recharts for data visualization
 - **Theming**: next-themes for dark mode support
@@ -221,7 +221,7 @@ export default function Section() {
   return (
     <h1>
       <EncryptedText 
-        text="Welcome to Stuco"
+        text="Welcome to SCPS"
         revealDelayMs={50}
       />
     </h1>

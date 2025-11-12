@@ -1,6 +1,6 @@
 # Troubleshooting
 
-Common issues and solutions for the Stuco system.
+Common issues and solutions for the Student Council Payment System.
 
 ## Page Refresh Issues
 
@@ -220,11 +220,11 @@ After setup, verify authentication works:
 **Cause**: Native module not compiled for your platform.
 
 **Solutions**:
-1. Run `./check-prereqs.sh` in `web-next/` to verify tools.
-2. Reinstall: `rm -rf node_modules && pnpm install`.
-3. Approve builds: `pnpm approve-builds better-sqlite3`.
-4. Manual rebuild: `pnpm rebuild better-sqlite3`.
-5. Legacy: `./setup.sh`.
+1. Run `./scripts/web-next-check-prereqs.sh` to verify tools.
+2. Reinstall: `cd web-next && rm -rf node_modules && pnpm install`.
+3. Approve builds: `cd web-next && pnpm approve-builds better-sqlite3`.
+4. Manual rebuild: `cd web-next && pnpm rebuild better-sqlite3`.
+5. Legacy: `./scripts/web-next-setup.sh`.
 
 **Raspberry Pi Specific**:
 - Increase swap: See Getting Started prerequisites.
@@ -296,12 +296,12 @@ After setup, verify authentication works:
 
 ### "Disconnected from reader" in UI
 
-**Cause**: SSE not connecting.
+**Cause**: WebSocket connection failed.
 
 **Solutions**:
-1. Verify web UI running: `curl http://localhost:3000/api/nfc/stream`.
+1. Verify web UI running: `curl http://localhost:3000/api/nfc/tap`.
 2. Check secrets match: NFC_TAP_SECRET in envs.
-3. Browser: Dev tools > Network > WS/SSE tab.
+3. Browser: Dev tools > Console > Check for WebSocket errors.
 4. Restart broadcaster: `systemctl restart tap-broadcaster`.
 
 ### Taps Not Auto-Selecting

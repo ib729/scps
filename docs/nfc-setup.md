@@ -1,6 +1,6 @@
 # NFC Card Tap Integration
 
-This guide sets up NFC tap support for the Stuco POS system, enabling card taps to auto-select students in the web UI.
+This guide sets up NFC tap support for the Student Council Payment System POS, enabling card taps to auto-select students in the web UI.
 
 ## Overview
 
@@ -233,7 +233,7 @@ python tap-broadcaster.py --test  # Sends fake UID "DEADBEEF"
 **Output**:
 ```
 ╔═══════════════════════════════════════════════════════════════╗
-║         NFC Tap Broadcaster for Stuco POS System             ║
+║         NFC Tap Broadcaster for SCPS POS System              ║
 ║                    WebSocket Version                         ║
 ╠═══════════════════════════════════════════════════════════════╣
 ║ Server:  http://localhost:3000                               ║

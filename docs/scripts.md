@@ -1,10 +1,10 @@
 # Scripts Reference
 
-Documentation for all utility scripts in the Stuco system, including setup, maintenance, and testing tools.
+Documentation for all utility scripts in the Student Council Payment System, including setup, maintenance, and testing tools.
 
 ## Overview
 
-The Stuco project includes various scripts for:
+The Student Council Payment System includes various scripts for:
 - **Setup**: Installing dependencies and configuring the environment
 - **Database**: Initialization, migration, backup, and reset
 - **NFC**: Testing and broadcasting card taps
@@ -12,16 +12,15 @@ The Stuco project includes various scripts for:
 
 ## Setup Scripts
 
-### check-prereqs.sh
+### web-next-check-prereqs.sh
 
-**Location**: `web-next/check-prereqs.sh`
+**Location**: `scripts/web-next-check-prereqs.sh`
 
 **Purpose**: Verify build tools and dependencies before installing.
 
 **Usage:**
 ```bash
-cd web-next
-./check-prereqs.sh
+./scripts/web-next-check-prereqs.sh
 ```
 
 **Checks:**
@@ -46,28 +45,28 @@ cd web-next
 - After OS upgrade or toolchain changes
 - When troubleshooting build failures
 
-### setup.sh
+### web-next-setup.sh
 
-**Location**: `web-next/setup.sh`
+**Location**: `scripts/web-next-setup.sh`
 
 **Purpose**: Legacy manual setup for better-sqlite3 when postinstall fails.
 
 **Usage:**
 ```bash
-cd web-next
-./setup.sh
+./scripts/web-next-setup.sh
 ```
 
 **Steps:**
-1. Runs `pnpm install` to install dependencies
-2. Navigates to better-sqlite3 directory
-3. Manually builds native bindings with `npm run build-release`
-4. Returns to web-next root
+1. Changes to `web-next/` directory
+2. Runs `pnpm install` to install dependencies
+3. Navigates to better-sqlite3 directory
+4. Manually builds native bindings with `npm run build-release`
+5. Returns to project root
 
 **When to Use:**
 - If `pnpm install` postinstall hook fails
 - On platforms with complex build requirements
-- When `check-prereqs.sh` passes but postinstall still fails
+- When `web-next-check-prereqs.sh` passes but postinstall still fails
 
 **Note**: Modern `pnpm install` includes automatic postinstall, so this is rarely needed.
 
@@ -424,7 +423,7 @@ python tap-broadcaster.py --test
 **Output:**
 ```
 ╔═══════════════════════════════════════════════════════════════╗
-║         NFC Tap Broadcaster for Stuco POS System             ║
+║         NFC Tap Broadcaster for SCPS POS System              ║
 ║                    WebSocket Version                         ║
 ╠═══════════════════════════════════════════════════════════════╣
 ║ Server:  http://localhost:3000                               ║
@@ -638,9 +637,9 @@ See [Database Guide](database.md) for migration details.
 
 | Task | Command |
 |------|---------|
-| Check prerequisites | `cd web-next && ./check-prereqs.sh` |
+| Check prerequisites | `./scripts/web-next-check-prereqs.sh` |
 | Setup web UI | `cd web-next && pnpm install` |
-| Setup web UI (manual) | `cd web-next && ./setup.sh` |
+| Setup web UI (manual) | `./scripts/web-next-setup.sh` |
 | Initialize database | `python init_db.py` |
 | Reset database (production) | `python reset_db.py` |
 | Reset database (quick) | `./scripts/reset_db.sh` |

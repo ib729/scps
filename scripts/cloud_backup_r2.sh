@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Cloudflare R2 Database Backup Script for STUCO (using rclone)
+# Cloudflare R2 Database Backup Script for SCPS (using rclone)
 # Uploads SQLite database to Cloudflare R2 storage with local retention
 # Usage: ./cloud_backup_r2.sh
 
@@ -21,7 +21,7 @@ RCLONE_REMOTE="${RCLONE_REMOTE:-r2}"
 R2_PATH="${R2_PATH:-stuco-db-backups}"
 
 echo "============================================================"
-echo "STUCO Cloudflare R2 Database Backup (rclone)"
+echo "SCPS Cloudflare R2 Database Backup (rclone)"
 echo "============================================================"
 echo "Timestamp: $TIMESTAMP"
 echo ""
@@ -105,7 +105,7 @@ rclone copy "$BACKUP_FILE" "${RCLONE_REMOTE}:${R2_PATH}/" \
     --progress \
     --metadata-set "timestamp=${TIMESTAMP}" \
     --metadata-set "type=database" \
-    --metadata-set "project=stuco"
+    --metadata-set "project=scps"
 
 if [ $? -eq 0 ]; then
     echo "✓ Upload successful!"

@@ -36,7 +36,7 @@ For the root project overview, see [../README.md](../README.md).
 
 ## Quick Links
 
-- **New to Stuco?** Start with [Getting Started](getting-started.md)
+- **New to the Student Council Payment System?** Start with [Getting Started](getting-started.md)
 - **Setting up authentication?** See [Authentication Guide](authentication.md)
 - **Deploying to production?** See [Deployment Guide](deployment.md) and [Security Guide](security.md)
 - **Extending the system?** Check [Development Guide](development.md) and [UI Components](ui-components.md)

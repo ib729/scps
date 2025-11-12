@@ -1,10 +1,10 @@
 # Security Guide
 
-This guide covers security best practices, hardening recommendations, and secrets management for the Stuco system in production.
+This guide covers security best practices, hardening recommendations, and secrets management for the Student Council Payment System in production.
 
 ## Overview
 
-The Stuco system handles student financial data and requires proper security measures. This guide focuses on the Raspberry Pi 4 Model B deployment, which is the tested and supported platform.
+The Student Council Payment System handles student financial data and requires proper security measures. This guide focuses on the Raspberry Pi 4 Model B deployment, which is the tested and supported platform.
 
 ## Secrets Management
 

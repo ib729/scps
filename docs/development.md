@@ -1,6 +1,6 @@
 # Development Guide
 
-This guide is for developers extending or maintaining the Stuco system. Covers architecture, tech stack, structure, and workflows.
+This guide is for developers extending or maintaining the Student Council Payment System. Covers architecture, tech stack, structure, and workflows.
 
 ## Tech Stack
 
@@ -21,7 +21,7 @@ This guide is for developers extending or maintaining the Stuco system. Covers a
 - **Forms/Validation**: React Hook Form, Zod.
 - **Authentication**: Better Auth with email/password support.
 - **Database**: better-sqlite3 (native bindings auto-built).
-- **Real-time**: WebSocket + Server-Sent Events (SSE) for NFC taps.
+- **Real-time**: WebSocket for NFC tap events with automatic reconnection.
 - **Custom Server**: Node.js HTTP server with WebSocket support (server.js).
 - **Notifications**: Sonner (toasts).
 - **Animation**: Motion (Framer Motion), animate-ui.
@@ -34,7 +34,7 @@ This guide is for developers extending or maintaining the Stuco system. Covers a
 ### NFC
 
 - **Library**: nfcpy (Python) for PN532.
-- **Protocol**: HTTP POST + SSE.
+- **Protocol**: WebSocket (bidirectional, real-time communication).
 - **Hardware**: PN532 over UART/USB/I2C.
 
 ## Architecture
@@ -86,8 +86,8 @@ CLI Tools (Python) ↔ stuco.db (SQLite) ↔ Web UI (Next.js)
 
 5. **API Routes** (`app/api/`):
    - `/auth/[...all]`: Better Auth authentication endpoints.
-   - `/nfc/tap`: POST endpoint for NFC tap events from broadcaster.
-   - **WebSocket**: Handled by custom server.js for real-time NFC events.
+   - `/nfc/tap`: Legacy POST endpoint for NFC tap events (fallback, not recommended).
+   - **WebSocket**: `/api/nfc/ws` endpoint handled by custom server.js for real-time NFC events.
 
 **Rendering**: Dynamic (`force-dynamic`) for DB pages.
 

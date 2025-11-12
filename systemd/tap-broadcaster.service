@@ -1,5 +1,5 @@
 [Unit]
-Description=NFC Tap Broadcaster for Stuco POS (WebSocket)
+Description=NFC Tap Broadcaster for SCPS POS (WebSocket)
 After=network.target
 
 [Service]

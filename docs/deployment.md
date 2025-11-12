@@ -1,6 +1,6 @@
 # Deployment Guide
 
-This guide covers production deployment options for the Stuco system, including Docker, systemd services, SSL configuration, and environment management.
+This guide covers production deployment options for the Student Council Payment System, including Docker, systemd services, SSL configuration, and environment management.
 
 ## Prerequisites
 
@@ -150,7 +150,7 @@ Update the environment variables:
 
 ```ini
 [Unit]
-Description=NFC Tap Broadcaster for Stuco POS
+Description=NFC Tap Broadcaster for SCPS POS
 After=network.target
 
 [Service]
@@ -315,15 +315,18 @@ server {
         proxy_cache_bypass $http_upgrade;
     }
 
-    # SSE for NFC taps (no buffering)
-    location /api/nfc/stream {
+    # WebSocket for NFC taps
+    location /api/nfc/ws {
         proxy_pass http://stuco_web;
         proxy_http_version 1.1;
-        proxy_set_header Connection '';
-        proxy_buffering off;
-        proxy_cache off;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
         proxy_read_timeout 86400s;
-        chunked_transfer_encoding on;
+        proxy_send_timeout 86400s;
     }
 
     # Access Logs

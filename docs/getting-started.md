@@ -59,18 +59,18 @@ sudo apt install -y git vim curl wget
 
 ### Automatic Prerequisite Check (Web UI)
 
-In the `web-next/` directory:
+Before installing dependencies:
 
 ```bash
-./check-prereqs.sh
+./scripts/web-next-check-prereqs.sh
 ```
 
 This verifies all tools and provides installation instructions if missing.
 
 **When to use which script:**
-- `check-prereqs.sh` - Run first to verify build tools are installed (gcc, make, python3, etc.)
+- `web-next-check-prereqs.sh` - Run first to verify build tools are installed (gcc, make, python3, etc.)
 - `pnpm install` - Standard setup (recommended, includes postinstall for better-sqlite3)
-- `setup.sh` - Legacy manual setup if postinstall fails
+- `web-next-setup.sh` - Legacy manual setup if postinstall fails
 
 ## Database Setup
 
@@ -112,7 +112,7 @@ This verifies all tools and provides installation instructions if missing.
 2. **Check Prerequisites** (optional):
 
    ```bash
-   ./check-prereqs.sh
+   ../scripts/web-next-check-prereqs.sh
    ```
 
 3. **Install Dependencies**:
@@ -176,7 +176,7 @@ This verifies all tools and provides installation instructions if missing.
 If automated setup fails:
 
 ```bash
-./setup.sh  # Runs pnpm install + manual better-sqlite3 build
+../scripts/web-next-setup.sh  # Runs pnpm install + manual better-sqlite3 build
 pnpm dev
 ```
 
@@ -298,10 +298,10 @@ After setup:
 
 ### better-sqlite3 Errors ("bindings file not found")
 
-1. Run `./check-prereqs.sh` in web-next/.
-2. Reinstall: `rm -rf node_modules && pnpm install`.
-3. Approve builds: `pnpm approve-builds better-sqlite3`.
-4. Manual: `./setup.sh`.
+1. Run `./scripts/web-next-check-prereqs.sh`.
+2. Reinstall: `cd web-next && rm -rf node_modules && pnpm install`.
+3. Approve builds: `cd web-next && pnpm approve-builds better-sqlite3`.
+4. Manual: `./scripts/web-next-setup.sh`.
 
 ### Raspberry Pi Compilation Slow/Out of Memory
 

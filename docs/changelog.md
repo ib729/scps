@@ -13,8 +13,8 @@ A log of notable changes during early development. No official releases yet.
 
 - **Automated Setup**:
   - `package.json`: Postinstall rebuilds better-sqlite3.
-  - `check-prereqs.sh`: Cross-platform prerequisite checker.
-  - No more manual `./setup.sh` needed.
+  - `web-next-check-prereqs.sh`: Cross-platform prerequisite checker (moved to scripts/).
+  - No more manual `web-next-setup.sh` needed (also moved to scripts/).
 
 ### Changed
 - **POS Modes Simplified**:
@@ -43,7 +43,7 @@ A log of notable changes during early development. No official releases yet.
   - Full CRUD for students, cards, accounts, transactions.
   - POS with overdraft enforcement.
   - Dashboard, transaction history.
-  - NFC integration via SSE.
+  - NFC integration via WebSocket (real-time, bidirectional).
 
 - **Tap Broadcaster**:
   - `tap-broadcaster.py`: Broadcasts UIDs to web UI.

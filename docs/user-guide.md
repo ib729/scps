@@ -1,6 +1,6 @@
 # User Guide
 
-This guide is for staff using the Stuco web interface to manage the snack bar. URL: http://localhost:3000 (or production URL).
+This guide is for staff using the Student Council Payment System web interface to manage the snack bar. URL: http://localhost:3000 (or production URL).
 
 ## Navigation
 

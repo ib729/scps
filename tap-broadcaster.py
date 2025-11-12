@@ -434,7 +434,7 @@ async def main():
 
     print(f"""
 ╔═══════════════════════════════════════════════════════════════╗
-║         NFC Tap Broadcaster for Stuco POS System             ║
+║         NFC Tap Broadcaster for SCPS POS System              ║
 ║                    WebSocket Version                         ║
 ╠═══════════════════════════════════════════════════════════════╣
 ║ Server:  {args.url:<52} ║

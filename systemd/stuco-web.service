@@ -1,5 +1,5 @@
 [Unit]
-Description=Stuco Web Server (Next.js with WebSocket)
+Description=SCPS Web Server (Next.js with WebSocket)
 After=network.target
 
 [Service]
