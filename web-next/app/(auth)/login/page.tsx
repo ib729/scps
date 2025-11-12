@@ -20,16 +20,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { toast } from "sonner";
-import { Metadata } from 'next';
-
-export const metadata: Metadata = {
-  title: 'Login',
-  description: 'Sign in to the Student Council Payment System',
-  robots: {
-    index: true,
-    follow: true,
-  },
-};
 
 export default function LoginPage() {
   const router = useRouter();

@@ -15,6 +15,9 @@ import {
   User,
   Moon,
   Sun,
+  Eye,
+  EyeOff,
+  Palette,
 } from "lucide-react"
 import { useTheme } from "next-themes"
 
@@ -131,6 +134,35 @@ export function AppSidebar({ user: initialUser, ...props }: AppSidebarProps) {
     newPassword: "",
     confirmPassword: "",
   })
+
+  // Password visibility states
+  const [showCurrentPassword, setShowCurrentPassword] = React.useState(false)
+  const [showNewPassword, setShowNewPassword] = React.useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = React.useState(false)
+
+  // Password strength calculation
+  const calculatePasswordStrength = (password: string): { strength: string; color: string } => {
+    if (!password) return { strength: "", color: "" }
+    
+    let score = 0
+    
+    // Length check
+    if (password.length >= 8) score++
+    if (password.length >= 12) score++
+    
+    // Character variety checks
+    if (/[a-z]/.test(password)) score++  // lowercase
+    if (/[A-Z]/.test(password)) score++  // uppercase
+    if (/[0-9]/.test(password)) score++  // numbers
+    if (/[^a-zA-Z0-9]/.test(password)) score++  // special chars
+    
+    // Determine strength level
+    if (score <= 2) return { strength: "Weak", color: "text-red-600" }
+    if (score <= 4) return { strength: "Medium", color: "text-orange-600" }
+    return { strength: "Strong", color: "text-green-600" }
+  }
+
+  const passwordStrength = calculatePasswordStrength(passwordData.newPassword)
 
   // Wait until mounted to avoid hydration mismatch
   React.useEffect(() => {
@@ -411,9 +443,10 @@ export function AppSidebar({ user: initialUser, ...props }: AppSidebarProps) {
             </DialogDescription>
           </DialogHeader>
           <Tabs defaultValue="profile" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="profile">Profile</TabsTrigger>
               <TabsTrigger value="security">Security</TabsTrigger>
+              <TabsTrigger value="preferences">Preferences</TabsTrigger>
             </TabsList>
             <TabsContent value="profile" className="space-y-4">
               <div className="space-y-2">
@@ -443,7 +476,30 @@ export function AppSidebar({ user: initialUser, ...props }: AppSidebarProps) {
                   onChange={(e) => handleFormChange("image", e.target.value)}
                   placeholder="Enter image URL" 
                 />
+                <p className="text-xs text-muted-foreground">
+                  Recommended size: 200x200px or larger, square aspect ratio
+                </p>
+                {formData.image && (
+                  <div className="mt-3">
+                    <Label className="text-xs text-muted-foreground mb-2 block">Preview:</Label>
+                    <Avatar className="h-16 w-16">
+                      <AvatarImage src={formData.image} alt={formData.name} />
+                      <AvatarFallback>{formData.name.charAt(0).toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                  </div>
+                )}
               </div>
+              
+              {/* Account Information */}
+              <div className="pt-4 border-t space-y-1">
+                <p className="text-xs text-muted-foreground">
+                  Account created: {user?.createdAt ? new Date(user.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : 'N/A'}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Last updated: {user?.updatedAt ? new Date(user.updatedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : 'N/A'}
+                </p>
+              </div>
+              
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={() => setShowAccountDialog(false)} disabled={loading}>
                   Cancel
@@ -456,33 +512,101 @@ export function AppSidebar({ user: initialUser, ...props }: AppSidebarProps) {
             <TabsContent value="security" className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="current-password">Current Password</Label>
-                <Input 
-                  id="current-password" 
-                  type="password" 
-                  value={passwordData.currentPassword}
-                  onChange={(e) => handlePasswordChange("currentPassword", e.target.value)}
-                  placeholder="Enter current password" 
-                />
+                <div className="relative">
+                  <Input 
+                    id="current-password" 
+                    type={showCurrentPassword ? "text" : "password"}
+                    value={passwordData.currentPassword}
+                    onChange={(e) => handlePasswordChange("currentPassword", e.target.value)}
+                    placeholder="Enter current password" 
+                    className="pr-10"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                    onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                    disabled={loading}
+                  >
+                    {showCurrentPassword ? (
+                      <EyeOff className="h-4 w-4 text-muted-foreground" />
+                    ) : (
+                      <Eye className="h-4 w-4 text-muted-foreground" />
+                    )}
+                    <span className="sr-only">
+                      {showCurrentPassword ? "Hide password" : "Show password"}
+                    </span>
+                  </Button>
+                </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="new-password">New Password</Label>
-                <Input 
-                  id="new-password" 
-                  type="password" 
-                  value={passwordData.newPassword}
-                  onChange={(e) => handlePasswordChange("newPassword", e.target.value)}
-                  placeholder="Enter new password (min 8 characters)" 
-                />
+                <div className="relative">
+                  <Input 
+                    id="new-password" 
+                    type={showNewPassword ? "text" : "password"}
+                    value={passwordData.newPassword}
+                    onChange={(e) => handlePasswordChange("newPassword", e.target.value)}
+                    placeholder="Enter new password (min 8 characters)" 
+                    className="pr-10"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                    disabled={loading}
+                  >
+                    {showNewPassword ? (
+                      <EyeOff className="h-4 w-4 text-muted-foreground" />
+                    ) : (
+                      <Eye className="h-4 w-4 text-muted-foreground" />
+                    )}
+                    <span className="sr-only">
+                      {showNewPassword ? "Hide password" : "Show password"}
+                    </span>
+                  </Button>
+                </div>
+                {passwordData.newPassword && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">Strength:</span>
+                    <span className={`text-xs font-semibold ${passwordStrength.color}`}>
+                      {passwordStrength.strength}
+                    </span>
+                  </div>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="confirm-password">Confirm New Password</Label>
-                <Input 
-                  id="confirm-password" 
-                  type="password" 
-                  value={passwordData.confirmPassword}
-                  onChange={(e) => handlePasswordChange("confirmPassword", e.target.value)}
-                  placeholder="Confirm new password" 
-                />
+                <div className="relative">
+                  <Input 
+                    id="confirm-password" 
+                    type={showConfirmPassword ? "text" : "password"}
+                    value={passwordData.confirmPassword}
+                    onChange={(e) => handlePasswordChange("confirmPassword", e.target.value)}
+                    placeholder="Confirm new password" 
+                    className="pr-10"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    disabled={loading}
+                  >
+                    {showConfirmPassword ? (
+                      <EyeOff className="h-4 w-4 text-muted-foreground" />
+                    ) : (
+                      <Eye className="h-4 w-4 text-muted-foreground" />
+                    )}
+                    <span className="sr-only">
+                      {showConfirmPassword ? "Hide password" : "Show password"}
+                    </span>
+                  </Button>
+                </div>
               </div>
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={() => setShowAccountDialog(false)} disabled={loading}>
@@ -509,6 +633,49 @@ export function AppSidebar({ user: initialUser, ...props }: AppSidebarProps) {
                     className="w-full"
                   >
                     Delete Account
+                  </Button>
+                </div>
+              </div>
+            </TabsContent>
+            <TabsContent value="preferences" className="space-y-4">
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-sm font-semibold mb-1">Appearance</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Customize how the application looks on your device
+                  </p>
+                </div>
+                
+                <div className="flex items-center justify-between p-4 border rounded-lg">
+                  <div className="flex items-center gap-3">
+                    {resolvedTheme === "dark" ? (
+                      <Moon className="h-5 w-5 text-muted-foreground" />
+                    ) : (
+                      <Sun className="h-5 w-5 text-muted-foreground" />
+                    )}
+                    <div>
+                      <Label className="text-sm font-medium">Theme</Label>
+                      <p className="text-xs text-muted-foreground">
+                        {resolvedTheme === "dark" ? "Dark mode" : "Light mode"}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleToggleTheme}
+                  >
+                    {resolvedTheme === "dark" ? (
+                      <>
+                        <Sun className="mr-2 h-4 w-4" />
+                        Light
+                      </>
+                    ) : (
+                      <>
+                        <Moon className="mr-2 h-4 w-4" />
+                        Dark
+                      </>
+                    )}
                   </Button>
                 </div>
               </div>
