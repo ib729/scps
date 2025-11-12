@@ -15,8 +15,31 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "STUCO 2025-2026",
-  description: "Student Council Management System",
+  metadataBase: new URL('https://scps.ivanbelousov.com'),
+  title: {
+    default: 'SCPS - Student Council Payment System',
+    template: '%s | SCPS'
+  },
+  description: 'Secure NFC-enabled payment system for student snack bar purchases. Manage student accounts, cards, and transactions efficiently.',
+  keywords: ['student payment system', 'NFC payment', 'school snack bar', 'student accounts'],
+  authors: [{ name: 'Ivan Belousov' }],
+  openGraph: {
+    type: 'website',
+    locale: 'en_US',
+    url: 'https://scps.ivanbelousov.com',
+    title: 'Student Council Payment System (SCPS)',
+    description: 'Secure NFC-enabled payment system for student snack bar purchases',
+    siteName: 'SCPS',
+  },
+  twitter: {
+    card: 'summary',
+    title: 'Student Council Payment System (SCPS)',
+    description: 'Secure NFC-enabled payment system for student snack bar purchases',
+  },
+  robots: {
+    index: false, // Don't index authenticated app pages by default
+    follow: false,
+  },
 };
 
 export default function RootLayout({

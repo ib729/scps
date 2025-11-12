@@ -1,0 +1,15 @@
+# Disallow all indexing for authenticated app
+User-agent: *
+Disallow: /dashboard
+Disallow: /students
+Disallow: /transactions
+Disallow: /pos
+Disallow: /topup
+Disallow: /api
+
+# Allow login/signup pages if you want them discoverable
+Allow: /login
+Allow: /signup
+
+# Sitemap location (create this later)
+Sitemap: https://scps.ivanbelousov.com/sitemap.xml

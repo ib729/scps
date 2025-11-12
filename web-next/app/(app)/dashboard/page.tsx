@@ -4,6 +4,16 @@ import { getRecentTransactions, getStudentIdsWithTransactions, getWeeklyTopupDat
 import { Users, ShoppingCart, AlertTriangle, DollarSign, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { WeeklyTopupChart } from "@/components/weekly-topup-chart";
 import { formatCurrency } from "@/lib/currency";
+import { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'Dashboard',
+  description: 'View student payment statistics and recent transactions',
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
 
 export const dynamic = "force-dynamic";
 
