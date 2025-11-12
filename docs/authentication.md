@@ -15,7 +15,7 @@ The authentication system provides:
 
 ## Prerequisites
 
-1. Node.js 18+ and pnpm installed
+1. Node.js 20+ and pnpm installed
 2. SQLite database (`stuco.db`) initialized
 3. Web UI setup completed (see [Getting Started](getting-started.md))
 
@@ -321,5 +321,5 @@ Potential authentication improvements:
 - [Security Guide](security.md) - Security best practices
 - [Deployment Guide](deployment.md) - Production setup
 
-**Last updated: November 11, 2025**
+**Last updated: November 12, 2025**
 

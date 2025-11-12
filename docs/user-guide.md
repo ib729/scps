@@ -150,7 +150,7 @@ View history on Transactions page or per student.
 
 ## Security
 
-- Log out if leaving unattended (future auth).
+- Log out if leaving unattended.
 - Report suspicious activity.
 - Don't edit database manually.
 
@@ -161,4 +161,4 @@ View history on Transactions page or per student.
 - **Logs**: Browser console for web errors.
 
 **Version**: 1.1 (NFC + Decimal Support)  
-**Last updated: November 11, 2025**
+**Last updated: November 12, 2025**

@@ -6,7 +6,7 @@ This guide covers production deployment options for the Stuco system, including 
 
 - Production-ready server (Raspberry Pi 4B+ or Linux server)
 - Domain name (optional, for SSL)
-- Node.js 18+, Python 3.9+, pnpm installed
+- Node.js 20+, Python 3.9+, pnpm installed
 - Build tools installed (see [Getting Started](getting-started.md))
 
 ## Deployment Options

@@ -4,7 +4,7 @@ The system uses a single SQLite database (`stuco.db`) shared between CLI tools a
 
 ## Schema
 
-The database is initialized with `python init_db.py`, which runs `schema.sql`.
+The database is initialized with `python init_db.py`, which runs `migrations/schema.sql`.
 
 ### Full Schema (schema.sql)
 
@@ -56,7 +56,7 @@ CREATE TABLE IF NOT EXISTS overdraft_weeks (
 CREATE INDEX IF NOT EXISTS idx_tx_student_time
   ON transactions(student_id, created_at);
 
--- Staff users (future auth)
+-- Staff users (legacy, Better Auth tables used instead)
 CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL,
@@ -395,4 +395,4 @@ python reset_db.py  # Interactive reset
 ./scripts/run_migration.sh migration_file.sql
 ```
 
-**Last updated: November 11, 2025**
+**Last updated: November 12, 2025**

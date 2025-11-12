@@ -10,7 +10,7 @@ This guide covers installing prerequisites, setting up the database, installing 
   - Check: `python --version`
   - Install: Use your package manager (e.g., `brew install python` on macOS, `sudo apt install python3` on Debian).
 
-- **Node.js 18+**: For the web UI.
+- **Node.js 20+**: For the web UI.
   - Check: `node --version`
   - macOS: `brew install node`
   - Debian/Pi: `curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - && sudo apt install -y nodejs`
@@ -80,7 +80,7 @@ This verifies all tools and provides installation instructions if missing.
    python init_db.py
    ```
 
-   This creates `stuco.db` with the schema from `schema.sql` (students, cards, accounts, transactions, overdraft_weeks).
+   This creates `stuco.db` with the schema from `migrations/schema.sql` (students, cards, accounts, transactions, overdraft_weeks).
 
 2. **Verify**:
 
@@ -330,4 +330,4 @@ For more, see [Troubleshooting](troubleshooting.md).
 
 Enjoy managing your snack bar!
 
-**Last updated: November 11, 2025**
+**Last updated: November 12, 2025**

@@ -77,7 +77,7 @@ cd web-next
 
 **Location**: `init_db.py` (root)
 
-**Purpose**: Initialize fresh database from schema.sql.
+**Purpose**: Initialize fresh database from migrations/schema.sql.
 
 **Usage:**
 ```bash
@@ -85,7 +85,7 @@ python init_db.py
 ```
 
 **Actions:**
-- Reads `schema.sql`
+- Reads `migrations/schema.sql`
 - Creates `stuco.db` if it doesn't exist
 - Executes schema to create tables
 - Enables foreign keys
@@ -758,5 +758,5 @@ chown stuco:stuco stuco.db*
 - [NFC Setup](nfc-setup.md) - NFC configuration
 - [Deployment Guide](deployment.md) - Production deployment
 
-**Last updated: November 11, 2025**
+**Last updated: November 12, 2025**
 

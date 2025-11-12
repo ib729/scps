@@ -105,7 +105,7 @@ stuco/
 ├── tap-broadcaster.py      # NFC broadcaster (WebSocket client)
 ├── requirements.txt        # Python dependencies
 ├── migrations/
-│   └── schema.sql          # Database schema
+│   └── schema.sql          # Main database schema
 └── docs/                   # Documentation
 ```
 
@@ -202,8 +202,8 @@ pnpm start   # Runs production server with WebSocket on port 3000
 **Docker**:
 
 ```bash
-docker build -t scps-web .
-docker run -p 3000:3000 -v /path/to/stuco.db:/app/stuco.db scps-web
+docker build -t stuco-web .
+docker run -p 3000:3000 -v /path/to/stuco.db:/app/stuco.db stuco-web
 ```
 
 - **Env**: Set `NODE_ENV=production`.
@@ -227,7 +227,7 @@ pnpm build  # Includes TS check
 ### Adding Features
 
 1. **New DB Table**:
-   - Update `schema.sql`, run init or migration.
+   - Update `migrations/schema.sql`, run init or migration.
    - Add Zod model in `models.ts`.
    - Create repository in `lib/repositories/`.
    - Add action in `app/actions/`.

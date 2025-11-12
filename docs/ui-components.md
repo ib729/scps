@@ -70,7 +70,7 @@ export default function MyComponent() {
 Global component that shows toasts when NFC cards are tapped outside the POS page.
 
 **Features:**
-- Real-time SSE connection to tap stream
+- Real-time WebSocket connection to tap stream
 - Toast notifications with Sonner
 - "Go to POS" action button
 - Auto-navigation with student pre-selection
@@ -103,7 +103,7 @@ Main point-of-sale interface with NFC integration.
 
 **Features:**
 - Tap Card vs Manual mode toggle
-- Real-time card tap detection via SSE
+- Real-time card tap detection via WebSocket
 - Student auto-selection from card UID
 - Balance display with overdraft indicator
 - Amount input with currency formatting
@@ -166,7 +166,7 @@ Navigation sidebar with collapsible sections.
 - Collapsible on mobile
 - Active route highlighting
 - Icon navigation
-- User profile section (for future auth)
+- User profile section with authentication
 - Responsive design
 
 ## Animation Components
@@ -523,5 +523,5 @@ When creating new components:
 - [React Hook Form](https://react-hook-form.com)
 - [Zod](https://zod.dev)
 
-**Last updated: November 11, 2025**
+**Last updated: November 12, 2025**
 
