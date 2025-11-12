@@ -218,6 +218,10 @@ raspinfo.txt
 # STUCO - Logs and temporary files
 logs/
 *.log
+tmp
+
+# STUCO - Environment files
+.env.broadcaster
 
 # Rclone configuration (if stored locally)
 rclone.conf

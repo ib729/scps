@@ -12,16 +12,16 @@ A system for managing student snack bar payments using NFC cards, with Python CL
   - `enroll.py`: Enroll new students and cards.
 - **Web UI**: Full-featured interface in `web-next/` using Next.js 16, TypeScript, and Shadcn UI.
 - **NFC Integration**: PN532 reader connected to Raspberry Pi, broadcasting taps to web UI via `tap-broadcaster.py`.
-- **Platforms**: Raspberry Pi OS (ARM64), macOS, Linux.
+- **Platform**: Raspberry Pi 4 Model B running Raspberry Pi OS (ARM64). This is the only tested and supported platform.
 
 ## Quick Start
 
 1. **Prerequisites**: See [docs/getting-started.md](docs/getting-started.md) for platform-specific setup (Node.js, pnpm, build tools).
 2. **Database**: Ensure `stuco.db` exists or run `python init_db.py`.
-3. **Authentication Setup**: Configure Better Auth for the web UI (see [web-next/AUTH_SETUP.md](web-next/AUTH_SETUP.md)):
+3. **Authentication Setup**: Configure Better Auth for the web UI (see [docs/authentication.md](docs/authentication.md)):
    ```
    cd web-next
-   # Create .env.local with required variables (see AUTH_SETUP.md)
+   # Create .env.local with required variables (see docs/authentication.md)
    sqlite3 ../stuco.db < migrations/better_auth_schema.sql
    ```
 4. **Web UI**:

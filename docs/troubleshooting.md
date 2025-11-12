@@ -397,7 +397,7 @@ This script:
 - `./scripts/reset-usb-nfc.sh` - Reset USB device only
 - `./scripts/recover-nfc.sh` - Full emergency recovery
 - `./scripts/dev-with-nfc.sh` - Start dev environment with NFC
-- `./run-nfc.sh` - Manual broadcaster start (development)
+- `./scripts/run-nfc.sh` - Manual broadcaster start (development)
 
 ## CLI Issues
 

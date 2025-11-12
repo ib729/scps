@@ -231,10 +231,10 @@ You also have these scripts available:
 
 ```bash
 # Test NFC connection
-./test-nfc.sh
+./scripts/test-nfc.sh
 
 # Run broadcaster with all settings (if you stop the service)
-./run-nfc.sh --simulate
+./scripts/run-nfc.sh --simulate
 ```
 
 **Access Your Application:**
