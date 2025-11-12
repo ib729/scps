@@ -5,7 +5,6 @@ import { UsersRepository } from "@/lib/repositories";
 import {
   createUserSchema,
   updateUserProfileSchema,
-  updateUserPasswordSchema,
 } from "@/lib/models";
 import { revalidatePath } from "next/cache";
 
@@ -80,28 +79,6 @@ export async function updateUserProfile(
   } catch (error: any) {
     console.error("Failed to update profile:", error);
     return { success: false, error: error.message || "Failed to update profile" };
-  }
-}
-
-export async function updateUserPassword(
-  userId: number,
-  data: { current_password: string; new_password: string }
-) {
-  try {
-    const validated = updateUserPasswordSchema.parse(data);
-    const db = getDb();
-    const usersRepo = new UsersRepository(db);
-    
-    const success = usersRepo.updatePassword(userId, validated);
-    
-    if (!success) {
-      return { success: false, error: "Current password is incorrect" };
-    }
-    
-    return { success: true };
-  } catch (error: any) {
-    console.error("Failed to update password:", error);
-    return { success: false, error: error.message || "Failed to update password" };
   }
 }
 

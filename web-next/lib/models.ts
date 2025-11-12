@@ -118,13 +118,7 @@ export const updateUserProfileSchema = z.object({
   avatar: z.string().optional(),
 });
 
-export const updateUserPasswordSchema = z.object({
-  current_password: z.string().min(1),
-  new_password: z.string().min(6),
-});
-
 export type User = z.infer<typeof userSchema>;
 export type CreateUser = z.infer<typeof createUserSchema>;
 export type UpdateUserProfile = z.infer<typeof updateUserProfileSchema>;
-export type UpdateUserPassword = z.infer<typeof updateUserPasswordSchema>;
 

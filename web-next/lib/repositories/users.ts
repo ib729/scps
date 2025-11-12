@@ -1,6 +1,6 @@
 import type Database from "better-sqlite3";
 import bcrypt from "bcryptjs";
-import type { CreateUser, UpdateUserProfile, UpdateUserPassword, User } from "../models";
+import type { CreateUser, UpdateUserProfile, User } from "../models";
 
 export class UsersRepository {
   constructor(private db: Database.Database) {}
@@ -87,27 +87,6 @@ export class UsersRepository {
 
     stmt.run(...values);
     return this.findById(id);
-  }
-
-  updatePassword(id: number, data: UpdateUserPassword): boolean {
-    const user = this.findById(id);
-    if (!user) return false;
-
-    // Verify current password
-    const isValid = bcrypt.compareSync(data.current_password, user.password_hash);
-    if (!isValid) return false;
-
-    // Hash and update new password
-    const newPasswordHash = bcrypt.hashSync(data.new_password, 10);
-    
-    const stmt = this.db.prepare(`
-      UPDATE users
-      SET password_hash = ?, updated_at = datetime('now')
-      WHERE id = ?
-    `);
-
-    stmt.run(newPasswordHash, id);
-    return true;
   }
 
   delete(id: number): boolean {
