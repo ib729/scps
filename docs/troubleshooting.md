@@ -2,6 +2,33 @@
 
 Common issues and solutions for the Stuco system.
 
+## Page Refresh Issues
+
+### Page Refreshes Every 30-40 Seconds (Cloudflare Tunnels)
+
+**Problem**: When accessing the site through Cloudflare Tunnels, the page automatically refreshes every 30-40 seconds, closing dialogs and interrupting work.
+
+**Cause**: Next.js development mode uses WebSocket for Hot Module Replacement (HMR) at `/_next/webpack-hmr`. Cloudflare Tunnels doesn't proxy this WebSocket properly, so Next.js falls back to full page reloads to keep dev experience working.
+
+**Solution**: **Use production mode when accessing through Cloudflare Tunnels:**
+
+```bash
+cd /home/qiss/stuco/web-next
+pnpm build
+pnpm start  # Production mode - no HMR, no refreshes
+```
+
+For systemd (permanent fix):
+```bash
+# The stuco-web.service already uses production mode
+sudo systemctl enable stuco-web
+sudo systemctl start stuco-web
+```
+
+**For local development**: Continue using `pnpm dev` - HMR works fine on localhost.
+
+**Alternative**: Configure Cloudflare Tunnel to support WebSocket for HMR (more complex, not recommended).
+
 ## Authentication Issues
 
 ### Login/Signup Not Working

@@ -96,7 +96,7 @@ interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
     id: string
     name: string
     email: string
-    image: string | null
+    image?: string | null
     emailVerified: boolean
     createdAt: Date
     updatedAt: Date

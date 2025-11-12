@@ -8,6 +8,8 @@ const nextConfig: NextConfig = {
 		"*.stuco.ivanbelousov.com",
 		"http://192.168.50.43:3000",
 	],
+	// Disable Fast Refresh in development to prevent automatic reloads
+	reactStrictMode: false,
 };
 
 export default nextConfig;

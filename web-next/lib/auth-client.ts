@@ -14,8 +14,6 @@ export const authClient = createAuthClient({
       // Don't throw errors that could trigger page refreshes
       // Errors are handled gracefully by the components
     },
-    // Prevent automatic retries that might cause refreshes
-    retry: false,
   },
 });
 
