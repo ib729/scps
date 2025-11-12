@@ -91,7 +91,19 @@ const navItems = [
   },
 ]
 
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
+  user?: {
+    id: string
+    name: string
+    email: string
+    image: string | null
+    emailVerified: boolean
+    createdAt: Date
+    updatedAt: Date
+  }
+}
+
+export function AppSidebar({ user: initialUser, ...props }: AppSidebarProps) {
   const router = useRouter()
   const { theme, setTheme, resolvedTheme } = useTheme()
   const [mounted, setMounted] = React.useState(false)
@@ -99,9 +111,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const [showAccountDialog, setShowAccountDialog] = React.useState(false)
   const [loading, setLoading] = React.useState(false)
 
-  // Get session from Better Auth
-  const { data: session, isPending } = authClient.useSession()
-  const user = session?.user
+  // Use server-provided user data as the primary source
+  // Only use useSession for reactive updates (e.g., after sign out)
+  const { data: session } = authClient.useSession()
+  const user = session?.user || initialUser
 
   // Form state for profile
   const [formData, setFormData] = React.useState({
@@ -273,11 +286,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                               .map((n) => n[0])
                               .join("")
                               .toUpperCase()
-                          : isPending ? "..." : "U"}
+                          : "U"}
                       </AvatarFallback>
                     </Avatar>
                     <div className="grid flex-1 text-left text-sm leading-tight">
-                      <span className="truncate font-semibold">{user?.name || (isPending ? "Loading..." : "User")}</span>
+                      <span className="truncate font-semibold">{user?.name || "User"}</span>
                       <span className="truncate text-xs">{user?.email || ""}</span>
                     </div>
                     <ChevronsUpDown className="ml-auto size-4" />
