@@ -7,6 +7,11 @@ export const auth = betterAuth({
     enabled: true,
     autoSignIn: true,
   },
+  user: {
+    deleteUser: {
+      enabled: true,
+    },
+  },
   ...(process.env.MICROSOFT_CLIENT_ID && process.env.MICROSOFT_CLIENT_SECRET && {
     socialProviders: {
       microsoft: {

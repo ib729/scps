@@ -109,7 +109,9 @@ export function AppSidebar({ user: initialUser, ...props }: AppSidebarProps) {
   const [mounted, setMounted] = React.useState(false)
   const [showLogoutDialog, setShowLogoutDialog] = React.useState(false)
   const [showAccountDialog, setShowAccountDialog] = React.useState(false)
+  const [showDeleteDialog, setShowDeleteDialog] = React.useState(false)
   const [loading, setLoading] = React.useState(false)
+  const [deletePassword, setDeletePassword] = React.useState("")
 
   // Use server-provided user data as the primary source
   // Only use useSession for reactive updates (e.g., after sign out)
@@ -150,6 +152,13 @@ export function AppSidebar({ user: initialUser, ...props }: AppSidebarProps) {
       })
     }
   }, [showAccountDialog, user])
+
+  // Reset delete password when dialog closes
+  React.useEffect(() => {
+    if (!showDeleteDialog) {
+      setDeletePassword("")
+    }
+  }, [showDeleteDialog])
 
   const handleToggleTheme = () => {
     if (!mounted) return
@@ -228,6 +237,35 @@ export function AppSidebar({ user: initialUser, ...props }: AppSidebarProps) {
       router.push("/login")
     } catch (error) {
       toast.error("Failed to sign out")
+      setLoading(false)
+    }
+  }
+
+  const handleDeleteAccount = async () => {
+    if (!deletePassword) {
+      toast.error("Please enter your password to confirm")
+      return
+    }
+    
+    setLoading(true)
+    try {
+      const { data, error } = await authClient.deleteUser({
+        password: deletePassword,
+      })
+      
+      if (error) {
+        toast.error(error.message || "Failed to delete account")
+      } else {
+        toast.success("Account deleted successfully")
+        setShowDeleteDialog(false)
+        setShowAccountDialog(false)
+        // Sign out and redirect to login
+        await authClient.signOut()
+        router.push("/login")
+      }
+    } catch (error) {
+      toast.error("An error occurred while deleting account")
+    } finally {
       setLoading(false)
     }
   }
@@ -454,10 +492,73 @@ export function AppSidebar({ user: initialUser, ...props }: AppSidebarProps) {
                   {loading ? "Updating..." : "Update Password"}
                 </Button>
               </div>
+              
+              {/* Danger Zone */}
+              <div className="pt-6 mt-6 border-t border-destructive/20">
+                <div className="space-y-3">
+                  <div>
+                    <h3 className="text-sm font-semibold text-destructive">Danger Zone</h3>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Once you delete your account, there is no going back. Please be certain.
+                    </p>
+                  </div>
+                  <Button 
+                    variant="destructive" 
+                    onClick={() => setShowDeleteDialog(true)}
+                    disabled={loading}
+                    className="w-full"
+                  >
+                    Delete Account
+                  </Button>
+                </div>
+              </div>
             </TabsContent>
           </Tabs>
         </DialogContent>
       </Dialog>
+      )}
+      
+      {mounted && (
+        <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete your account and remove all your data from our servers.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-2 py-4">
+            <Label htmlFor="delete-password">Enter your password to confirm</Label>
+            <Input 
+              id="delete-password" 
+              type="password" 
+              value={deletePassword}
+              onChange={(e) => setDeletePassword(e.target.value)}
+              placeholder="Enter your password" 
+              disabled={loading}
+            />
+          </div>
+          <AlertDialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setShowDeleteDialog(false)}
+              disabled={loading}
+            >
+              Cancel
+            </Button>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault()
+                handleDeleteAccount()
+              }}
+              disabled={loading}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {loading ? "Deleting..." : "Delete Account"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       )}
     </Sidebar>
   )
