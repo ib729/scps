@@ -332,6 +332,73 @@ After setup, verify authentication works:
 3. Dependencies: Activate venv in ExecStart.
 4. Reload: `systemctl daemon-reload`.
 
+### NFC Reader Stops Working After Dev Server Restart
+
+**Problem**: PN532 NFC reader stops detecting cards after restarting dev server or making code changes.
+
+**Symptoms**:
+- Reader was working, then suddenly stops
+- Broadcaster logs show connection but no card reads
+- Device appears busy or locked
+- Requires systemd restart or reboot
+
+**Cause**: Serial port file descriptor not properly released by nfcpy library when WebSocket disconnects or exceptions occur.
+
+**Automatic Recovery**: The system now includes auto-recovery mechanisms:
+- USB device auto-reset on service start (systemd `ExecStartPre`)
+- Health monitoring with automatic reset after consecutive failures
+- Proper cleanup handlers on shutdown
+
+**Manual Recovery** (if auto-recovery fails):
+
+1. **Quick Recovery** (recommended):
+   ```bash
+   ./scripts/recover-nfc.sh
+   ```
+   This script stops the broadcaster, kills processes, resets USB, and restarts.
+
+2. **Step-by-step**:
+   ```bash
+   # Stop broadcaster
+   sudo systemctl stop tap-broadcaster
+   
+   # Kill any stale processes
+   sudo pkill -f tap-broadcaster.py
+   
+   # Reset USB device
+   ./scripts/reset-usb-nfc.sh
+   
+   # Wait for device to stabilize
+   sleep 3
+   
+   # Start broadcaster
+   sudo systemctl start tap-broadcaster
+   ```
+
+3. **Check recovery status**:
+   ```bash
+   sudo systemctl status tap-broadcaster
+   sudo journalctl -u tap-broadcaster -n 20
+   ```
+
+**Prevention**: For development with NFC, use the coordinated startup script:
+```bash
+./scripts/dev-with-nfc.sh
+```
+
+This script:
+- Stops broadcaster safely
+- Resets USB device
+- Starts dev server
+- Starts broadcaster after server is ready
+- Coordinates cleanup properly
+
+**Available Scripts**:
+- `./scripts/reset-usb-nfc.sh` - Reset USB device only
+- `./scripts/recover-nfc.sh` - Full emergency recovery
+- `./scripts/dev-with-nfc.sh` - Start dev environment with NFC
+- `./run-nfc.sh` - Manual broadcaster start (development)
+
 ## CLI Issues
 
 ### pos.py: "Unknown/inactive card"

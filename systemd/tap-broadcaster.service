@@ -11,11 +11,25 @@ EnvironmentFile=/home/qiss/stuco/.env.broadcaster
 Environment="NEXTJS_URL=http://localhost:3000"
 Environment="POS_LANE_ID=default"
 Environment="PN532_DEVICE=tty:USB0:pn532"
+
+# Pre-start: Reset USB device to ensure clean state
+ExecStartPre=/home/qiss/stuco/scripts/reset-usb-nfc.sh
+
+# Main process with unbuffered output
 ExecStart=/home/qiss/stuco/.venv/bin/python -u /home/qiss/stuco/tap-broadcaster.py
+
+# Post-stop: Allow cleanup time
+ExecStopPost=/bin/sleep 1
 StandardOutput=journal
 StandardError=journal
-Restart=on-failure
+
+# Restart policy: Always restart on failure
+Restart=always
 RestartSec=5
+
+# Kill settings: Give time for cleanup
+TimeoutStopSec=10
+KillMode=mixed
 
 [Install]
 WantedBy=multi-user.target

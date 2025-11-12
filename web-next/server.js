@@ -159,7 +159,7 @@ function handleWebSocketConnection(ws, request) {
   const clientIP = getClientIP(request);
   const userAgent = request.headers['user-agent'] || 'unknown';
   const origin = request.headers['origin'] || request.headers['referer'] || 'unknown';
-  
+
   const url = new URL(request.url, `http://${request.headers.host}`);
   const lane = url.searchParams.get('lane') || 'default';
 
