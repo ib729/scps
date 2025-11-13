@@ -8,6 +8,7 @@ The Student Council Payment System includes various scripts for:
 - **Setup**: Installing dependencies and configuring the environment
 - **Database**: Initialization, migration, backup, and reset
 - **NFC**: Testing and broadcasting card taps
+- **Student Management**: Enrollment and batch imports
 - **Maintenance**: Checking prerequisites and troubleshooting
 
 ## Setup Scripts
@@ -358,6 +359,128 @@ rclone ls r2:stuco-db-backups/
 - Checks rclone remote configuration before proceeding
 - Validates download success
 - Clear error messages
+
+## Student Management Scripts
+
+### enroll.py
+
+**Location**: `enroll.py` (root)
+
+**Purpose**: Enroll a student by associating their name with an NFC card UID.
+
+**Usage:**
+```bash
+# Interactive mode
+python enroll.py
+
+# With arguments
+python enroll.py --name "John Doe"
+
+# Simulate without NFC reader
+python enroll.py --name "Jane Smith" --simulate DEADBEEF
+
+# Custom device
+python enroll.py --device usb:USB0:pn532
+```
+
+**Options:**
+- `--name` - Student name (optional, will prompt if not provided)
+- `--device` - NFC reader device string (default: tty:AMA0:pn532)
+- `--simulate` - Provide UID hex manually (no reader required)
+
+**Process:**
+1. Prompts for student name if not provided
+2. Reads NFC card UID from reader (or uses simulated UID)
+3. Creates student record if doesn't exist
+4. Creates account for student
+5. Associates card UID with student
+
+**Output:**
+```
+Student name: John Doe
+UID: DEADBEEF
+Enrolled John Doe → DEADBEEF
+```
+
+**When to Use:**
+- Enrolling individual students with NFC cards
+- Initial card issuance
+- Replacing lost cards
+- Testing with simulated UIDs
+
+### batch_import_students.py
+
+**Location**: `batch_import_students.py` (root)
+
+**Purpose**: Batch import multiple students from a CSV file with validation and error handling.
+
+**Usage:**
+```bash
+# Generate template CSV
+python batch_import_students.py --template students.csv
+
+# Preview import (dry run)
+python batch_import_students.py --dry-run students.csv
+
+# Import students
+python batch_import_students.py students.csv
+
+# Fail on duplicates instead of skipping
+python batch_import_students.py --no-skip-duplicates students.csv
+```
+
+**Options:**
+- `--template` - Generate a template CSV file
+- `--dry-run` - Preview import without making changes
+- `--no-skip-duplicates` - Fail on duplicate names instead of skipping them
+
+**CSV Format:**
+```csv
+name
+John Doe
+Jane Smith
+Alice Johnson
+```
+
+**Features:**
+- ✓ Validates CSV format before importing
+- ✓ Skips duplicate students (or fails if preferred)
+- ✓ Creates student accounts automatically
+- ✓ Detailed error reporting
+- ✓ Dry-run mode to preview changes
+- ✓ Transaction safety (all-or-nothing)
+- ✓ UTF-8 support for international names
+
+**Output:**
+```
+Found 5 students in CSV file
+
+✓ Imported: John Doe (ID: 42)
+✓ Imported: Jane Smith (ID: 43)
+⊘ Skipping duplicate: Alice Johnson (ID: 12)
+✓ Imported: Bob Wilson (ID: 44)
+✓ Imported: Charlie Brown (ID: 45)
+
+Changes committed to database
+
+============================================================
+Import Summary:
+  Imported: 4
+  Skipped (duplicates): 1
+  Validation errors: 0
+  Import errors: 0
+============================================================
+```
+
+**When to Use:**
+- Importing class rosters at start of year
+- Bulk student enrollment
+- Migrating from another system
+- Adding multiple students at once
+- Testing with sample data
+
+**See Also:**
+- [Batch Import Students Guide](batch-import-students.md) - Comprehensive guide with examples and SQL import methods
 
 ## NFC Scripts
 

@@ -15,6 +15,7 @@ Welcome to the documentation for the Student Council Management System. This sys
 ### System Administration
 - **[Authentication Guide](authentication.md)**: Better Auth setup, signup code configuration, Microsoft OAuth, and user management.
 - **[Database Guide](database.md)**: Schema details, migrations, backup procedures, and maintenance.
+- **[Batch Import Students](batch-import-students.md)**: CSV imports, SQL methods, and bulk enrollment procedures.
 - **[Deployment Guide](deployment.md)**: Production deployment with Docker, systemd, SSL, and reverse proxy setup.
 - **[Security Guide](security.md)**: Security best practices, secrets management, and hardening recommendations.
 
