@@ -49,9 +49,19 @@ openssl rand -base64 32
 
 ## Database Setup
 
-### Run Better Auth Migration
+### Better Auth Tables
 
 The authentication system requires additional database tables:
+- `user` - User accounts with email, name, image
+- `session` - Active user sessions
+- `account` - OAuth and credential accounts
+- `verification` - Email verification and password reset tokens
+
+**Automatic Setup**: These tables are automatically created when you run `python init_db.py` or any database reset script.
+
+**Manual Migration** (if needed):
+
+If you have an existing database without Better Auth tables, you can add them manually:
 
 ```bash
 cd web-next
@@ -64,12 +74,6 @@ Or using pnpm:
 cd web-next
 pnpm auth:migrate
 ```
-
-This creates the following tables:
-- `user` - User accounts with email, name, image
-- `session` - Active user sessions
-- `account` - OAuth and credential accounts
-- `verification` - Email verification and password reset tokens
 
 **Note**: The migration script is idempotent and safe to run multiple times.
 

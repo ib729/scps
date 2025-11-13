@@ -150,23 +150,27 @@ pnpm install
 
 **Solutions**:
 
-1. **Verify Code in Source**:
+1. **Check Environment Variable**:
    
-   Check `web-next/app/(auth)/signup/page.tsx`:
-   ```typescript
-   const SIGNUP_CODE = "12345678"; // Current code
-   ```
-
-2. **Check Environment Variable**:
-   
-   If using env var, verify `.env.local`:
+   Verify the `SIGNUP_CODE` is set in `web-next/.env.local`:
    ```env
-   NEXT_PUBLIC_SIGNUP_CODE=your_code
+   SIGNUP_CODE=your_code_here
+   ```
+   
+   Note: Do NOT use quotes around the value (use `SIGNUP_CODE=abc123` not `SIGNUP_CODE="abc123"`)
+
+2. **Restart Server**: After changing `.env.local`, restart the server:
+   ```bash
+   cd web-next
+   # Stop the server (Ctrl+C), then:
+   pnpm dev
+   # Or in production:
+   sudo systemctl restart stuco-web
    ```
 
-3. **Restart Server**: After changing code, restart dev server
+3. **Verify Code Has No Spaces**: Ensure the code has no leading/trailing spaces
 
-4. **No Spaces**: Ensure code has no leading/trailing spaces
+4. **Check Server Logs**: Look for "SIGNUP_CODE environment variable is not set" errors
 
 ### "CORS error" or "Origin not allowed"
 
@@ -176,13 +180,37 @@ pnpm install
 2. **Check trustedOrigins**: In `web-next/lib/auth.ts`
 3. **Browser Console**: Check exact error message
 
+### "Failed to sign up" Error
+
+**Problem**: Signup code is accepted but account creation fails.
+
+**Cause**: Better Auth database tables are missing (usually after a database reset).
+
+**Solution**:
+
+Since v2.0+, Better Auth tables are automatically created by `init_db.py` and reset scripts. If you're using an older database or manually reset it, run:
+
+```bash
+cd web-next
+sqlite3 ../stuco.db < migrations/better_auth_schema.sql
+sudo systemctl restart stuco-web
+```
+
+**Verify tables exist**:
+```bash
+sqlite3 stuco.db "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('user', 'session', 'account', 'verification');"
+```
+
+Should return all 4 table names.
+
 ### "Database error" or "Table not found"
 
 **Solutions**:
 
-1. **Run Migration**: See [Authentication Guide](authentication.md#database-setup)
-2. **Check DATABASE_PATH**: Must be absolute path
-3. **Verify Permissions**: Database file must be readable/writable
+1. **Check Better Auth Tables**: Run the verification command above to ensure auth tables exist
+2. **Run Database Init**: If starting fresh, use `python init_db.py` (automatically includes Better Auth tables)
+3. **Check DATABASE_PATH**: Must be absolute path in `.env.local`
+4. **Verify Permissions**: Database file must be readable/writable by the web server user
 
 ### Testing Authentication
 

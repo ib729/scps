@@ -80,7 +80,9 @@ This verifies all tools and provides installation instructions if missing.
    python init_db.py
    ```
 
-   This creates `stuco.db` with the schema from `migrations/schema.sql` (students, cards, accounts, transactions, overdraft_weeks).
+   This creates `stuco.db` with:
+   - Main schema from `migrations/schema.sql` (students, cards, accounts, transactions, overdraft_weeks)
+   - Better Auth schema (user, session, account, verification) for web authentication
 
 2. **Verify**:
 
@@ -88,7 +90,7 @@ This verifies all tools and provides installation instructions if missing.
    sqlite3 stuco.db ".tables"
    ```
 
-   Should show all tables.
+   Should show all tables including Better Auth tables (account, session, user, verification).
 
 3. **Optional: Run Migrations** (if needed):
 

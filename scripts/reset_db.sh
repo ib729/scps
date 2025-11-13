@@ -68,6 +68,13 @@ echo "------------------------------------------------------------"
 # Initialize database
 python3 init_db.py
 
+# Apply Better Auth migration
+if [ -f "web-next/migrations/better_auth_schema.sql" ]; then
+    echo "Applying Better Auth migration..."
+    sqlite3 "$DB_FILE" < "web-next/migrations/better_auth_schema.sql"
+    echo "✓ Better Auth schema applied"
+fi
+
 echo ""
 echo "============================================================"
 echo "✓ Database reset complete!"
