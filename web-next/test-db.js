@@ -2,7 +2,7 @@
 const Database = require('better-sqlite3');
 const path = require('path');
 
-const dbPath = process.env.DATABASE_PATH || '/Users/ivanbelousov/Documents/5 - Code /Projects/stuco/stuco.db';
+const dbPath = process.env.DATABASE_PATH || path.resolve(process.cwd(), '..', 'stuco.db');
 
 console.log('Testing database connection...');
 console.log('Database path:', dbPath);
