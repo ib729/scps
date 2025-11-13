@@ -1,7 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getAllStudents } from "@/lib/repositories/students";
 import { getRecentTransactions, getStudentIdsWithTransactions, getWeeklyTopupData, getTotalSalesCount } from "@/lib/repositories/transactions";
-import { Users, ShoppingCart, AlertTriangle, DollarSign, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { Users, ShoppingCart, AlertTriangle, DollarSign, ArrowUpRight, ArrowDownRight, Minus } from "lucide-react";
 import { WeeklyTopupChart } from "@/components/weekly-topup-chart";
 import { formatCurrency } from "@/lib/currency";
 import { Metadata } from 'next';
@@ -117,9 +117,13 @@ export default async function DashboardPage() {
                         ? "bg-green-100 dark:bg-green-900/20" 
                         : tx.type === "DEBIT"
                         ? "bg-red-100 dark:bg-red-900/20"
+                        : tx.type === "ADJUST"
+                        ? "bg-gray-100 dark:bg-gray-800/40"
                         : "bg-gray-100 dark:bg-gray-900/20"
                     }`}>
-                      {tx.amount >= 0 ? (
+                      {tx.type === "ADJUST" ? (
+                        <Minus className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+                      ) : tx.amount >= 0 ? (
                         <ArrowUpRight className={`h-4 w-4 ${
                           tx.type === "TOPUP" ? "text-green-600" : "text-gray-600"
                         }`} />
@@ -139,7 +143,11 @@ export default async function DashboardPage() {
                   <div className="text-right space-y-1 flex-shrink-0">
                     <p
                       className={`text-sm font-medium whitespace-nowrap ${
-                        tx.amount >= 0 ? "text-green-600" : "text-red-600"
+                        tx.type === "ADJUST" 
+                          ? "text-gray-600 dark:text-gray-400" 
+                          : tx.amount >= 0 
+                          ? "text-green-600" 
+                          : "text-red-600"
                       }`}
                     >
                       {tx.amount >= 0 ? "+" : ""}¥{formatCurrency(Math.abs(tx.amount))}

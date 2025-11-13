@@ -337,13 +337,6 @@ export function PosForm({ students, studentIdsWithTransactions, userName }: PosF
           </div>
           <DialogFooter className="flex-col sm:flex-col gap-2">
             <Button
-              onClick={() => handleEnrollCard('checkout')}
-              disabled={enrollLoading || !enrollName}
-              className="w-full"
-            >
-              {enrollLoading ? "Enrolling..." : "Enroll & Process Payment"}
-            </Button>
-            <Button
               variant="secondary"
               onClick={() => handleEnrollCard('topup')}
               disabled={enrollLoading || !enrollName}

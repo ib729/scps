@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
+import { verifySignupCode } from "@/app/actions/users";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -27,8 +28,6 @@ import {
 } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 
-const SIGNUP_CODE = "uGFk@j3A";
-
 export default function SignupPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -51,13 +50,17 @@ export default function SignupPage() {
     
     // Auto-verify when all 8 digits are entered
     if (value.length === 8) {
-      if (value !== SIGNUP_CODE) {
-        toast.error("Invalid code. Please try again.");
+      setLoading(true);
+      
+      // Verify the code on the server
+      const verificationResult = await verifySignupCode(value);
+      
+      if (!verificationResult.success) {
+        toast.error(verificationResult.error || "Invalid code. Please try again.");
         setOtp("");
+        setLoading(false);
         return;
       }
-
-      setLoading(true);
 
       try {
         const { data, error } = await authClient.signUp.email({

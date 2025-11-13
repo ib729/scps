@@ -8,6 +8,25 @@ import {
 } from "@/lib/models";
 import { revalidatePath } from "next/cache";
 
+/**
+ * Verify signup code
+ * The code is stored securely in environment variables and never exposed to the client
+ */
+export async function verifySignupCode(code: string) {
+  const validCode = process.env.SIGNUP_CODE;
+  
+  if (!validCode) {
+    console.error("SIGNUP_CODE environment variable is not set");
+    return { success: false, error: "Signup verification is not configured" };
+  }
+  
+  if (code === validCode) {
+    return { success: true };
+  }
+  
+  return { success: false, error: "Invalid signup code" };
+}
+
 export async function getCurrentUser() {
   try {
     const db = getDb();
