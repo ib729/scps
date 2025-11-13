@@ -23,6 +23,7 @@ export const auth = betterAuth({
   baseURL: process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
   trustedOrigins: [
     "http://localhost:3000",
+    "http://localhost:3333",
     "https://scps.ivanbelousov.com",
   ],
   session: {
