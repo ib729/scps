@@ -51,19 +51,34 @@ Best for: Regular imports, CSV files from other systems, need validation and err
 
 ### Step 1: Create or use a CSV file
 
+**Basic format (names only):**
 ```csv
 name
 John Doe
 Jane Smith
 Alice Johnson
-Bob Wilson
-Charlie Brown
 ```
 
-Or generate a template:
+**With NFC card UIDs (recommended):**
+```csv
+name,uid
+Ivan Belousov,0E39E996
+John Doe,DEADBEEF
+Jane Smith,AB12CD34
+Alice Johnson,
+Bob Wilson,
+```
+
+Note: You can leave the UID column empty for students who don't have cards yet.
+
+**Generate a template:**
 
 ```bash
+# Basic template (names only)
 python batch_import_students.py --template students.csv
+
+# Template with UID column
+python batch_import_students.py --template --with-uid students_with_cards.csv
 ```
 
 ### Step 2: Preview the import (dry run)
@@ -86,14 +101,20 @@ python batch_import_students.py students.csv
 # Basic import (skips duplicates)
 python batch_import_students.py students.csv
 
+# Import students with NFC card UIDs
+python batch_import_students.py students_with_cards.csv
+
 # Preview without importing
 python batch_import_students.py --dry-run students.csv
 
 # Fail on duplicates instead of skipping
 python batch_import_students.py --no-skip-duplicates students.csv
 
-# Generate template file
+# Generate template file (names only)
 python batch_import_students.py --template students.csv
+
+# Generate template with UID column
+python batch_import_students.py --template --with-uid students_with_cards.csv
 
 # Help and examples
 python batch_import_students.py --help
@@ -102,8 +123,12 @@ python batch_import_students.py --help
 ### Features
 
 - ✓ Validates CSV format before importing
+- ✓ Optional NFC card UID import (associate cards with students)
 - ✓ Skips duplicate students (or fails if you prefer)
 - ✓ Creates student accounts automatically
+- ✓ Can add cards to existing students
+- ✓ Validates UID format (hexadecimal)
+- ✓ Prevents duplicate card assignments
 - ✓ Detailed error reporting
 - ✓ Dry-run mode to preview changes
 - ✓ Transaction safety (all-or-nothing)
@@ -111,6 +136,7 @@ python batch_import_students.py --help
 
 ### Example Output
 
+**Basic import (names only):**
 ```
 Found 5 students in CSV file
 
@@ -130,6 +156,83 @@ Import Summary:
   Import errors: 0
 ============================================================
 ```
+
+**With NFC card UIDs:**
+```
+UID column detected - will import cards with students
+Found 5 students in CSV file
+
+✓ Imported: Ivan Belousov (ID: 42) → 0E39E996
+✓ Imported: John Doe (ID: 43) → DEADBEEF
+⊘ Skipping duplicate: Alice Johnson (ID: 12)
+⊕ Added card to existing student: Bob Wilson (ID: 15) → AB12CD34
+✓ Imported: Charlie Brown (ID: 44)
+
+Changes committed to database
+
+============================================================
+Import Summary:
+  Imported: 4
+  Cards created: 3
+  Skipped (duplicates): 1
+  Validation errors: 0
+  Import errors: 0
+============================================================
+```
+
+## Getting NFC Card UIDs
+
+If you're importing students with cards, you need to know their UIDs. Here's how to get them:
+
+### Method 1: Using enroll.py in Simulation Mode
+
+```bash
+# Read a card and display its UID
+python enroll.py --simulate
+# Then tap the card on the reader
+```
+
+The UID will be displayed (e.g., `0E39E996`).
+
+### Method 2: Check Existing Cards in Database
+
+```bash
+sqlite3 stuco.db "SELECT s.name, c.card_uid FROM students s 
+  JOIN cards c ON s.id = c.student_id 
+  ORDER BY s.name;"
+```
+
+### Method 3: Use NFC Reader Tool
+
+If you have an NFC reader, use the test script:
+
+```bash
+python -c "
+import nfc
+def on_connect(tag):
+    print('UID:', tag.identifier.hex().upper())
+    return False
+clf = nfc.ContactlessFrontend('tty:AMA0:pn532')
+clf.connect(rdwr={'on-connect': on_connect})
+"
+```
+
+### Creating Your CSV with UIDs
+
+Once you have the UIDs, create your CSV:
+
+```csv
+name,uid
+Ivan Belousov,0E39E996
+John Doe,DEADBEEF
+Jane Smith,AB12CD34
+```
+
+**Tips:**
+- UIDs are case-insensitive (will be converted to uppercase)
+- UIDs must be hexadecimal (0-9, A-F)
+- Leave UID empty if student doesn't have a card yet
+- You can add cards later by re-importing with just those rows
 
 ## Method 3: Export from Another System and Convert
 

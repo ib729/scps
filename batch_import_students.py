@@ -3,10 +3,15 @@
 Batch import students from CSV file.
 
 CSV format:
+    name,uid
+    John Doe,DEADBEEF
+    Jane Smith,0E39E996
+    Alice Johnson,
+
+Or without UIDs:
     name
     John Doe
     Jane Smith
-    Alice Johnson
 """
 
 import csv
@@ -19,12 +24,23 @@ DB = "stuco.db"
 
 def batch_import_students(csv_file, skip_duplicates=True, dry_run=False):
     """
-    Import students from a CSV file with columns: name
+    Import students from a CSV file with columns: name, uid (optional)
     
     Args:
         csv_file: Path to CSV file
         skip_duplicates: If True, skip existing students. If False, fail on duplicates.
         dry_run: If True, don't actually import, just show what would be done.
+    
+    CSV Format:
+        name,uid
+        John Doe,DEADBEEF
+        Jane Smith,0E39E996
+        Alice Johnson,
+        
+    Or without UIDs:
+        name
+        John Doe
+        Jane Smith
     """
     if not Path(csv_file).exists():
         print(f"Error: File '{csv_file}' not found")
@@ -33,6 +49,7 @@ def batch_import_students(csv_file, skip_duplicates=True, dry_run=False):
     # Read and validate CSV first
     students_to_import = []
     errors = []
+    has_uid_column = False
     
     try:
         with open(csv_file, 'r', encoding='utf-8') as f:
@@ -43,14 +60,30 @@ def batch_import_students(csv_file, skip_duplicates=True, dry_run=False):
                 print(f"Found columns: {', '.join(reader.fieldnames)}")
                 return False
             
+            # Check if UID column exists
+            has_uid_column = 'uid' in reader.fieldnames
+            if has_uid_column:
+                print("UID column detected - will import cards with students")
+            
             for row_num, row in enumerate(reader, start=2):  # Start at 2 (header is row 1)
                 name = row.get('name', '').strip()
+                uid = row.get('uid', '').strip().upper() if has_uid_column else None
                 
                 if not name:
                     errors.append(f"Row {row_num}: Missing or empty name")
                     continue
                 
-                students_to_import.append((row_num, name))
+                # Validate UID if provided
+                if uid:
+                    # Basic hex validation (allow alphanumeric for hex UIDs)
+                    if not all(c in '0123456789ABCDEF' for c in uid):
+                        errors.append(f"Row {row_num} ({name}): Invalid UID format '{uid}' (must be hex)")
+                        continue
+                    if len(uid) < 4 or len(uid) > 20:
+                        errors.append(f"Row {row_num} ({name}): UID length invalid '{uid}' (expected 4-20 chars)")
+                        continue
+                
+                students_to_import.append((row_num, name, uid))
     
     except Exception as e:
         print(f"Error reading CSV: {e}")
@@ -78,34 +111,89 @@ def batch_import_students(csv_file, skip_duplicates=True, dry_run=False):
     
     imported = 0
     skipped = 0
+    cards_created = 0
     import_errors = []
     
     try:
-        for row_num, name in students_to_import:
+        for row_num, name, uid in students_to_import:
             try:
                 # Check if student already exists
                 existing = cur.execute("SELECT id FROM students WHERE name=?", (name,)).fetchone()
                 if existing:
                     if skip_duplicates:
-                        print(f"⊘ Skipping duplicate: {name} (ID: {existing[0]})")
+                        student_id = existing[0]
+                        
+                        # If UID provided, try to add card for existing student
+                        if uid and not dry_run:
+                            try:
+                                # Check if UID already exists
+                                existing_card = cur.execute(
+                                    "SELECT student_id FROM cards WHERE card_uid=?", 
+                                    (uid,)
+                                ).fetchone()
+                                
+                                if existing_card:
+                                    if existing_card[0] == student_id:
+                                        print(f"⊘ Skipping duplicate student with existing card: {name} (ID: {student_id})")
+                                    else:
+                                        print(f"⚠ Skipping {name}: Card {uid} already assigned to student ID {existing_card[0]}")
+                                else:
+                                    # Add card to existing student
+                                    cur.execute(
+                                        "INSERT INTO cards(card_uid, student_id, status) VALUES (?, ?, 'active')",
+                                        (uid, student_id)
+                                    )
+                                    cards_created += 1
+                                    print(f"⊕ Added card to existing student: {name} (ID: {student_id}) → {uid}")
+                            except Exception as card_error:
+                                print(f"⚠ Could not add card for {name}: {card_error}")
+                        else:
+                            print(f"⊘ Skipping duplicate: {name} (ID: {student_id})")
+                        
                         skipped += 1
                         continue
                     else:
                         import_errors.append(f"Row {row_num} ({name}): Student already exists")
                         continue
                 
+                # Check if UID is already in use
+                if uid:
+                    existing_card = cur.execute(
+                        "SELECT student_id FROM cards WHERE card_uid=?", 
+                        (uid,)
+                    ).fetchone()
+                    if existing_card:
+                        import_errors.append(
+                            f"Row {row_num} ({name}): Card UID {uid} already assigned to student ID {existing_card[0]}"
+                        )
+                        continue
+                
                 if dry_run:
-                    print(f"[DRY RUN] Would import: {name}")
+                    uid_info = f" → {uid}" if uid else ""
+                    print(f"[DRY RUN] Would import: {name}{uid_info}")
                     imported += 1
+                    if uid:
+                        cards_created += 1
                 else:
-                    # Insert student and create account in a transaction
+                    # Insert student and create account
                     cur.execute("INSERT INTO students(name) VALUES (?)", (name,))
                     student_id = cur.lastrowid
                     cur.execute(
                         "INSERT INTO accounts(student_id, balance, max_overdraft_week) VALUES (?, 0, 0)", 
                         (student_id,)
                     )
-                    print(f"✓ Imported: {name} (ID: {student_id})")
+                    
+                    # If UID provided, create card entry
+                    if uid:
+                        cur.execute(
+                            "INSERT INTO cards(card_uid, student_id, status) VALUES (?, ?, 'active')",
+                            (uid, student_id)
+                        )
+                        cards_created += 1
+                        print(f"✓ Imported: {name} (ID: {student_id}) → {uid}")
+                    else:
+                        print(f"✓ Imported: {name} (ID: {student_id})")
+                    
                     imported += 1
                 
             except Exception as e:
@@ -127,6 +215,8 @@ def batch_import_students(csv_file, skip_duplicates=True, dry_run=False):
     print(f"\n{'='*60}")
     print(f"Import Summary:")
     print(f"  {'Would import' if dry_run else 'Imported'}: {imported}")
+    if has_uid_column:
+        print(f"  {'Would create' if dry_run else 'Cards created'}: {cards_created}")
     print(f"  Skipped (duplicates): {skipped}")
     print(f"  Validation errors: {len(errors)}")
     print(f"  Import errors: {len(import_errors)}")
@@ -141,14 +231,22 @@ def batch_import_students(csv_file, skip_duplicates=True, dry_run=False):
     return len(import_errors) == 0
 
 
-def generate_template(output_file):
+def generate_template(output_file, include_uid=False):
     """Generate a template CSV file"""
     with open(output_file, 'w', encoding='utf-8') as f:
-        f.write("name\n")
-        f.write("John Doe\n")
-        f.write("Jane Smith\n")
-        f.write("Alice Johnson\n")
-    print(f"Template CSV created: {output_file}")
+        if include_uid:
+            f.write("name,uid\n")
+            f.write("John Doe,DEADBEEF\n")
+            f.write("Jane Smith,0E39E996\n")
+            f.write("Alice Johnson,\n")
+        else:
+            f.write("name\n")
+            f.write("John Doe\n")
+            f.write("Jane Smith\n")
+            f.write("Alice Johnson\n")
+    
+    uid_note = " (with UID column)" if include_uid else ""
+    print(f"Template CSV created{uid_note}: {output_file}")
     print("Edit this file and add your student names, then run:")
     print(f"  python batch_import_students.py {output_file}")
 
@@ -162,8 +260,14 @@ Examples:
   # Import students from CSV
   python batch_import_students.py students.csv
   
+  # Import students with NFC card UIDs
+  python batch_import_students.py students_with_cards.csv
+  
   # Generate a template CSV file
   python batch_import_students.py --template students.csv
+  
+  # Generate template with UID column
+  python batch_import_students.py --template --with-uid students_with_cards.csv
   
   # Preview import without making changes
   python batch_import_students.py --dry-run students.csv
@@ -172,12 +276,16 @@ Examples:
   python batch_import_students.py --no-skip-duplicates students.csv
 
 CSV Format:
-  The CSV file must have a 'name' column:
+  Basic format (name only):
+    name
+    John Doe
+    Jane Smith
   
-  name
-  John Doe
-  Jane Smith
-  Alice Johnson
+  With NFC card UIDs:
+    name,uid
+    John Doe,DEADBEEF
+    Jane Smith,0E39E996
+    Alice Johnson,
 """
     )
     
@@ -189,6 +297,11 @@ CSV Format:
         '--template',
         action='store_true',
         help='Generate a template CSV file instead of importing'
+    )
+    parser.add_argument(
+        '--with-uid',
+        action='store_true',
+        help='Include UID column in template (use with --template)'
     )
     parser.add_argument(
         '--dry-run',
@@ -204,7 +317,7 @@ CSV Format:
     args = parser.parse_args()
     
     if args.template:
-        generate_template(args.csv_file)
+        generate_template(args.csv_file, include_uid=args.with_uid)
         return
     
     success = batch_import_students(

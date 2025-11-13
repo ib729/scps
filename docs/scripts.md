@@ -435,6 +435,8 @@ python batch_import_students.py --no-skip-duplicates students.csv
 - `--no-skip-duplicates` - Fail on duplicate names instead of skipping them
 
 **CSV Format:**
+
+Basic (names only):
 ```csv
 name
 John Doe
@@ -442,30 +444,45 @@ Jane Smith
 Alice Johnson
 ```
 
+With NFC card UIDs:
+```csv
+name,uid
+Ivan Belousov,0E39E996
+John Doe,DEADBEEF
+Jane Smith,AB12CD34
+Alice Johnson,
+```
+
 **Features:**
 - ✓ Validates CSV format before importing
+- ✓ Optional NFC card UID import (associate cards with students)
 - ✓ Skips duplicate students (or fails if preferred)
 - ✓ Creates student accounts automatically
+- ✓ Can add cards to existing students
+- ✓ Validates UID format (hexadecimal)
+- ✓ Prevents duplicate card assignments
 - ✓ Detailed error reporting
 - ✓ Dry-run mode to preview changes
 - ✓ Transaction safety (all-or-nothing)
 - ✓ UTF-8 support for international names
 
-**Output:**
+**Output (with UIDs):**
 ```
+UID column detected - will import cards with students
 Found 5 students in CSV file
 
-✓ Imported: John Doe (ID: 42)
-✓ Imported: Jane Smith (ID: 43)
+✓ Imported: Ivan Belousov (ID: 42) → 0E39E996
+✓ Imported: John Doe (ID: 43) → DEADBEEF
 ⊘ Skipping duplicate: Alice Johnson (ID: 12)
-✓ Imported: Bob Wilson (ID: 44)
-✓ Imported: Charlie Brown (ID: 45)
+⊕ Added card to existing student: Bob Wilson (ID: 15) → AB12CD34
+✓ Imported: Charlie Brown (ID: 44)
 
 Changes committed to database
 
 ============================================================
 Import Summary:
   Imported: 4
+  Cards created: 3
   Skipped (duplicates): 1
   Validation errors: 0
   Import errors: 0
