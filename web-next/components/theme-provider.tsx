@@ -10,7 +10,7 @@ export function ThemeProvider({
   return (
     <NextThemesProvider 
       {...props}
-      enableColorScheme={false}
+      enableColorScheme
     >
       {children}
     </NextThemesProvider>

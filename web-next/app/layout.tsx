@@ -52,7 +52,7 @@ export default function RootLayout({
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{let t=localStorage.getItem('theme'),d=window.matchMedia('(prefers-color-scheme: dark)').matches;if(t==='dark'||(t!=='light'&&!t&&d)){document.documentElement.classList.add('dark');document.documentElement.classList.remove('light')}else if(t==='light'){document.documentElement.classList.add('light');document.documentElement.classList.remove('dark')}else{document.documentElement.classList.remove('dark','light')}}catch(e){}})()`,
+            __html: `(function(){try{let t=localStorage.getItem('theme')||'system',d=window.matchMedia('(prefers-color-scheme: dark)').matches;document.documentElement.style.colorScheme=t==='system'?(d?'dark':'light'):t;if(t==='dark'||(t==='system'&&d)){document.documentElement.classList.add('dark');document.documentElement.classList.remove('light')}else if(t==='light'||(t==='system'&&!d)){document.documentElement.classList.add('light');document.documentElement.classList.remove('dark')}}catch(e){}})()`,
           }}
         />
       </head>

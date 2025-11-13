@@ -200,6 +200,15 @@ html.dark,
     transition: none !important;
   }
   
+  /* Ensure color-scheme is properly set to prevent browser default styles flash */
+  html {
+    color-scheme: light;
+  }
+  
+  html.dark {
+    color-scheme: dark;
+  }
+  
   * {
     @apply border-border outline-ring/50;
   }
