@@ -17,8 +17,10 @@ import {
   Sun,
   Eye,
   EyeOff,
+  Radio,
 } from "lucide-react"
 import { useTheme } from "next-themes"
+import { useNFCReader } from "@/lib/nfc-reader-context"
 
 import {
   Sidebar,
@@ -108,12 +110,15 @@ interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
 export function AppSidebar({ user: initialUser, ...props }: AppSidebarProps) {
   const router = useRouter()
   const { theme, setTheme, resolvedTheme } = useTheme()
+  const { selectedReader, setSelectedReader } = useNFCReader()
   const [mounted, setMounted] = React.useState(false)
   const [showLogoutDialog, setShowLogoutDialog] = React.useState(false)
   const [showAccountDialog, setShowAccountDialog] = React.useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = React.useState(false)
+  const [showSettingsDialog, setShowSettingsDialog] = React.useState(false)
   const [loading, setLoading] = React.useState(false)
   const [deletePassword, setDeletePassword] = React.useState("")
+  const [localSelectedReader, setLocalSelectedReader] = React.useState(selectedReader)
 
   // Use server-provided user data as the primary source
   // Removed useSession to prevent automatic polling that causes page refreshes every 30 seconds
@@ -138,6 +143,18 @@ export function AppSidebar({ user: initialUser, ...props }: AppSidebarProps) {
   const [showCurrentPassword, setShowCurrentPassword] = React.useState(false)
   const [showNewPassword, setShowNewPassword] = React.useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = React.useState(false)
+
+  // Update local state when context changes
+  React.useEffect(() => {
+    setLocalSelectedReader(selectedReader)
+  }, [selectedReader])
+
+  // Handle saving settings
+  const handleSaveSettings = () => {
+    setSelectedReader(localSelectedReader)
+    setShowSettingsDialog(false)
+    toast.success("Settings saved successfully")
+  }
 
   // Password strength calculation
   const calculatePasswordStrength = (password: string): { strength: string; color: string } => {
@@ -395,6 +412,10 @@ export function AppSidebar({ user: initialUser, ...props }: AppSidebarProps) {
                   <DropdownMenuItem onClick={() => setShowAccountDialog(true)}>
                     <User className="mr-2 h-4 w-4" />
                     Account
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setShowSettingsDialog(true)}>
+                    <Settings className="mr-2 h-4 w-4" />
+                    Settings
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={handleToggleTheme}>
                     {resolvedTheme === "dark" ? (
@@ -692,6 +713,79 @@ export function AppSidebar({ user: initialUser, ...props }: AppSidebarProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      )}
+
+      {mounted && (
+        <Dialog open={showSettingsDialog} onOpenChange={setShowSettingsDialog}>
+          <DialogContent className="sm:max-w-[500px]">
+            <DialogHeader>
+              <DialogTitle>Settings</DialogTitle>
+              <DialogDescription>
+                Configure your application preferences
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-6 py-4">
+              {/* NFC Reader Selection */}
+              <div className="space-y-3">
+                <Label className="text-base font-semibold flex items-center gap-2">
+                  <Radio className="h-4 w-4" />
+                  NFC Reader Selection
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  Choose which NFC reader to use for card taps. Each staff member can select their own reader.
+                </p>
+                <div className="space-y-3 pl-6">
+                  <div className="flex items-center space-x-3">
+                    <input
+                      type="radio"
+                      id="reader-1"
+                      name="nfc-reader"
+                      value="reader-1"
+                      checked={localSelectedReader === "reader-1"}
+                      onChange={(e) => setLocalSelectedReader(e.target.value as "reader-1" | "reader-2")}
+                      className="h-4 w-4 cursor-pointer"
+                    />
+                    <label htmlFor="reader-1" className="text-sm cursor-pointer flex-1">
+                      <div className="font-medium">Reader 1</div>
+                      <div className="text-muted-foreground text-xs">USB Port 0 (tty:USB0)</div>
+                    </label>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <input
+                      type="radio"
+                      id="reader-2"
+                      name="nfc-reader"
+                      value="reader-2"
+                      checked={localSelectedReader === "reader-2"}
+                      onChange={(e) => setLocalSelectedReader(e.target.value as "reader-1" | "reader-2")}
+                      className="h-4 w-4 cursor-pointer"
+                    />
+                    <label htmlFor="reader-2" className="text-sm cursor-pointer flex-1">
+                      <div className="font-medium">Reader 2</div>
+                      <div className="text-muted-foreground text-xs">USB Port 1 (tty:USB1)</div>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex justify-end gap-2">
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setLocalSelectedReader(selectedReader)
+                  setShowSettingsDialog(false)
+                }}
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleSaveSettings}>
+                Save Settings
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
     </Sidebar>
   )

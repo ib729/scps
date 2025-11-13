@@ -32,6 +32,7 @@ import { createStudentAction } from "@/app/actions/students";
 import { EncryptedText } from "@/components/ui/encrypted-text";
 import { toDisplayValue, formatCurrency } from "@/lib/currency";
 import { useNFCWebSocket } from "@/lib/use-nfc-websocket";
+import { useNFCReader } from "@/lib/nfc-reader-context";
 
 interface PosFormProps {
   students: StudentWithAccount[];
@@ -42,6 +43,7 @@ interface PosFormProps {
 type WorkflowMode = "tap-first" | "manual";
 
 export function PosForm({ students, studentIdsWithTransactions, userName }: PosFormProps) {
+  const { selectedReader } = useNFCReader();
   const [mode, setMode] = useState<WorkflowMode>("tap-first");
   const [studentId, setStudentId] = useState<string>("");
   const [cardUid, setCardUid] = useState<string>("");
@@ -95,7 +97,7 @@ export function PosForm({ students, studentIdsWithTransactions, userName }: PosF
 
   // WebSocket connection for tap events (only in tap-first mode)
   const { isConnected, statusMessage: tapStatus } = useNFCWebSocket({
-    lane: "default",
+    lane: selectedReader,
     autoConnect: mode === "tap-first",
     onTap: (event) => {
       console.log("[POS] Card tap detected:", event.card_uid);

@@ -19,6 +19,7 @@ import { getCardByUidAction, createCardAction } from "@/app/actions/cards";
 import { getStudentByIdAction, createStudentAction } from "@/app/actions/students";
 import type { Card } from "@/lib/models";
 import { useNFCWebSocket } from "@/lib/use-nfc-websocket";
+import { useNFCReader } from "@/lib/nfc-reader-context";
 
 /**
  * Global tap alert component
@@ -27,6 +28,7 @@ import { useNFCWebSocket } from "@/lib/use-nfc-websocket";
  * For unregistered cards, shows an enrollment form
  */
 export function TapAlert() {
+  const { selectedReader } = useNFCReader();
   const router = useRouter();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
@@ -66,7 +68,7 @@ export function TapAlert() {
 
   // WebSocket connection for tap events (only on non-POS pages)
   useNFCWebSocket({
-    lane: "default",
+    lane: selectedReader,
     autoConnect: pathname !== "/pos",
     onTap: (event) => {
       console.log("[TapAlert] Card tap detected:", event.card_uid);

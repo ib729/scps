@@ -259,6 +259,174 @@ For multiple checkouts:
 - Broadcaster 2: `POS_LANE_ID=lane-b python tap-broadcaster.py --device tty:USB0:pn532`
 - POS URL: `/pos?lane=lane-a` (filters WebSocket events).
 
+## Dual Reader Setup (Two Simultaneous NFC Readers)
+
+### Overview
+
+This setup allows two NFC readers to operate simultaneously, enabling multiple staff members to work at different checkout stations. Each staff member selects their preferred reader via the Web UI Settings dialog, and tap events are routed accordingly.
+
+**Architecture:**
+- Two `tap-broadcaster.py` instances running as systemd services
+- Reader 1: `/dev/ttyUSB0` with lane ID `reader-1`
+- Reader 2: `/dev/ttyUSB1` with lane ID `reader-2`
+- Web UI: Settings dialog for reader selection (persists per staff member in localStorage)
+
+### Hardware Setup
+
+1. **Connect both NFC readers** to USB ports on the Raspberry Pi
+2. **Verify device detection:**
+   ```bash
+   ls /dev/ttyUSB*
+   # Should show: /dev/ttyUSB0  /dev/ttyUSB1
+   ```
+3. **Check device mapping:**
+   ```bash
+   lsusb | grep -i "CH340\|QinHeng"
+   # Should show 2 CH340 devices
+   ```
+
+### Service Installation
+
+1. **Copy service files:**
+   ```bash
+   sudo cp systemd/tap-broadcaster.service /etc/systemd/system/
+   sudo cp systemd/tap-broadcaster-reader2.service /etc/systemd/system/
+   ```
+
+2. **Verify configuration** (already set in service files):
+   - `tap-broadcaster.service`: `POS_LANE_ID=reader-1`, `PN532_DEVICE=tty:USB0:pn532`
+   - `tap-broadcaster-reader2.service`: `POS_LANE_ID=reader-2`, `PN532_DEVICE=tty:USB1:pn532`
+
+3. **Enable and start both services:**
+   ```bash
+   sudo systemctl daemon-reload
+   sudo systemctl enable tap-broadcaster tap-broadcaster-reader2
+   sudo systemctl start tap-broadcaster tap-broadcaster-reader2
+   ```
+
+4. **Check status:**
+   ```bash
+   sudo systemctl status tap-broadcaster
+   sudo systemctl status tap-broadcaster-reader2
+   ```
+
+### Web UI Usage
+
+1. **Open Web UI** and log in
+2. **Click on your avatar** in the sidebar (bottom left)
+3. **Select "Settings"** from the dropdown menu
+4. **Under "NFC Reader Selection":**
+   - Choose **Reader 1** (USB Port 0) or **Reader 2** (USB Port 1)
+   - Click **Save Settings**
+5. **Your selection persists** across page reloads and browser sessions
+
+**Multi-Staff Workflow:**
+- Staff A opens Web UI on Device/Browser 1, selects Reader 1
+- Staff B opens Web UI on Device/Browser 2, selects Reader 2
+- Card taps on Reader 1 only appear on Staff A's screen
+- Card taps on Reader 2 only appear on Staff B's screen
+
+### Service Management
+
+**View logs for both readers:**
+```bash
+# Reader 1 (ttyUSB0)
+sudo journalctl -u tap-broadcaster -f
+
+# Reader 2 (ttyUSB1)
+sudo journalctl -u tap-broadcaster-reader2 -f
+
+# Both together
+sudo journalctl -u tap-broadcaster -u tap-broadcaster-reader2 -f
+```
+
+**Restart a specific reader:**
+```bash
+sudo systemctl restart tap-broadcaster        # Reader 1
+sudo systemctl restart tap-broadcaster-reader2 # Reader 2
+```
+
+**Stop/Start both readers:**
+```bash
+sudo systemctl stop tap-broadcaster tap-broadcaster-reader2
+sudo systemctl start tap-broadcaster tap-broadcaster-reader2
+```
+
+### USB Device Reset
+
+The USB reset script now supports both devices:
+
+```bash
+# Reset all CH340 devices
+./scripts/reset-usb-nfc.sh
+
+# Reset specific device
+./scripts/reset-usb-nfc.sh USB0  # Reset Reader 1 only
+./scripts/reset-usb-nfc.sh USB1  # Reset Reader 2 only
+```
+
+### Troubleshooting Dual Readers
+
+**Problem: Only one reader detected**
+
+Check USB devices:
+```bash
+ls /dev/ttyUSB*
+lsusb | grep -i "CH340\|QinHeng"
+```
+
+If only one device shows:
+- Check physical USB connections
+- Try different USB ports
+- Check `dmesg | tail -20` for USB errors
+
+**Problem: Only one service works**
+
+Check both service statuses:
+```bash
+sudo systemctl status tap-broadcaster tap-broadcaster-reader2
+```
+
+Check logs for errors:
+```bash
+sudo journalctl -u tap-broadcaster-reader2 -n 50
+```
+
+Common issues:
+- Device permission: Add user to `dialout` group
+- Device conflict: Ensure both services use different devices (USB0 vs USB1)
+- Port in use: One service is using the wrong device
+
+**Problem: Taps appear on wrong staff member's screen**
+
+- Verify each staff member selected the correct reader in Settings
+- Check localStorage: `localStorage.getItem('nfc_reader_lane')` in browser console
+- Verify service is broadcasting with correct lane ID:
+  ```bash
+  sudo journalctl -u tap-broadcaster -n 1 | grep "lane:"
+  ```
+
+**Problem: Taps appear on both screens**
+
+This should not happen with proper lane filtering. Check:
+- Each staff member selected different readers in Settings
+- WebSocket connection shows correct lane in browser console
+- Server is properly filtering by lane (check server.js line 314)
+
+**Problem: Device swap after reboot**
+
+USB device order may change after reboot (USB0 becomes USB1). Solutions:
+1. Use consistent USB port assignment (always plug Reader 1 in the same port)
+2. Create udev rules to assign persistent device names (advanced)
+
+**Verification:**
+```bash
+# Check which physical reader is USB0 vs USB1
+# Tap card on left reader, check logs:
+sudo journalctl -u tap-broadcaster -u tap-broadcaster-reader2 -f
+# See which service shows the tap
+```
+
 ## Systemd Service (Production)
 
 1. **Edit Service File**:
