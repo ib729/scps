@@ -226,3 +226,6 @@ tmp
 # Rclone configuration (if stored locally)
 rclone.conf
 .rclone/
+
+# Claude Code documentation
+CLAUDE.md

@@ -310,14 +310,21 @@ function handleWebSocketConnection(ws, request) {
 
       // Subscribe to tap events
       tapUnsubscribe = tapBroadcaster.subscribe((event) => {
-        // Filter by lane if needed
-        if (event.lane && event.lane !== lane && lane !== 'default') {
+        // Lane filtering logic:
+        // - If event has no lane, treat as 'default' (legacy compatibility)
+        // - If client is on 'default', receive from all lanes
+        // - If client is on specific lane (reader-1/reader-2), only receive from that lane
+        const eventLane = event.lane || 'default';
+
+        // Client wants specific lane, only receive from that exact lane
+        if (lane !== 'default' && eventLane !== lane) {
+          console.log(`[WS #${connectionId}] Skipping tap ${event.card_uid} - client lane='${lane}' event lane='${eventLane}'`);
           return;
         }
 
         // Send tap to client
         if (ws.readyState === ws.OPEN) {
-          console.log(`[WS #${connectionId}] Sending tap event to client: ${event.card_uid}`);
+          console.log(`[WS #${connectionId}] Sending tap event to client: ${event.card_uid} (lane: ${eventLane})`);
           ws.send(JSON.stringify(event));
         }
       });

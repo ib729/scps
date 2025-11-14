@@ -89,6 +89,9 @@ export function PosForm({ students, studentIdsWithTransactions, userName }: PosF
   const [enrollError, setEnrollError] = useState("");
   const [enrollLoading, setEnrollLoading] = useState(false);
 
+  // Reader selection prompt dialog
+  const [showReaderPrompt, setShowReaderPrompt] = useState(false);
+
   const selectedStudent = students.find((s) => s.id === parseInt(studentId));
   const dialogStudent = students.find((s) => s.id === dialogStudentId);
 
@@ -104,6 +107,13 @@ export function PosForm({ students, studentIdsWithTransactions, userName }: PosF
       handleCardTap(event.card_uid);
     },
   });
+
+  // Show reader selection prompt on first mount if no reader selected
+  useEffect(() => {
+    if (mode === "tap-first" && !selectedReader) {
+      setShowReaderPrompt(true);
+    }
+  }, [mode, selectedReader]);
 
   // Repeat the encryption animation every 3 seconds when in tap-first mode
   useEffect(() => {
@@ -662,6 +672,61 @@ export function PosForm({ students, studentIdsWithTransactions, userName }: PosF
           </Card>
         )}
       </div>
+
+      {/* Reader Selection Prompt Dialog */}
+      <Dialog open={showReaderPrompt} onOpenChange={setShowReaderPrompt}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Select NFC Reader</DialogTitle>
+            <DialogDescription>
+              Please select which NFC reader you want to use for card taps.
+              Each staff member can use their own reader.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-3">
+              <button
+                className="w-full p-4 border-2 rounded-lg text-left hover:border-primary transition-colors flex items-center justify-between"
+                onClick={() => {
+                  setSelectedReader("reader-1");
+                  setShowReaderPrompt(false);
+                }}
+              >
+                <div>
+                  <div className="font-semibold text-base">Reader 1</div>
+                  <div className="text-sm text-muted-foreground">USB Port 0 (ttyUSB0)</div>
+                </div>
+                {selectedReader === "reader-1" && (
+                  <Check className="h-5 w-5 text-primary" />
+                )}
+              </button>
+              <button
+                className="w-full p-4 border-2 rounded-lg text-left hover:border-primary transition-colors flex items-center justify-between"
+                onClick={() => {
+                  setSelectedReader("reader-2");
+                  setShowReaderPrompt(false);
+                }}
+              >
+                <div>
+                  <div className="font-semibold text-base">Reader 2</div>
+                  <div className="text-sm text-muted-foreground">USB Port 1 (ttyUSB1)</div>
+                </div>
+                {selectedReader === "reader-2" && (
+                  <Check className="h-5 w-5 text-primary" />
+                )}
+              </button>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowReaderPrompt(false)}
+            >
+              Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
