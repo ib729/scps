@@ -101,8 +101,6 @@ If you find this project helpful and would like to support its development, cons
 bc1pyv54eqxuanqgv3cm2yjl37xjxlavnh7fcfu9d3yg983uzp4qazcs5xgsz2
 ```
 
-Your support helps maintain and improve this open-source project. For more information about supporting open-source projects, see the [Open Source Guide on Getting Paid](https://opensource.guide/getting-paid/).
-
 ## License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
