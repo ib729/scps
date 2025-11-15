@@ -43,7 +43,7 @@ interface PosFormProps {
 type WorkflowMode = "tap-first" | "manual";
 
 export function PosForm({ students, studentIdsWithTransactions, userName }: PosFormProps) {
-  const { selectedReader } = useNFCReader();
+  const { selectedReader, setSelectedReader } = useNFCReader();
   const [mode, setMode] = useState<WorkflowMode>("tap-first");
   const [studentId, setStudentId] = useState<string>("");
   const [cardUid, setCardUid] = useState<string>("");
