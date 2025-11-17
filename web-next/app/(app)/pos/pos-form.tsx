@@ -559,14 +559,14 @@ export function PosForm({ students, studentIdsWithTransactions, userName }: PosF
           <>
             {/* Status bar */}
             <Alert variant={isConnected ? "default" : "destructive"} className="border-2">
-              <AlertDescription className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex flex-col">
+              <AlertDescription className="flex flex-row items-start justify-between gap-3">
+                <div className="flex flex-col min-w-0 flex-1">
                   <span className="font-medium">{tapStatus || "Connecting..."}</span>
                   <span className="text-xs text-muted-foreground">
                     Listening on: {readerLabel}
                   </span>
                 </div>
-                <Badge variant={isConnected ? "default" : "secondary"} className="text-sm px-3 py-1">
+                <Badge variant={isConnected ? "default" : "secondary"} className="text-sm px-3 py-1 shrink-0">
                   {isConnected ? "NFC Connected" : "NFC Disconnected"}
                 </Badge>
               </AlertDescription>
@@ -595,7 +595,7 @@ export function PosForm({ students, studentIdsWithTransactions, userName }: PosF
         {/* MANUAL MODE - Form */}
         {mode === "manual" && (
           <Card className="flex-1">
-            <CardHeader>
+            <CardHeader className="space-y-1">
               <CardTitle className="text-2xl">Process Purchase Manually</CardTitle>
             </CardHeader>
             <CardContent>
