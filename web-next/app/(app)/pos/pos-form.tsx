@@ -43,7 +43,7 @@ interface PosFormProps {
 type WorkflowMode = "tap-first" | "manual";
 
 export function PosForm({ students, studentIdsWithTransactions, userName }: PosFormProps) {
-  const { selectedReader } = useNFCReader();
+  const { selectedReader, setSelectedReader } = useNFCReader();
   const [mode, setMode] = useState<WorkflowMode>("tap-first");
   const [studentId, setStudentId] = useState<string>("");
   const [cardUid, setCardUid] = useState<string>("");
@@ -57,6 +57,12 @@ export function PosForm({ students, studentIdsWithTransactions, userName }: PosF
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  // Use ref to avoid stale closure in onTap callback
+  const selectedReaderRef = useRef(selectedReader);
+  useEffect(() => {
+    selectedReaderRef.current = selectedReader;
+  }, [selectedReader]);
 
   // Auto-fill staff name with current user's name
   useEffect(() => {
@@ -89,21 +95,45 @@ export function PosForm({ students, studentIdsWithTransactions, userName }: PosF
   const [enrollError, setEnrollError] = useState("");
   const [enrollLoading, setEnrollLoading] = useState(false);
 
+  // Reader selection prompt dialog
+  const [showReaderPrompt, setShowReaderPrompt] = useState(false);
+
   const selectedStudent = students.find((s) => s.id === parseInt(studentId));
   const dialogStudent = students.find((s) => s.id === dialogStudentId);
 
   // State to trigger re-animation of the encrypted text
   const [animationKey, setAnimationKey] = useState(0);
 
+  const readerLabel =
+    selectedReader === "reader-1" ? "Reader 1 (USB0)" : "Reader 2 (USB1)";
+
   // WebSocket connection for tap events (only in tap-first mode)
   const { isConnected, statusMessage: tapStatus } = useNFCWebSocket({
     lane: selectedReader,
     autoConnect: mode === "tap-first",
     onTap: (event) => {
-      console.log("[POS] Card tap detected:", event.card_uid);
+      // STRICT FILTERING: Use ref to get CURRENT selectedReader value
+      const eventLane = event.lane;
+      const expectedLane = selectedReaderRef.current;
+
+      console.log(`[POS] Tap from lane='${eventLane}', expected='${expectedLane}'`);
+
+      if (eventLane !== expectedLane) {
+        console.log(`[POS] ❌ BLOCKED - Wrong reader`);
+        return; // Block immediately
+      }
+
+      console.log(`[POS] ✓ ACCEPTED - Correct reader`);
       handleCardTap(event.card_uid);
     },
   });
+
+  // Show reader selection prompt on first mount if no reader selected
+  useEffect(() => {
+    if (mode === "tap-first" && !selectedReader) {
+      setShowReaderPrompt(true);
+    }
+  }, [mode, selectedReader]);
 
   // Repeat the encryption animation every 3 seconds when in tap-first mode
   useEffect(() => {
@@ -529,8 +559,13 @@ export function PosForm({ students, studentIdsWithTransactions, userName }: PosF
           <>
             {/* Status bar */}
             <Alert variant={isConnected ? "default" : "destructive"} className="border-2">
-              <AlertDescription className="flex items-center justify-between">
-                <span className="font-medium">{tapStatus || "Connecting..."}</span>
+              <AlertDescription className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-col">
+                  <span className="font-medium">{tapStatus || "Connecting..."}</span>
+                  <span className="text-xs text-muted-foreground">
+                    Listening on: {readerLabel}
+                  </span>
+                </div>
                 <Badge variant={isConnected ? "default" : "secondary"} className="text-sm px-3 py-1">
                   {isConnected ? "NFC Connected" : "NFC Disconnected"}
                 </Badge>
@@ -662,6 +697,61 @@ export function PosForm({ students, studentIdsWithTransactions, userName }: PosF
           </Card>
         )}
       </div>
+
+      {/* Reader Selection Prompt Dialog */}
+      <Dialog open={showReaderPrompt} onOpenChange={setShowReaderPrompt}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Select NFC Reader</DialogTitle>
+            <DialogDescription>
+              Please select which NFC reader you want to use for card taps.
+              Each staff member can use their own reader.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-3">
+              <button
+                className="w-full p-4 border-2 rounded-lg text-left hover:border-primary transition-colors flex items-center justify-between"
+                onClick={() => {
+                  setSelectedReader("reader-1");
+                  setShowReaderPrompt(false);
+                }}
+              >
+                <div>
+                  <div className="font-semibold text-base">Reader 1</div>
+                  <div className="text-sm text-muted-foreground">USB Port 0 (ttyUSB0)</div>
+                </div>
+                {selectedReader === "reader-1" && (
+                  <Check className="h-5 w-5 text-primary" />
+                )}
+              </button>
+              <button
+                className="w-full p-4 border-2 rounded-lg text-left hover:border-primary transition-colors flex items-center justify-between"
+                onClick={() => {
+                  setSelectedReader("reader-2");
+                  setShowReaderPrompt(false);
+                }}
+              >
+                <div>
+                  <div className="font-semibold text-base">Reader 2</div>
+                  <div className="text-sm text-muted-foreground">USB Port 1 (ttyUSB1)</div>
+                </div>
+                {selectedReader === "reader-2" && (
+                  <Check className="h-5 w-5 text-primary" />
+                )}
+              </button>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowReaderPrompt(false)}
+            >
+              Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
