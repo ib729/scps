@@ -32,7 +32,7 @@ export async function getCurrentUser() {
     const db = getDb();
     const usersRepo = new UsersRepository(db);
     
-    // For now, return the first user or create a default one
+    // Return the first user if exists
     const users = usersRepo.findAll();
     if (users.length > 0) {
       const user = users[0];
@@ -47,21 +47,10 @@ export async function getCurrentUser() {
       };
     }
     
-    // No users exist, create a default one
-    const defaultUser = usersRepo.create({
-      name: "Ivan Belousov",
-      email: "hello@ivanbelousov.com",
-      password: "password123", // Default password
-    });
-    
+    // No users exist - return null to indicate setup is needed
     return {
       success: true,
-      user: {
-        id: defaultUser.id,
-        name: defaultUser.name,
-        email: defaultUser.email,
-        avatar: defaultUser.avatar || undefined,
-      },
+      user: null,
     };
   } catch (error) {
     console.error("Failed to get current user:", error);
