@@ -19,6 +19,7 @@ type NFCReader = "reader-1" | "reader-2";
 interface NFCReaderContextType {
   selectedReader: NFCReader;
   setSelectedReader: (reader: NFCReader) => void;
+  isInitialized: boolean;
 }
 
 const NFCReaderContext = createContext<NFCReaderContextType | undefined>(undefined);
@@ -29,6 +30,7 @@ const DEFAULT_READER: NFCReader = "reader-1";
 export function NFCReaderProvider({ children }: { children: React.ReactNode }) {
   const [selectedReader, setSelectedReaderState] = useState<NFCReader>(DEFAULT_READER);
   const [mounted, setMounted] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   // Load from localStorage on mount
   useEffect(() => {
@@ -43,6 +45,8 @@ export function NFCReaderProvider({ children }: { children: React.ReactNode }) {
       // Also save default to localStorage
       localStorage.setItem(STORAGE_KEY, DEFAULT_READER);
     }
+    // Mark as initialized after loading from storage
+    setIsInitialized(true);
   }, []);
 
   // Persist to localStorage when changed
@@ -58,7 +62,7 @@ export function NFCReaderProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <NFCReaderContext.Provider value={{ selectedReader, setSelectedReader }}>
+    <NFCReaderContext.Provider value={{ selectedReader, setSelectedReader, isInitialized }}>
       {children}
     </NFCReaderContext.Provider>
   );

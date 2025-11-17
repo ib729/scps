@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import {
   Drawer,
@@ -28,9 +28,16 @@ import { useNFCReader } from "@/lib/nfc-reader-context";
  * For unregistered cards, shows an enrollment form
  */
 export function TapAlert() {
+  const pathname = usePathname();
+  
+  // Don't render anything on the POS page (POS has its own dialog)
+  // IMPORTANT: Check pathname BEFORE using any other hooks to prevent duplicate WebSocket connections
+  if (pathname === "/pos") {
+    return null;
+  }
+
   const { selectedReader } = useNFCReader();
   const router = useRouter();
-  const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [cardUid, setCardUid] = useState<string>("");
   const [cardData, setCardData] = useState<Card | null>(null);
@@ -41,7 +48,16 @@ export function TapAlert() {
   const [enrollmentError, setEnrollmentError] = useState("");
   const [enrollmentLoading, setEnrollmentLoading] = useState(false);
 
-  // Handle card tap event
+  // Use ref to avoid stale closure in onTap callback
+  const selectedReaderRef = useRef(selectedReader);
+  useEffect(() => {
+    selectedReaderRef.current = selectedReader;
+  }, [selectedReader]);
+
+  const readerLabel =
+    selectedReader === "reader-1" ? "Reader 1 (USB0)" : "Reader 2 (USB1)";
+
+  // Handle card tap event for this UI only
   const handleCardTap = async (uid: string) => {
     setCardUid(uid);
     setLoading(true);
@@ -66,20 +82,26 @@ export function TapAlert() {
     setLoading(false);
   };
 
-  // WebSocket connection for tap events (only on non-POS pages)
+  // WebSocket connection for tap events
   useNFCWebSocket({
     lane: selectedReader,
-    autoConnect: pathname !== "/pos",
+    autoConnect: true,  // Always connect since we already checked pathname above
     onTap: (event) => {
-      console.log("[TapAlert] Card tap detected:", event.card_uid);
+      // STRICT FILTERING: Use ref to get CURRENT selectedReader value
+      const eventLane = event.lane;
+      const expectedLane = selectedReaderRef.current;
+
+      console.log(`[TapAlert] Tap from lane='${eventLane}', expected='${expectedLane}'`);
+
+      if (eventLane !== expectedLane) {
+        console.log(`[TapAlert] ❌ BLOCKED - Wrong reader`);
+        return; // Block immediately
+      }
+
+      console.log(`[TapAlert] ✓ ACCEPTED - Correct reader`);
       handleCardTap(event.card_uid);
     },
   });
-
-  // Don't render the drawer on the POS page (POS has its own dialog)
-  if (pathname === "/pos") {
-    return null;
-  }
 
   const handleGoToPOS = () => {
     setOpen(false);
@@ -163,6 +185,9 @@ export function TapAlert() {
                   {cardData 
                     ? "Go to POS to process the transaction."
                     : "This card is not registered. Enroll it now or cancel."}
+                  <span className="mt-2 block text-xs text-muted-foreground">
+                    Listening on: {readerLabel}
+                  </span>
                 </DrawerDescription>
               </DrawerHeader>
               <div className="p-4 pb-0">

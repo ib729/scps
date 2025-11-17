@@ -58,6 +58,12 @@ export function PosForm({ students, studentIdsWithTransactions, userName }: PosF
   const router = useRouter();
   const searchParams = useSearchParams();
 
+  // Use ref to avoid stale closure in onTap callback
+  const selectedReaderRef = useRef(selectedReader);
+  useEffect(() => {
+    selectedReaderRef.current = selectedReader;
+  }, [selectedReader]);
+
   // Auto-fill staff name with current user's name
   useEffect(() => {
     if (userName && !staff) {
@@ -98,12 +104,26 @@ export function PosForm({ students, studentIdsWithTransactions, userName }: PosF
   // State to trigger re-animation of the encrypted text
   const [animationKey, setAnimationKey] = useState(0);
 
+  const readerLabel =
+    selectedReader === "reader-1" ? "Reader 1 (USB0)" : "Reader 2 (USB1)";
+
   // WebSocket connection for tap events (only in tap-first mode)
   const { isConnected, statusMessage: tapStatus } = useNFCWebSocket({
     lane: selectedReader,
     autoConnect: mode === "tap-first",
     onTap: (event) => {
-      console.log("[POS] Card tap detected:", event.card_uid);
+      // STRICT FILTERING: Use ref to get CURRENT selectedReader value
+      const eventLane = event.lane;
+      const expectedLane = selectedReaderRef.current;
+
+      console.log(`[POS] Tap from lane='${eventLane}', expected='${expectedLane}'`);
+
+      if (eventLane !== expectedLane) {
+        console.log(`[POS] ❌ BLOCKED - Wrong reader`);
+        return; // Block immediately
+      }
+
+      console.log(`[POS] ✓ ACCEPTED - Correct reader`);
       handleCardTap(event.card_uid);
     },
   });
@@ -539,8 +559,13 @@ export function PosForm({ students, studentIdsWithTransactions, userName }: PosF
           <>
             {/* Status bar */}
             <Alert variant={isConnected ? "default" : "destructive"} className="border-2">
-              <AlertDescription className="flex items-center justify-between">
-                <span className="font-medium">{tapStatus || "Connecting..."}</span>
+              <AlertDescription className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-col">
+                  <span className="font-medium">{tapStatus || "Connecting..."}</span>
+                  <span className="text-xs text-muted-foreground">
+                    Listening on: {readerLabel}
+                  </span>
+                </div>
                 <Badge variant={isConnected ? "default" : "secondary"} className="text-sm px-3 py-1">
                   {isConnected ? "NFC Connected" : "NFC Disconnected"}
                 </Badge>

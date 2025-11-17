@@ -314,17 +314,23 @@ function handleWebSocketConnection(ws, request) {
         // - If event has no lane, treat as 'default' (legacy compatibility)
         // - If client is on 'default', receive from all lanes
         // - If client is on specific lane (reader-1/reader-2), only receive from that lane
-        const eventLane = event.lane || 'default';
+        // Normalize lane strings
+        const eventLane = (event.lane || 'default').toString().trim() || 'default';
+        const clientLane = (lane || 'default').toString().trim() || 'default';
 
         // Client wants specific lane, only receive from that exact lane
-        if (lane !== 'default' && eventLane !== lane) {
-          console.log(`[WS #${connectionId}] Skipping tap ${event.card_uid} - client lane='${lane}' event lane='${eventLane}'`);
+        if (clientLane !== 'default' && eventLane !== clientLane) {
+          console.log(
+            `[WS #${connectionId}] Skipping tap ${event.card_uid} - client lane='${clientLane}' event lane='${eventLane}'`
+          );
           return;
         }
 
         // Send tap to client
         if (ws.readyState === ws.OPEN) {
-          console.log(`[WS #${connectionId}] Sending tap event to client: ${event.card_uid} (lane: ${eventLane})`);
+          console.log(
+            `[WS #${connectionId}] Sending tap event to client: ${event.card_uid} (lane: ${eventLane}, client lane: ${clientLane})`
+          );
           ws.send(JSON.stringify(event));
         }
       });
@@ -348,10 +354,20 @@ function handleWebSocketConnection(ws, request) {
       console.warn(`[WS #${connectionId}] Tap event missing card_uid`);
       return;
     }
+    
+    // Normalize lane coming from broadcaster/connection info
+    let eventLane = message.lane || connectionInfo?.lane || 'default';
+    if (typeof eventLane === 'string') {
+      eventLane = eventLane.trim();
+    }
+    if (!eventLane) {
+      console.warn(`[WS #${connectionId}] Tap event missing lane, dropping: ${message.card_uid}`);
+      return;
+    }
 
     const tapEvent = {
       card_uid: message.card_uid,
-      lane: message.lane || connectionInfo?.lane || 'default',
+      lane: eventLane,
       reader_ts: message.reader_ts,
       timestamp: new Date().toISOString(),
     };

@@ -117,12 +117,13 @@ export function useNFCWebSocket(
 
   /**
    * Get WebSocket URL (convert http to ws)
+   * No lane parameter - all clients get all taps, filtering happens in components
    */
   const getWebSocketUrl = useCallback(() => {
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const host = window.location.host;
-    return `${protocol}//${host}/api/nfc/ws?lane=${encodeURIComponent(lane)}`;
-  }, [lane]);
+    return `${protocol}//${host}/api/nfc/ws`;
+  }, []);
 
   /**
    * Handle incoming WebSocket messages
@@ -169,6 +170,13 @@ export function useNFCWebSocket(
                 reader_ts: data.reader_ts,
                 timestamp: data.timestamp,
               };
+
+              // Pass all taps to components - they will filter based on selectedReader
+              console.log(
+                `[NFC WS] Tap received:`,
+                tapEvent.card_uid,
+                `from lane: ${tapEvent.lane}`
+              );
 
               setLastTap(tapEvent);
 
@@ -315,12 +323,12 @@ export function useNFCWebSocket(
       return;
     }
 
-    // Wait for lane to stabilize (100ms for context to load from localStorage)
+    // Wait a bit longer for lane to stabilize from localStorage (500ms instead of 100ms)
     const timer = setTimeout(() => {
       console.log(`[NFC WS] Initial connection with lane: ${lane}`);
       setHasConnectedOnce(true);
       connect();
-    }, 100);
+    }, 500);
 
     return () => {
       clearTimeout(timer);
@@ -339,54 +347,8 @@ export function useNFCWebSocket(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /**
-   * Reconnect when lane changes (after initial connection)
-   * Simplified logic: just disconnect and reconnect with new lane
-   */
-  useEffect(() => {
-    // Skip if not connected yet (initial connection handled by mount effect)
-    if (!hasConnectedOnce) {
-      return;
-    }
-
-    // Only reconnect if we have an active or connecting WebSocket
-    const currentState = wsRef.current?.readyState;
-    if (currentState !== WebSocket.OPEN && currentState !== WebSocket.CONNECTING) {
-      console.log(`[NFC WS] Lane changed to '${lane}' but not connected (state: ${currentState ?? 'none'})`);
-      return;
-    }
-
-    console.log(`[NFC WS] Lane changed to '${lane}', reconnecting...`);
-
-    // Mark as manual disconnect to prevent auto-reconnect with old lane
-    isManualDisconnectRef.current = true;
-
-    // Clear any pending reconnection
-    if (reconnectTimeoutRef.current) {
-      clearTimeout(reconnectTimeoutRef.current);
-      reconnectTimeoutRef.current = null;
-    }
-
-    // Close existing connection
-    if (wsRef.current) {
-      wsRef.current.close(1000, "Lane changed");
-      wsRef.current = null;
-    }
-
-    setIsConnected(false);
-    isAuthenticatedRef.current = false;
-
-    // Reconnect with new lane
-    if (autoConnect) {
-      reconnectDelayRef.current = 1000; // Reset backoff
-      isManualDisconnectRef.current = false; // Allow auto-reconnect
-      setTimeout(() => {
-        console.log(`[NFC WS] Reconnecting with new lane: ${lane}`);
-        connect();
-      }, 100);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lane]); // Reconnect when lane changes
+  // Lane changes don't require reconnection since we removed lane from URL
+  // Components will filter taps based on their selectedReader
 
   return {
     isConnected,

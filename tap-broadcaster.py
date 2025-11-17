@@ -152,6 +152,12 @@ def read_uid_from_pn532(device: str) -> Optional[str]:
         with nfc.ContactlessFrontend(device) as clf:
             clf.connect(rdwr={"on-connect": on_connect}, terminate=lambda: shutdown_event.is_set())
         return uid_hex["val"]
+    except IOError as e:
+        # Log timeout errors specifically - they indicate hardware issues
+        if "timeout" in str(e).lower() or "timed out" in str(e).lower():
+            print(f"[ERROR] Device {device} timeout - reader may be faulty or not responding")
+            print(f"[ERROR] Check hardware connection and try: sudo ./scripts/reset-usb-nfc.sh")
+        return None
     except Exception as e:
         # Return None on error - caller will handle retry
         return None
@@ -210,17 +216,29 @@ async def broadcast_tap_ws(websocket, card_uid: str, lane: str, reader_id: Optio
     Returns:
         True if successful, False otherwise
     """
+    # Normalize lane/reader identifiers so every message is consistently tagged
+    # - Prefer explicit reader_id (e.g., 'reader-1')
+    # - Fall back to lane value (e.g., POS_LANE_ID) if reader_id is missing
+    # - Never send empty/None lane values
     try:
+        normalized_lane = (reader_id or lane or "default") or "default"
+        # Ensure we always send simple string identifiers
+        normalized_lane = str(normalized_lane).strip() or "default"
+        normalized_reader_id = str(reader_id or normalized_lane).strip()
+
         message = {
             "type": "tap",
             "card_uid": card_uid,
-            "lane": reader_id or lane,  # Use reader_id if available, fallback to lane
-            "reader_id": reader_id,
+            "lane": normalized_lane,
+            "reader_id": normalized_reader_id,
             "reader_ts": datetime.now(timezone.utc).isoformat(),
         }
 
         await websocket.send(json.dumps(message))
-        print(f"[OK] Tap broadcast: {card_uid} (reader: {reader_id or lane})")
+        print(
+            f"[OK] Tap broadcast: {card_uid} "
+            f"(lane: {normalized_lane}, reader_id: {normalized_reader_id})"
+        )
         return True
 
     except Exception as e:
@@ -502,7 +520,9 @@ async def main():
     reader_id = None
     final_device = args.device
 
-    if not args.simulate and not args.test:
+    # Only auto-detect if PN532_DEVICE env var is NOT explicitly set
+    # This prevents race conditions when multiple services start simultaneously
+    if not args.simulate and not args.test and not os.getenv('PN532_DEVICE'):
         detected_device, detected_reader_id = auto_detect_nfc_device()
         if detected_device:
             final_device = detected_device
@@ -515,12 +535,26 @@ async def main():
                 reader_id = 'reader-1'
             elif 'USB1' in final_device:
                 reader_id = 'reader-2'
-    elif args.simulate:
-        # For simulation, try to infer from device or lane
-        if 'USB0' in args.device or '1' in args.lane:
-            reader_id = 'reader-1'
-        elif 'USB1' in args.device or '2' in args.lane:
-            reader_id = 'reader-2'
+    else:
+        # PN532_DEVICE is explicitly set - use it directly without auto-detection
+        if not args.simulate and not args.test:
+            print(f"[DEVICE] Using explicitly configured device: {final_device}")
+            # Infer reader_id from device string when possible
+            if 'USB0' in final_device:
+                reader_id = 'reader-1'
+            elif 'USB1' in final_device:
+                reader_id = 'reader-2'
+        elif args.simulate:
+            # For simulation, try to infer from device or lane
+            if 'USB0' in args.device or '1' in args.lane:
+                reader_id = 'reader-1'
+            elif 'USB1' in args.device or '2' in args.lane:
+                reader_id = 'reader-2'
+
+    # Final safety net: always have a non-empty reader_id for tagging events
+    if reader_id is None:
+        reader_id = args.lane or 'default'
+        print(f"[DEVICE] No explicit reader_id detected, falling back to lane value: {reader_id}")
 
     print(f"""
 ╔═══════════════════════════════════════════════════════════════╗
