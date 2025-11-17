@@ -203,7 +203,7 @@ Navigate to `http://localhost:3000` - you'll be redirected to the login page.
 
 1. Navigate to `/signup`
 2. Fill in user details
-3. Enter the signup code (default: `12345678`)
+3. Enter the signup code 
 4. Account is created and you're automatically logged in
 
 ### Production

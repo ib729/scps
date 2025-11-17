@@ -171,7 +171,7 @@ This verifies all tools and provides installation instructions if missing.
 
    Open [http://localhost:3000](http://localhost:3000) - you'll be redirected to login.
    
-   Create your first account at `/signup` (default code: `12345678`).
+   Create your first account at `/signup` with the 8 digit code.
 
 ### Legacy Manual Setup
 

@@ -220,7 +220,7 @@ After setup, verify authentication works:
 2. Should redirect to `/login`
 3. Click "Sign up" to create account
 4. Fill in name, email, password
-5. Enter signup code (default: `12345678`)
+5. Enter signup code
 6. Should auto-login and redirect to `/dashboard`
 
 **Success Indicators**:

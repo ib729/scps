@@ -156,7 +156,7 @@ The system uses a signup code to prevent unauthorized account creation:
 SIGNUP_CODE=your-secure-code
 ```
 
-Change the default `12345678` to a strong code and share it only with authorized staff.
+Setup a strong code and share it only with authorized staff.
 
 #### Session Security
 

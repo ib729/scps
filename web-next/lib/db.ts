@@ -28,7 +28,9 @@ let db: Database.Database | null = null;
 
 export function getDb(): Database.Database {
   if (!db) {
-    db = new Database(dbPath, { verbose: console.log });
+    db = new Database(dbPath, {
+      verbose: process.env.NODE_ENV === "development" ? console.log : undefined,
+    });
     db.pragma("foreign_keys = ON");
   }
   return db;
