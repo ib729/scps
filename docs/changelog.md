@@ -1,6 +1,61 @@
 # Change Log
 
-A log of notable changes during early development. No official releases yet.
+## 2025-11-18
+
+### Added
+- **Dual NFC Reader Support**:
+  - Multiple NFC readers can operate simultaneously.
+  - Auto-detection of USB devices (ttyUSB0, ttyUSB1, etc.).
+  - Per-staff reader filtering via Settings dialog.
+  - Persistent reader selection in browser localStorage.
+  - Reader identification (reader-1, reader-2, etc.).
+  - Lane-based WebSocket routing for isolated tap events.
+  - See [Dual Reader Setup Guide](dual-reader-setup.md) for configuration.
+
+- **Batch Student Import**:
+  - CSV import script (`batch_import_students.py`) for bulk student enrollment.
+  - Support for importing students with or without NFC card UIDs.
+  - Template generation with `--template` flag.
+  - Dry-run mode to preview imports before execution.
+  - Automatic account creation for imported students.
+  - Duplicate detection and validation.
+  - See [Batch Import Guide](batch-import-students.md) for usage.
+
+- **Enhanced Account Settings**:
+  - Redesigned account settings dialog with tabs.
+  - Profile management (name, email, avatar).
+  - Security tab with password change functionality.
+  - Password strength indicator.
+  - NFC reader selection integrated into settings.
+
+- **Database Reset Improvements**:
+  - Fixed issue where Better Auth tables were deleted during database reset.
+  - Enhanced `init_db.py` and `reset_db.py` scripts.
+  - Added documentation for safe database reset procedures.
+  - See [Database Reset Fix](database-reset-fix.md) for details.
+
+### Changed
+- **Multi-Reader Architecture**:
+  - Updated WebSocket protocol to support lane-based filtering.
+  - Enhanced `tap-broadcaster.py` with auto-detection logic.
+  - Improved reader assignment algorithm for multiple USB devices.
+  - Client-side filtering via React context (`NFCReaderContext`).
+
+- **Code Quality**:
+  - Removed unused components and dependencies.
+  - Code cleanup and refactoring across codebase.
+  - Improved error handling and logging.
+
+- **Documentation**:
+  - Added comprehensive dual-reader setup guide.
+  - Added batch import documentation with examples.
+  - Updated troubleshooting guide with new scenarios.
+  - Enhanced authentication documentation.
+
+### Fixed
+- **Database**: Fixed Better Auth table deletion during database reset.
+- **Visual**: Various UI alignment and rendering fixes.
+- **Import Scripts**: Improved error handling and validation.
 
 ## 2025-11-12
 
@@ -139,4 +194,4 @@ A log of notable changes during early development. No official releases yet.
 
 For full history, see git log.
 
-**Last updated: November 12, 2025**
+**Last updated: November 18, 2025**
