@@ -21,11 +21,9 @@ export const auth = betterAuth({
     },
   }),
   baseURL: process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-  trustedOrigins: [
-    "http://localhost:3000",
-    "http://localhost:3333",
-    "https://scps.ivanbelousov.com",
-  ],
+git  trustedOrigins: process.env.TRUSTED_ORIGINS
+    ? process.env.TRUSTED_ORIGINS.split(",").map((origin) => origin.trim())
+    : ["http://localhost:3000"],
   session: {
     cookieCache: {
       enabled: true,

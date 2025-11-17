@@ -33,6 +33,10 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 # Better Auth Secret (generate with: openssl rand -base64 32)
 BETTER_AUTH_SECRET=your_secret_key_here
 
+# Trusted Origins (comma-separated list of allowed origins for CSRF protection)
+# Must include all domains where your app is accessible
+TRUSTED_ORIGINS=http://localhost:3000,http://localhost:3333
+
 # Microsoft OAuth (optional)
 MICROSOFT_CLIENT_ID=your_microsoft_client_id_here
 MICROSOFT_CLIENT_SECRET=your_microsoft_client_secret_here
@@ -298,6 +302,7 @@ See the [Troubleshooting Guide](troubleshooting.md#authentication-issues) for co
 5. **Restrict environment file permissions** (`chmod 600 .env.local`)
 6. **Different secrets** for dev and production
 7. **Regular secret rotation** (document procedure)
+8. **Configure TRUSTED_ORIGINS** - Set to only the domains where your app is accessible (e.g., `https://yourdomain.com`). This prevents CSRF attacks by validating the origin of requests.
 
 ### Signup Code Security
 
