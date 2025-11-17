@@ -757,8 +757,7 @@ export function AppSidebar({ user: initialUser, ...props }: AppSidebarProps) {
             <div className="space-y-6 py-4">
               {/* NFC Reader Selection */}
               <div className="space-y-3">
-                <Label className="text-base font-semibold flex items-center gap-2">
-                  <Radio className="h-4 w-4" />
+                <Label className="text-base font-semibold">
                   NFC Reader Selection
                 </Label>
                 <p className="text-sm text-muted-foreground">
@@ -800,8 +799,7 @@ export function AppSidebar({ user: initialUser, ...props }: AppSidebarProps) {
 
               {/* System Services Section */}
               <div className="space-y-3 pt-6 border-t">
-                <Label className="text-base font-semibold flex items-center gap-2">
-                  <RotateCw className="h-4 w-4" />
+                <Label className="text-base font-semibold">
                   System Services
                 </Label>
                 <p className="text-sm text-muted-foreground">
