@@ -21,7 +21,7 @@ export const auth = betterAuth({
     },
   }),
   baseURL: process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-git  trustedOrigins: process.env.TRUSTED_ORIGINS
+  trustedOrigins: process.env.TRUSTED_ORIGINS
     ? process.env.TRUSTED_ORIGINS.split(",").map((origin) => origin.trim())
     : ["http://localhost:3000"],
   session: {
