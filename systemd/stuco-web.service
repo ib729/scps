@@ -1,15 +1,28 @@
+# ============================================================================
+# INSTALLATION INSTRUCTIONS
+# ============================================================================
+# Before using this service file, you MUST customize the following:
+# 1. Replace YOUR_USERNAME with your actual system username (e.g., pi, ubuntu)
+# 2. Replace /path/to/stuco with your actual project installation path
+#
+# Example:
+#   User=pi
+#   WorkingDirectory=/home/pi/stuco/web-next
+#   ExecStart=/usr/bin/node /home/pi/stuco/web-next/server.js
+# ============================================================================
+
 [Unit]
 Description=SCPS Web Server (Next.js with WebSocket)
 After=network.target
 
 [Service]
 Type=simple
-User=qiss
-WorkingDirectory=/home/qiss/stuco/web-next
+User=YOUR_USERNAME
+WorkingDirectory=/path/to/stuco/web-next
 Environment="NODE_ENV=production"
 Environment="PORT=3000"
 Environment="HOSTNAME=0.0.0.0"
-ExecStart=/usr/bin/node /home/qiss/stuco/web-next/server.js
+ExecStart=/usr/bin/node /path/to/stuco/web-next/server.js
 StandardOutput=journal
 StandardError=journal
 Restart=on-failure

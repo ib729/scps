@@ -6,7 +6,7 @@ This guide provides comprehensive testing procedures for the WebSocket-based NFC
 
 1. **Install Python dependencies**:
    ```bash
-   cd /home/qiss/stuco
+   cd $PROJECT_ROOT
    source .venv/bin/activate
    pip install -r requirements.txt
    ```
@@ -27,7 +27,7 @@ This guide provides comprehensive testing procedures for the WebSocket-based NFC
 **Purpose**: Verify WebSocket connection and authentication
 
 ```bash
-cd /home/qiss/stuco
+cd $PROJECT_ROOT
 source .venv/bin/activate
 python tap-broadcaster.py --test --secret test-secret-123
 ```

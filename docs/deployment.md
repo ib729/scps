@@ -258,12 +258,12 @@ sudo visudo -f /etc/sudoers.d/stuco-services
 ```
 # Allow web UI user to restart NFC tap broadcaster services without password
 # This enables the "Restart NFC Services" button in the Settings dialog
-qiss ALL=(ALL) NOPASSWD: /bin/systemctl restart tap-broadcaster.service tap-broadcaster-reader2.service
-qiss ALL=(ALL) NOPASSWD: /bin/systemctl restart tap-broadcaster.service
-qiss ALL=(ALL) NOPASSWD: /bin/systemctl restart tap-broadcaster-reader2.service
+$USER ALL=(ALL) NOPASSWD: /bin/systemctl restart tap-broadcaster.service tap-broadcaster-reader2.service
+$USER ALL=(ALL) NOPASSWD: /bin/systemctl restart tap-broadcaster.service
+$USER ALL=(ALL) NOPASSWD: /bin/systemctl restart tap-broadcaster-reader2.service
 ```
 
-Replace `qiss` with your actual web UI user.
+Replace `$USER` with your actual system username.
 
 **Set correct permissions:**
 
@@ -298,7 +298,7 @@ If the restart button doesn't work:
 sudo visudo -c -f /etc/sudoers.d/stuco-services
 
 # Test manually as web UI user
-sudo -u qiss sudo -n systemctl restart tap-broadcaster.service
+sudo -u $USER sudo -n systemctl restart tap-broadcaster.service
 
 # Check web UI logs for errors
 journalctl -u stuco-web -n 50 | grep "System"

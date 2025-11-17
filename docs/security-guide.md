@@ -16,7 +16,7 @@ All sensitive configuration should be stored in environment variables, never com
 
 ```bash
 # Database location (use absolute path)
-DATABASE_PATH=/home/qiss/stuco/stuco.db
+DATABASE_PATH=$PROJECT_ROOT/stuco.db
 
 # Better Auth secret (generate with: openssl rand -base64 32)
 BETTER_AUTH_SECRET=<your-generated-secret>
@@ -62,24 +62,24 @@ Protect environment files:
 
 ```bash
 # Restrict access to environment files
-chmod 600 /home/qiss/stuco/web-next/.env.local
-chmod 600 /home/qiss/stuco/.env.broadcaster
+chmod 600 $PROJECT_ROOT/web-next/.env.local
+chmod 600 $PROJECT_ROOT/.env.broadcaster
 
 # Verify ownership
-chown qiss:qiss /home/qiss/stuco/web-next/.env.local
-chown qiss:qiss /home/qiss/stuco/.env.broadcaster
+chown $USER:$USER $PROJECT_ROOT/web-next/.env.local
+chown $USER:$USER $PROJECT_ROOT/.env.broadcaster
 ```
 
 ### Database Security
 
 ```bash
 # Set appropriate database permissions
-chmod 664 /home/qiss/stuco/stuco.db
-chmod 664 /home/qiss/stuco/stuco.db-wal
-chmod 664 /home/qiss/stuco/stuco.db-shm
+chmod 664 $PROJECT_ROOT/stuco.db
+chmod 664 $PROJECT_ROOT/stuco.db-wal
+chmod 664 $PROJECT_ROOT/stuco.db-shm
 
 # Verify ownership
-chown qiss:qiss /home/qiss/stuco/stuco.db*
+chown $USER:$USER $PROJECT_ROOT/stuco.db*
 ```
 
 ## Network Security
@@ -286,12 +286,12 @@ sudo systemctl disable avahi-daemon
 
 ```bash
 # Create dedicated user for stuco (if not already done)
-sudo useradd -r -s /bin/bash -d /home/qiss qiss
-sudo mkdir -p /home/qiss
-sudo chown -R qiss:qiss /home/qiss
+sudo useradd -r -s /bin/bash -d $HOME $USER
+sudo mkdir -p $HOME
+sudo chown -R $USER:$USER $HOME
 
 # Never run services as root
-# systemd services should specify User=qiss
+# systemd services should specify User=$USER
 ```
 
 ### File System Security
@@ -391,8 +391,8 @@ gpg --decrypt stuco_backup_20251110.tar.gz.gpg > stuco_backup_20251110.tar.gz
 Restrict access to backup directory:
 
 ```bash
-chmod 700 /home/qiss/stuco/db_backups
-chown -R qiss:qiss /home/qiss/stuco/db_backups
+chmod 700 $PROJECT_ROOT/db_backups
+chown -R $USER:$USER $PROJECT_ROOT/db_backups
 ```
 
 ### Automated Backup Verification

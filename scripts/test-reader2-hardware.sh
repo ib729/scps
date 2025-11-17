@@ -62,7 +62,10 @@ echo ""
 sudo systemctl stop tap-broadcaster-reader2.service 2>/dev/null
 sleep 2
 
-cd /home/qiss/stuco
+# Detect project root dynamically
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+cd "$PROJECT_ROOT"
 source .venv/bin/activate
 
 timeout 10 python3 << 'PYEOF'

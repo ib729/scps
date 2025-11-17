@@ -322,10 +322,10 @@ Remote: r2:stuco-db-backups/stuco_backup_20251110_005702.tar.gz
 **Cron Setup:**
 ```bash
 # Daily at 2 AM
-0 2 * * * cd /home/qiss/stuco && ./scripts/cloud_backup_r2.sh >> logs/r2_backup.log 2>&1
+0 2 * * * cd $PROJECT_ROOT && ./scripts/cloud_backup_r2.sh >> logs/r2_backup.log 2>&1
 
 # With custom remote/path
-0 2 * * * cd /home/qiss/stuco && RCLONE_REMOTE=my-r2 R2_PATH=my-backups ./scripts/cloud_backup_r2.sh >> logs/r2_backup.log 2>&1
+0 2 * * * cd $PROJECT_ROOT && RCLONE_REMOTE=my-r2 R2_PATH=my-backups ./scripts/cloud_backup_r2.sh >> logs/r2_backup.log 2>&1
 ```
 
 ### restore_from_r2.sh

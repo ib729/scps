@@ -51,13 +51,13 @@ Since you're self-hosting on Node.js (not Vercel), a custom server is required f
 
 1. **Install WebSocket Package**:
    ```bash
-   cd /home/qiss/stuco/web-next
+   cd $PROJECT_ROOT/web-next
    pnpm install ws@^8.18.0
    ```
 
 2. **Install Python WebSocket Library**:
    ```bash
-   cd /home/qiss/stuco
+   cd $PROJECT_ROOT
    source .venv/bin/activate
    pip install websockets==13.1
    ```
@@ -70,7 +70,7 @@ Since you're self-hosting on Node.js (not Vercel), a custom server is required f
 
    **Development:**
    ```bash
-   cd /home/qiss/stuco/web-next
+   cd $PROJECT_ROOT/web-next
    pnpm dev
    ```
 
@@ -82,7 +82,7 @@ Since you're self-hosting on Node.js (not Vercel), a custom server is required f
 
    **Production:**
    ```bash
-   cd /home/qiss/stuco/web-next
+   cd $PROJECT_ROOT/web-next
    pnpm build
    pnpm start
    ```
@@ -98,7 +98,7 @@ Since you're self-hosting on Node.js (not Vercel), a custom server is required f
 
 6. **Test Connection**:
    ```bash
-   cd /home/qiss/stuco
+   cd $PROJECT_ROOT
    source .venv/bin/activate
    python tap-broadcaster.py --test --secret your-generated-secret
    ```
@@ -118,7 +118,7 @@ Update `stuco-web.service` to use custom server:
 ```ini
 [Service]
 ...
-ExecStart=/usr/bin/node /home/qiss/stuco/web-next/server.js
+ExecStart=/usr/bin/node $PROJECT_ROOT/web-next/server.js
 ...
 ```
 
@@ -440,11 +440,11 @@ sudo journalctl -u tap-broadcaster -u tap-broadcaster-reader2 -f
 
    ```
    [Service]
-   WorkingDirectory=/home/qiss/stuco
+   WorkingDirectory=$PROJECT_ROOT
    Environment="NEXTJS_URL=http://your-server:3000"
    Environment="NFC_TAP_SECRET=your-secret"
    Environment="POS_LANE_ID=default"
-   ExecStart=/home/qiss/stuco/.venv/bin/python /home/qiss/stuco/tap-broadcaster.py
+   ExecStart=$PROJECT_ROOT/.venv/bin/python $PROJECT_ROOT/tap-broadcaster.py
    Restart=always
    User=pi  # Or your user
    ```
@@ -682,7 +682,7 @@ console.log("WebSocket ready state:", ws.readyState);
    
    Verify `systemd/tap-broadcaster.service` loads the environment file:
    ```ini
-   EnvironmentFile=/home/qiss/stuco/.env.broadcaster
+   EnvironmentFile=$PROJECT_ROOT/.env.broadcaster
    ```
    
    After editing:

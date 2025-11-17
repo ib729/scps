@@ -1,22 +1,35 @@
+# ============================================================================
+# INSTALLATION INSTRUCTIONS
+# ============================================================================
+# Before using this service file, you MUST customize the following:
+# 1. Replace YOUR_USERNAME with your actual system username (e.g., pi, ubuntu)
+# 2. Replace /path/to/stuco with your actual project installation path
+#
+# Example:
+#   User=pi
+#   WorkingDirectory=/home/pi/stuco
+#   ExecStart=/home/pi/stuco/.venv/bin/python -u /home/pi/stuco/tap-broadcaster.py
+# ============================================================================
+
 [Unit]
 Description=NFC Tap Broadcaster for SCPS POS (WebSocket)
 After=network.target
 
 [Service]
 Type=simple
-User=qiss
-WorkingDirectory=/home/qiss/stuco
+User=YOUR_USERNAME
+WorkingDirectory=/path/to/stuco
 # Load environment variables from file (including NFC_TAP_SECRET)
-EnvironmentFile=/home/qiss/stuco/.env.broadcaster
+EnvironmentFile=/path/to/stuco/.env.broadcaster
 Environment="NEXTJS_URL=http://localhost:3000"
 Environment="POS_LANE_ID=reader-1"
 Environment="PN532_DEVICE=tty:USB0:pn532"
 
 # Pre-start: Reset USB device to ensure clean state
-ExecStartPre=/home/qiss/stuco/scripts/reset-usb-nfc.sh
+ExecStartPre=/path/to/stuco/scripts/reset-usb-nfc.sh
 
 # Main process with unbuffered output
-ExecStart=/home/qiss/stuco/.venv/bin/python -u /home/qiss/stuco/tap-broadcaster.py
+ExecStart=/path/to/stuco/.venv/bin/python -u /path/to/stuco/tap-broadcaster.py
 
 # Post-stop: Allow cleanup time
 ExecStopPost=/bin/sleep 1

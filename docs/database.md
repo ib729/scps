@@ -293,7 +293,7 @@ For off-site backups to Cloudflare R2 (S3-compatible storage with generous free 
 Run the backup script manually:
 
 ```bash
-cd /home/qiss/stuco
+cd $PROJECT_ROOT
 ./scripts/cloud_backup_r2.sh
 ```
 
@@ -312,14 +312,14 @@ Add to crontab for daily cloud backups:
 crontab -e
 
 # Add daily R2 backup at 2 AM
-0 2 * * * cd /home/qiss/stuco && ./scripts/cloud_backup_r2.sh >> logs/r2_backup.log 2>&1
+0 2 * * * cd $PROJECT_ROOT && ./scripts/cloud_backup_r2.sh >> logs/r2_backup.log 2>&1
 ```
 
 If you need to specify a custom rclone remote name or path:
 
 ```bash
 # With custom remote and path
-0 2 * * * cd /home/qiss/stuco && RCLONE_REMOTE=my-r2 R2_PATH=my-backups ./scripts/cloud_backup_r2.sh >> logs/r2_backup.log 2>&1
+0 2 * * * cd $PROJECT_ROOT && RCLONE_REMOTE=my-r2 R2_PATH=my-backups ./scripts/cloud_backup_r2.sh >> logs/r2_backup.log 2>&1
 ```
 
 #### Restore from R2

@@ -222,11 +222,11 @@ After=network.target
 
 [Service]
 Type=simple
-User=qiss
-WorkingDirectory=/home/qiss/stuco
+User=$USER
+WorkingDirectory=$PROJECT_ROOT
 Environment="NEXTJS_URL=http://localhost:3000"
 Environment="NFC_TAP_SECRET=your-secret-here"
-ExecStart=/usr/bin/python3 /home/qiss/stuco/tap-broadcaster.py
+ExecStart=/usr/bin/python3 $PROJECT_ROOT/tap-broadcaster.py
 Restart=always
 RestartSec=10
 
@@ -244,11 +244,11 @@ After=network.target nfc-broadcaster-1.service
 
 [Service]
 Type=simple
-User=qiss
-WorkingDirectory=/home/qiss/stuco
+User=$USER
+WorkingDirectory=$PROJECT_ROOT
 Environment="NEXTJS_URL=http://localhost:3000"
 Environment="NFC_TAP_SECRET=your-secret-here"
-ExecStart=/usr/bin/python3 /home/qiss/stuco/tap-broadcaster.py
+ExecStart=/usr/bin/python3 $PROJECT_ROOT/tap-broadcaster.py
 Restart=always
 RestartSec=10
 # Add 5 second delay to ensure reader-1 connects first
