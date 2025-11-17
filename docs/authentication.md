@@ -322,7 +322,7 @@ Potential authentication improvements:
 
 - [Better Auth Documentation](https://www.better-auth.com/docs)
 - [Next.js Authentication](https://nextjs.org/docs/app/building-your-application/authentication)
-- [Security Guide](security.md) - Security best practices
+- [Security Guide](security-guide.md) - Security best practices
 - [Deployment Guide](deployment.md) - Production setup
 
 **Last updated: November 12, 2025**

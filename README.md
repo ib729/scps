@@ -76,7 +76,7 @@ Everything is documented in the [docs/](docs/) folder:
 ### Setup and Administration
 - [Getting Started](docs/getting-started.md) - Installation and initial setup
 - [Deployment Guide](docs/deployment.md) - Running in production with Docker, systemd, and SSL
-- [Security Guide](docs/security.md) - Keeping your system secure
+- [Security Guide](docs/security-guide.md) - Keeping your system secure
 - [Database Guide](docs/database.md) - Understanding the database schema and migrations
 - [Scripts Reference](docs/scripts.md) - Documentation for utility scripts
 

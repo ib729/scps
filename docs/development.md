@@ -156,7 +156,7 @@ web-next/
 
 ## Setup for Development
 
-See [Getting Started](../getting-started.md).
+See [Getting Started](getting-started.md).
 
 **Web UI Specific**:
 
@@ -301,7 +301,7 @@ See [Changelog](changelog.md) for recent changes.
 
 - [UI Components Guide](ui-components.md) - Custom components and animations
 - [Deployment Guide](deployment.md) - Production setup
-- [Security Guide](security.md) - Security best practices
+- [Security Guide](security-guide.md) - Security best practices
 - [Scripts Reference](scripts.md) - Utility scripts documentation
 
 **Last updated: November 12, 2025**

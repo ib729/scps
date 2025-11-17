@@ -621,7 +621,7 @@ sudo systemctl restart stuco-web
 
 - Configure automated backups (see [Database Guide](database.md))
 - Set up monitoring alerts
-- Review [Security Guide](security.md) for hardening
+- Review [Security Guide](security-guide.md) for hardening
 - Test disaster recovery procedures
 
 **Last updated: November 11, 2025**

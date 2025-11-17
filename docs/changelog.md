@@ -130,7 +130,7 @@ A log of notable changes during early development. No official releases yet.
 - **Documentation Overhaul**:
   - Consolidated duplicate NFC documentation into single guide
   - Added [Deployment Guide](deployment.md) for production setup
-  - Added [Security Guide](security.md) for hardening recommendations
+  - Added [Security Guide](security-guide.md) for hardening recommendations
   - Added [UI Components Guide](ui-components.md) for custom components
   - Added [Scripts Reference](scripts.md) for utility scripts
   - Enhanced existing guides with missing information

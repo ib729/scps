@@ -763,6 +763,89 @@ Database Stats:
 - Troubleshooting database connection issues
 - Verifying DATABASE_PATH in .env.local
 
+### test_readers.py
+
+**Location**: `test_readers.py` (root)
+
+**Purpose**: Test multiple NFC readers connected simultaneously.
+
+**Usage:**
+```bash
+python test_readers.py
+```
+
+**Features:**
+- Automatically detects all available USB NFC readers
+- Tests each reader independently
+- Displays reader ID and device path
+- Useful for dual-reader setup verification
+
+**When to Use:**
+- Setting up multiple NFC readers
+- Verifying reader detection and identification
+- Troubleshooting dual-reader configurations
+
+### test_usb_ports.py
+
+**Location**: `test_usb_ports.py` (root)
+
+**Purpose**: Diagnostic tool for USB port detection and reader identification.
+
+**Usage:**
+```bash
+python test_usb_ports.py
+```
+
+**Features:**
+- Lists all detected USB serial devices
+- Shows device paths and attributes
+- Helps identify which physical USB port corresponds to which device
+- Useful for systemd service configuration
+
+**When to Use:**
+- Determining correct device paths for broadcaster configuration
+- Troubleshooting USB device detection issues
+- Verifying USB permissions
+
+### diagnose_nfc.py
+
+**Location**: `diagnose_nfc.py` (root)
+
+**Purpose**: Comprehensive NFC hardware diagnostic and troubleshooting tool.
+
+**Usage:**
+```bash
+python diagnose_nfc.py
+```
+
+**Features:**
+- Tests NFC reader connectivity
+- Verifies nfcpy library installation
+- Checks device permissions
+- Attempts card detection
+- Provides detailed error messages and solutions
+
+**When to Use:**
+- NFC reader not working
+- Setting up NFC hardware for the first time
+- Troubleshooting card detection issues
+- Verifying hardware configuration
+
+**Output Example:**
+```
+[CHECK] Checking nfcpy installation...
+✓ nfcpy is installed
+
+[CHECK] Scanning for NFC devices...
+✓ Found device: tty:USB0:pn532
+
+[CHECK] Testing card detection...
+✓ Place a card on the reader...
+✓ Card detected: 04A1B2C3
+
+[RESULT] NFC hardware is working correctly!
+```
+
 ## Utility Scripts
 
 ### Migration SQL Files
