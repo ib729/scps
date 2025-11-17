@@ -103,6 +103,8 @@ export function useNFCWebSocket(
     onError,
   } = options;
 
+  const [hasConnectedOnce, setHasConnectedOnce] = useState(false);
+
   const [isConnected, setIsConnected] = useState(false);
   const [lastTap, setLastTap] = useState<TapEvent | null>(null);
   const [statusMessage, setStatusMessage] = useState("Disconnected");
@@ -115,12 +117,13 @@ export function useNFCWebSocket(
 
   /**
    * Get WebSocket URL (convert http to ws)
+   * No lane parameter - all clients get all taps, filtering happens in components
    */
   const getWebSocketUrl = useCallback(() => {
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const host = window.location.host;
-    return `${protocol}//${host}/api/nfc/ws?lane=${encodeURIComponent(lane)}`;
-  }, [lane]);
+    return `${protocol}//${host}/api/nfc/ws`;
+  }, []);
 
   /**
    * Handle incoming WebSocket messages
@@ -167,6 +170,13 @@ export function useNFCWebSocket(
                 reader_ts: data.reader_ts,
                 timestamp: data.timestamp,
               };
+
+              // Pass all taps to components - they will filter based on selectedReader
+              console.log(
+                `[NFC WS] Tap received:`,
+                tapEvent.card_uid,
+                `from lane: ${tapEvent.lane}`
+              );
 
               setLastTap(tapEvent);
 
@@ -306,38 +316,39 @@ export function useNFCWebSocket(
 
   /**
    * Auto-connect on mount if enabled
-   * Use empty deps to only run on mount/unmount, not on every render
+   * Wait for lane to stabilize (give time for localStorage to load)
    */
   useEffect(() => {
-    if (autoConnect) {
-      connect();
+    if (!autoConnect || hasConnectedOnce) {
+      return;
     }
 
-    // Cleanup on unmount
+    // Wait a bit longer for lane to stabilize from localStorage (500ms instead of 100ms)
+    const timer = setTimeout(() => {
+      console.log(`[NFC WS] Initial connection with lane: ${lane}`);
+      setHasConnectedOnce(true);
+      connect();
+    }, 500);
+
+    return () => {
+      clearTimeout(timer);
+    };
+    // Only run once on mount, wait for lane to stabilize
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoConnect]);  // Only depends on autoConnect
+
+  /**
+   * Cleanup on unmount
+   */
+  useEffect(() => {
     return () => {
       disconnect();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Empty deps: only run once on mount
+  }, []);
 
-  /**
-   * Reconnect when lane changes
-   * Note: lane is in getWebSocketUrl callback deps, so URL will update
-   * We DON'T need to reconnect - just disconnect and let autoConnect handle it
-   */
-  useEffect(() => {
-    // Only disconnect if already connected when lane changes
-    // The mount effect will reconnect with new lane
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      console.log("[NFC WS] Lane changed, reconnecting...");
-      disconnect();
-      // Re-connect with new lane
-      if (autoConnect) {
-        setTimeout(() => connect(), 100);
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lane]); // Only lane as dependency
+  // Lane changes don't require reconnection since we removed lane from URL
+  // Components will filter taps based on their selectedReader
 
   return {
     isConnected,

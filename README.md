@@ -92,6 +92,15 @@ Everything is documented in the [docs/](docs/) folder:
 - [Troubleshooting](docs/troubleshooting.md) - Solutions to common problems
 - [Changelog](docs/changelog.md) - What's new in each version
 
+## Supporting This Project
+
+If you find this project helpful and would like to support its development, consider making a donation:
+
+**Bitcoin (BTC):**
+```
+bc1pyv54eqxuanqgv3cm2yjl37xjxlavnh7fcfu9d3yg983uzp4qazcs5xgsz2
+```
+
 ## License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
