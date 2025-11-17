@@ -18,6 +18,7 @@ import {
   Eye,
   EyeOff,
   Radio,
+  RotateCw,
 } from "lucide-react"
 import { useTheme } from "next-themes"
 import { useNFCReader } from "@/lib/nfc-reader-context"
@@ -119,6 +120,7 @@ export function AppSidebar({ user: initialUser, ...props }: AppSidebarProps) {
   const [loading, setLoading] = React.useState(false)
   const [deletePassword, setDeletePassword] = React.useState("")
   const [localSelectedReader, setLocalSelectedReader] = React.useState(selectedReader)
+  const [restartingServices, setRestartingServices] = React.useState(false)
 
   // Use server-provided user data as the primary source
   // Removed useSession to prevent automatic polling that causes page refreshes every 30 seconds
@@ -154,6 +156,33 @@ export function AppSidebar({ user: initialUser, ...props }: AppSidebarProps) {
     setSelectedReader(localSelectedReader)
     setShowSettingsDialog(false)
     toast.success("Settings saved successfully")
+  }
+
+  // Handle restarting NFC services
+  const handleRestartServices = async () => {
+    setRestartingServices(true)
+    try {
+      const response = await fetch("/api/system/restart-services", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
+
+      const data = await response.json()
+
+      if (!response.ok || !data.success) {
+        toast.error(data.error || "Failed to restart services")
+        return
+      }
+
+      toast.success("NFC services restarted successfully")
+    } catch (error) {
+      toast.error("An error occurred while restarting services")
+      console.error("Error restarting services:", error)
+    } finally {
+      setRestartingServices(false)
+    }
   }
 
   // Password strength calculation
@@ -767,6 +796,35 @@ export function AppSidebar({ user: initialUser, ...props }: AppSidebarProps) {
                     </label>
                   </div>
                 </div>
+              </div>
+
+              {/* System Services Section */}
+              <div className="space-y-3 pt-6 border-t">
+                <Label className="text-base font-semibold flex items-center gap-2">
+                  <RotateCw className="h-4 w-4" />
+                  System Services
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  Restart the NFC tap broadcaster services if they are not responding.
+                </p>
+                <Button
+                  onClick={handleRestartServices}
+                  disabled={restartingServices}
+                  variant="outline"
+                  className="w-full"
+                >
+                  {restartingServices ? (
+                    <>
+                      <RotateCw className="mr-2 h-4 w-4 animate-spin" />
+                      Restarting Services...
+                    </>
+                  ) : (
+                    <>
+                      <RotateCw className="mr-2 h-4 w-4" />
+                      Restart NFC Services
+                    </>
+                  )}
+                </Button>
               </div>
             </div>
             

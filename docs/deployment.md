@@ -243,6 +243,82 @@ Once services are running:
 - **POS Page:** http://localhost:3000/pos
 - **Dashboard:** http://localhost:3000/dashboard
 
+#### Configure Passwordless Sudo for Service Restart
+
+The web UI includes a feature to restart NFC broadcaster services from the Settings dialog. To enable this, configure passwordless sudo for specific systemctl commands.
+
+**Create sudoers configuration:**
+
+```bash
+sudo visudo -f /etc/sudoers.d/stuco-services
+```
+
+**Add the following content:**
+
+```
+# Allow web UI user to restart NFC tap broadcaster services without password
+# This enables the "Restart NFC Services" button in the Settings dialog
+qiss ALL=(ALL) NOPASSWD: /bin/systemctl restart tap-broadcaster.service tap-broadcaster-reader2.service
+qiss ALL=(ALL) NOPASSWD: /bin/systemctl restart tap-broadcaster.service
+qiss ALL=(ALL) NOPASSWD: /bin/systemctl restart tap-broadcaster-reader2.service
+```
+
+Replace `qiss` with your actual web UI user.
+
+**Set correct permissions:**
+
+```bash
+sudo chmod 440 /etc/sudoers.d/stuco-services
+sudo chown root:root /etc/sudoers.d/stuco-services
+```
+
+**Verify configuration:**
+
+```bash
+# Test without password prompt
+sudo -n systemctl restart tap-broadcaster.service tap-broadcaster-reader2.service
+echo $?  # Should print 0 (success)
+```
+
+**Security Considerations:**
+
+- ✅ **Restricted scope**: Only allows restarting specific services, no other sudo commands
+- ✅ **No password required**: Enables one-click restart from web UI
+- ✅ **Specific user**: Only the web UI user has this permission
+- ✅ **Audit trail**: All restarts are logged in system journal
+- ⚠️ **Access control**: Ensure only trusted users can access the web UI
+- ⚠️ **File permissions**: sudoers.d files must be mode 440 (read-only)
+
+**Troubleshooting:**
+
+If the restart button doesn't work:
+
+```bash
+# Check sudoers syntax
+sudo visudo -c -f /etc/sudoers.d/stuco-services
+
+# Test manually as web UI user
+sudo -u qiss sudo -n systemctl restart tap-broadcaster.service
+
+# Check web UI logs for errors
+journalctl -u stuco-web -n 50 | grep "System"
+```
+
+**Using the Feature:**
+
+1. Log in to the web UI
+2. Click your user profile in the sidebar
+3. Select **Settings**
+4. Scroll to **System Services** section
+5. Click **Restart NFC Services** button
+6. Wait for confirmation toast
+
+The restart is useful when:
+- NFC readers stop responding
+- WebSocket connection is stuck
+- After changing USB device assignments
+- After system updates or configuration changes
+
 #### Production Ready Checklist
 
 ✅ Next.js built for production  
@@ -612,6 +688,7 @@ sudo systemctl restart stuco-web
 - [ ] Services running as non-root user
 - [ ] Database file permissions restricted (664)
 - [ ] Environment files secured (600)
+- [ ] Sudoers configuration for service restart (optional, for web UI restart feature)
 - [ ] Regular automated backups configured
 - [ ] Nginx security headers enabled
 - [ ] Rate limiting configured
@@ -624,5 +701,5 @@ sudo systemctl restart stuco-web
 - Review [Security Guide](security-guide.md) for hardening
 - Test disaster recovery procedures
 
-**Last updated: November 11, 2025**
+**Last updated: November 17, 2025**
 
