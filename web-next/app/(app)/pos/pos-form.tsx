@@ -659,7 +659,7 @@ export function PosForm({ students, studentIdsWithTransactions, userName }: PosF
                     onChange={(e) => setAmount(e.target.value)}
                     placeholder="Enter amount (e.g., 5.5)"
                     required
-                    className="text-xl h-14"
+                    className="text-base h-12"
                   />
                 </div>
 
