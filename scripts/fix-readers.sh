@@ -14,10 +14,6 @@ sleep 2
 sudo modprobe ch341
 sleep 3
 
-echo "[FIX] Restarting Web UI..."
-sudo systemctl restart stuco-web.service
-sleep 3
-
 echo "[FIX] Starting reader services..."
 sudo systemctl start tap-broadcaster.service tap-broadcaster-reader2.service
 
