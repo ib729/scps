@@ -46,7 +46,7 @@ function TransactionDetailsDialog({ tx }: { tx: TransactionWithStudent }) {
           Read more
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+      <DialogContent className="w-full flex flex-col sm:max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Full Description</DialogTitle>
           <DialogDescription>
@@ -54,7 +54,7 @@ function TransactionDetailsDialog({ tx }: { tx: TransactionWithStudent }) {
           </DialogDescription>
         </DialogHeader>
         <div className="mt-4">
-          <p className="text-sm bg-muted p-4 rounded-md whitespace-pre-wrap break-words overflow-wrap-anywhere">
+          <p className="text-sm bg-muted p-4 rounded-md whitespace-pre-wrap break-words">
             {tx.description}
           </p>
         </div>
