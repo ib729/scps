@@ -29,10 +29,12 @@ export async function POST(request: NextRequest) {
 
     console.log(`[System] Restarting NFC services - Requested by: ${session.user.email}`);
 
-    // Execute systemctl restart command
-    const command = "sudo systemctl restart tap-broadcaster.service tap-broadcaster-reader2.service";
+    // Execute the fix-readers.sh script instead of just restarting services
+    // This script handles driver reset (modprobe) and service restarts
+    const command = "sudo /home/qiss/scps/scripts/fix-readers.sh";
     
-    const { stdout, stderr } = await execAsync(command);
+    // Increase timeout for this command as it takes ~10-15 seconds
+    const { stdout, stderr } = await execAsync(command, { timeout: 20000 });
 
     if (stderr && !stderr.includes("Warning")) {
       console.error("[System] Error restarting services:", stderr);

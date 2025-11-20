@@ -261,9 +261,11 @@ sudo visudo -f /etc/sudoers.d/stuco-services
 $USER ALL=(ALL) NOPASSWD: /bin/systemctl restart tap-broadcaster.service tap-broadcaster-reader2.service
 $USER ALL=(ALL) NOPASSWD: /bin/systemctl restart tap-broadcaster.service
 $USER ALL=(ALL) NOPASSWD: /bin/systemctl restart tap-broadcaster-reader2.service
+# Allow executing the full fix script which handles driver resets
+$USER ALL=(ALL) NOPASSWD: /path/to/stuco/scripts/fix-readers.sh
 ```
 
-Replace `$USER` with your actual system username.
+Replace `$USER` with your actual system username (e.g., `pi`) and `/path/to/stuco` with the actual installation path.
 
 **Set correct permissions:**
 

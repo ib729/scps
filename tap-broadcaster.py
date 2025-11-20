@@ -148,19 +148,35 @@ def read_uid_from_pn532(device: str) -> Optional[str]:
         uid_hex["val"] = uid
         return False  # Release immediately for single-read mode
 
-    try:
-        with nfc.ContactlessFrontend(device) as clf:
-            clf.connect(rdwr={"on-connect": on_connect}, terminate=lambda: shutdown_event.is_set())
-        return uid_hex["val"]
-    except IOError as e:
-        # Log timeout errors specifically - they indicate hardware issues
-        if "timeout" in str(e).lower() or "timed out" in str(e).lower():
-            print(f"[ERROR] Device {device} timeout - reader may be faulty or not responding")
-            print(f"[ERROR] Check hardware connection and try: sudo ./scripts/reset-usb-nfc.sh")
-        return None
-    except Exception as e:
-        # Return None on error - caller will handle retry
-        return None
+    # Retry logic for hardware stability
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            # Small delay to let UART settle
+            time.sleep(0.2)
+            
+            with nfc.ContactlessFrontend(device) as clf:
+                clf.connect(rdwr={"on-connect": on_connect}, terminate=lambda: shutdown_event.is_set())
+            return uid_hex["val"]
+        except IOError as e:
+            # Log timeout errors specifically - they indicate hardware issues
+            if "timeout" in str(e).lower() or "timed out" in str(e).lower():
+                # Only log on last retry to reduce noise
+                if attempt == max_retries - 1:
+                    print(f"[ERROR] Device {device} timeout - reader may be faulty or not responding")
+                    print(f"[ERROR] Check hardware connection")
+                else:
+                    # Wait a bit longer before retry
+                    time.sleep(0.5)
+            else:
+                # Other IO errors, maybe retry?
+                if attempt == max_retries - 1:
+                    return None
+        except Exception as e:
+            # Return None on error - caller will handle retry
+            return None
+            
+    return None
 
 
 def read_uid_from_libnfc() -> Optional[str]:

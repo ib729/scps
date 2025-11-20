@@ -17,19 +17,19 @@ After=network.target
 
 [Service]
 Type=simple
-User=YOUR_USERNAME
-WorkingDirectory=/path/to/stuco
+User=qiss
+WorkingDirectory=/home/qiss/scps
 # Load environment variables from file (including NFC_TAP_SECRET)
-EnvironmentFile=/path/to/stuco/.env.broadcaster
+EnvironmentFile=/home/qiss/scps/.env.broadcaster
 Environment="NEXTJS_URL=http://localhost:3000"
 Environment="POS_LANE_ID=reader-2"
 Environment="PN532_DEVICE=tty:USB1:pn532"
 
-# Pre-start: Reset USB device to ensure clean state
-ExecStartPre=/path/to/stuco/scripts/reset-usb-nfc.sh USB1
+# Pre-start: Wait for device to be ready (avoid race condition)
+ExecStartPre=/bin/sleep 5
 
 # Main process with unbuffered output
-ExecStart=/path/to/stuco/.venv/bin/python -u /path/to/stuco/tap-broadcaster.py
+ExecStart=/home/qiss/scps/.venv/bin/python -u /home/qiss/scps/tap-broadcaster.py
 
 # Post-stop: Allow cleanup time
 ExecStopPost=/bin/sleep 1

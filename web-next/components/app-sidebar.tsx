@@ -803,7 +803,7 @@ export function AppSidebar({ user: initialUser, ...props }: AppSidebarProps) {
                   System Services
                 </Label>
                 <p className="text-sm text-muted-foreground">
-                  Restart the NFC tap broadcaster services if they are not responding.
+                  Restart NFC drivers and services if readers become unresponsive.
                 </p>
                 <Button
                   onClick={handleRestartServices}
@@ -814,12 +814,12 @@ export function AppSidebar({ user: initialUser, ...props }: AppSidebarProps) {
                   {restartingServices ? (
                     <>
                       <RotateCw className="mr-2 h-4 w-4 animate-spin" />
-                      Restarting Services...
+                      Resetting Hardware...
                     </>
                   ) : (
                     <>
                       <RotateCw className="mr-2 h-4 w-4" />
-                      Restart NFC Services
+                      Reset NFC Hardware
                     </>
                   )}
                 </Button>

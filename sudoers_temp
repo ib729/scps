@@ -1,0 +1,8 @@
+# Allow web UI user to restart NFC tap broadcaster services without password
+# This enables the "Restart NFC Services" button in the Settings dialog
+qiss ALL=(ALL) NOPASSWD: /bin/systemctl restart tap-broadcaster.service tap-broadcaster-reader2.service
+qiss ALL=(ALL) NOPASSWD: /bin/systemctl restart tap-broadcaster.service
+qiss ALL=(ALL) NOPASSWD: /bin/systemctl restart tap-broadcaster-reader2.service
+# Allow executing the full fix script which handles driver resets
+qiss ALL=(ALL) NOPASSWD: /home/qiss/scps/scripts/fix-readers.sh
+
