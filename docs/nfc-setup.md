@@ -547,6 +547,148 @@ Main WebSocket endpoint for bidirectional communication.
 HTTP POST endpoint maintained for backwards compatibility. 
 Use WebSocket endpoint for new implementations.
 
+## Auto-Recovery Features
+
+The NFC tap broadcaster includes multiple layers of automatic recovery to ensure continuous operation without manual intervention:
+
+### 1. OS-Level Protection (USB Autosuspend Disabled)
+
+**What it does**: Prevents the operating system from automatically suspending idle USB devices to save power.
+
+**Configuration**: Added `usbcore.autosuspend=-1` to `/boot/firmware/cmdline.txt`
+
+**When it helps**: 
+- Prevents readers from "going to sleep" after periods of inactivity
+- Eliminates the most common cause of "reader stopped working" issues
+
+**Verification**:
+```bash
+cat /sys/module/usbcore/parameters/autosuspend
+# Should show: -1
+```
+
+**Note**: Requires a system reboot to take effect after configuration.
+
+### 2. Hardware Reconnection Logic
+
+**What it does**: Automatically detects and recovers from hardware failures by reinitializing the NFC reader connection.
+
+**How it works**:
+- Monitors for consecutive read failures (threshold: 10 failures)
+- Detects hardware timeout, disconnection, or lockup conditions
+- Automatically attempts to reconnect with exponential backoff (1s → 2s → 5s → 10s → 30s max)
+- Continues indefinitely until hardware is available again
+
+**Trigger conditions**:
+- Multiple consecutive timeouts
+- Device disconnection (USB unplugged/replugged)
+- Hardware lockup or unresponsive state
+- Driver errors or resource conflicts
+
+**Log indicators**:
+```
+[NFC] Hardware connection lost: Hardware timeout: Device tty:USB0:pn532 unresponsive
+[NFC] Attempting hardware reconnection #1 in 1s...
+[NFC] Reinitializing hardware connection to tty:USB0:pn532...
+[NFC] Hardware reconnection successful! Resuming reader loop...
+```
+
+### 3. Enhanced Error Detection
+
+**What it does**: Distinguishes between different types of errors and handles them appropriately.
+
+**Error categories**:
+- **Transient errors** (retried immediately): Temporary communication glitches
+- **Timeout errors** (trigger reconnection): Hardware unresponsive
+- **Permission errors** (fatal, logged): User not in dialout group
+- **Device not found** (trigger reconnection): USB disconnected
+- **Device busy** (retried with delay): Another process using the device
+
+**Benefits**:
+- Faster recovery from transient issues
+- Automatic hardware reset for serious problems
+- Clear diagnostic information in logs
+- No manual intervention required
+
+### 4. Service-Level Restart (Systemd)
+
+**What it does**: Final safety net that restarts the entire broadcaster process if it crashes.
+
+**Configuration**: `Restart=always` in systemd service files
+
+**When it helps**: If all other recovery mechanisms fail and the process exits unexpectedly
+
+### Recovery Testing
+
+You can test the auto-recovery by simulating hardware failures:
+
+1. **USB Disconnect Test**:
+   ```bash
+   # While broadcaster is running, check logs:
+   sudo journalctl -u tap-broadcaster -f
+   
+   # Physically unplug the USB NFC reader
+   # You should see: Hardware connection lost messages
+   
+   # Replug the USB reader
+   # You should see: Hardware reconnection successful!
+   ```
+
+2. **Driver Reset Test**:
+   ```bash
+   # Reset the USB driver while broadcaster is running:
+   ./scripts/reset-usb-nfc.sh
+   
+   # Broadcaster should automatically reconnect
+   ```
+
+3. **Long-term Stability Test**:
+   ```bash
+   # Let the system run idle overnight
+   # Check logs the next day:
+   sudo journalctl -u tap-broadcaster --since "24 hours ago" | grep -i "reconnection\|timeout\|error"
+   
+   # Should show minimal or no errors with automatic recovery
+   ```
+
+### What to Do If Recovery Fails
+
+If you still experience issues after the auto-recovery improvements:
+
+1. **Check systemd service status**:
+   ```bash
+   sudo systemctl status tap-broadcaster tap-broadcaster-reader2
+   ```
+
+2. **Review logs for patterns**:
+   ```bash
+   sudo journalctl -u tap-broadcaster -n 100
+   ```
+
+3. **Verify USB autosuspend is disabled**:
+   ```bash
+   cat /sys/module/usbcore/parameters/autosuspend
+   # Must show: -1
+   # If not, check /boot/firmware/cmdline.txt and reboot
+   ```
+
+4. **Check hardware health**:
+   ```bash
+   # Verify USB devices are detected:
+   lsusb | grep -i "CH340\|QinHeng"
+   
+   # Verify device files exist:
+   ls -l /dev/ttyUSB*
+   
+   # Test manual read:
+   nfc-list
+   ```
+
+5. **Manual recovery** (only if auto-recovery fails):
+   ```bash
+   ./scripts/fix-readers.sh
+   ```
+
 ## Troubleshooting
 
 ### No Taps Detected

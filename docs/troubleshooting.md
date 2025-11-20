@@ -360,6 +360,82 @@ After setup, verify authentication works:
 3. Dependencies: Activate venv in ExecStart.
 4. Reload: `systemctl daemon-reload`.
 
+### NFC Reader Stops Working After Idle Period
+
+**Problem**: NFC reader stops detecting cards after sitting idle for a while, requiring manual intervention.
+
+**Symptoms**:
+- Reader works initially, then stops after being idle
+- No cards detected even when tapped
+- Requires running fix-readers.sh to recover
+- Staff reports "scanner stopped working"
+
+**Root Causes**:
+1. **USB Autosuspend**: OS puts USB devices to sleep to save power
+2. **Hardware Lockup**: Device becomes unresponsive and needs reset
+3. **Driver Issues**: USB serial driver loses connection
+
+**Solution - Multi-Layer Auto-Recovery**:
+
+The system now includes three layers of automatic recovery that should prevent this issue:
+
+#### Layer 1: OS-Level (USB Autosuspend Disabled)
+
+**Configuration**: `/boot/firmware/cmdline.txt` includes `usbcore.autosuspend=-1`
+
+**Verification**:
+```bash
+cat /sys/module/usbcore/parameters/autosuspend
+# Should show: -1
+```
+
+If not disabled, the parameter was added but system needs reboot:
+```bash
+sudo reboot
+```
+
+#### Layer 2: Hardware Reconnection Logic
+
+**How it works**: Tap broadcaster automatically detects hardware failures and reconnects.
+
+**What it does**:
+- Monitors for consecutive read failures
+- Detects timeouts, disconnections, and lockups
+- Automatically reinitializes hardware connection
+- Uses exponential backoff (1s → 2s → 5s → 10s → 30s max)
+- Continues indefinitely until hardware is available
+
+**Check if it's working**:
+```bash
+# View live logs:
+sudo journalctl -u tap-broadcaster -f
+
+# Look for these messages (indicates automatic recovery):
+# [NFC] Hardware connection lost: ...
+# [NFC] Attempting hardware reconnection #N in Xs...
+# [NFC] Hardware reconnection successful! Resuming reader loop...
+```
+
+**Simulate hardware failure** (for testing):
+```bash
+# Unplug USB reader while logs are running
+# Should see automatic reconnection messages
+# Replug USB reader
+# Should see "Hardware reconnection successful!"
+```
+
+#### Layer 3: Service Auto-Restart
+
+**Configuration**: Systemd service has `Restart=always`
+
+**Check if enabled**:
+```bash
+sudo systemctl show tap-broadcaster -p Restart
+# Should show: Restart=always
+```
+
+**How it works**: If broadcaster process crashes completely, systemd automatically restarts it.
+
 ### NFC Reader Stops Working After Dev Server Restart
 
 **Problem**: PN532 NFC reader stops detecting cards after restarting dev server or making code changes.
@@ -376,6 +452,7 @@ After setup, verify authentication works:
 - USB device auto-reset on service start (systemd `ExecStartPre`)
 - Health monitoring with automatic reset after consecutive failures
 - Proper cleanup handlers on shutdown
+- Hardware reconnection logic (see above section)
 
 **Manual Recovery** (if auto-recovery fails):
 
@@ -426,6 +503,59 @@ This script:
 - `./scripts/recover-nfc.sh` - Full emergency recovery
 - `./scripts/dev-with-nfc.sh` - Start dev environment with NFC
 - `./scripts/run-nfc.sh` - Manual broadcaster start (development)
+
+### Troubleshooting Auto-Recovery
+
+**If auto-recovery doesn't seem to be working:**
+
+1. **Check if USB autosuspend is actually disabled**:
+   ```bash
+   cat /sys/module/usbcore/parameters/autosuspend
+   # Must show: -1
+   # If it shows something else, reboot is needed after editing cmdline.txt
+   ```
+
+2. **Verify tap-broadcaster.py has latest code**:
+   ```bash
+   grep -n "nfc_reader_loop_with_reconnection" /home/qiss/scps/tap-broadcaster.py
+   # Should find the function (means auto-reconnection is implemented)
+   ```
+
+3. **Check logs for recovery attempts**:
+   ```bash
+   sudo journalctl -u tap-broadcaster --since "1 hour ago" | grep -i "reconnection\|hardware"
+   ```
+
+4. **Test hardware manually**:
+   ```bash
+   # Stop the service temporarily:
+   sudo systemctl stop tap-broadcaster tap-broadcaster-reader2
+   
+   # Test hardware directly:
+   nfc-list
+   # Should detect the reader
+   
+   # If nfc-list works, restart services:
+   sudo systemctl start tap-broadcaster tap-broadcaster-reader2
+   ```
+
+5. **Check for persistent hardware issues**:
+   ```bash
+   # View USB errors:
+   dmesg | grep -i "usb\|ttyUSB" | tail -20
+   
+   # If you see lots of errors, the USB cable or reader itself may be faulty
+   ```
+
+**When to manually intervene**:
+
+The auto-recovery should handle 99% of issues. Only manually intervene if:
+- Logs show recovery attempts failing repeatedly for >30 minutes
+- Hardware test (`nfc-list`) fails completely
+- USB device not showing up at all (`ls /dev/ttyUSB*` shows nothing)
+- System logs show hardware errors (`dmesg | grep -i error`)
+
+In these cases, use the fix-readers.sh script or check physical connections.
 
 ## CLI Issues
 

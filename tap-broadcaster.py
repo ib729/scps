@@ -121,13 +121,16 @@ def auto_detect_nfc_device() -> tuple[Optional[str], Optional[str]]:
 
 def read_uid_from_pn532(device: str) -> Optional[str]:
     """
-    Read card UID from PN532 reader (blocking).
+    Read card UID from PN532 reader (blocking) with enhanced error detection.
 
     Args:
         device: Device string (e.g., 'tty:AMA0:pn532', 'usb:001:003', 'i2c:/dev/i2c-1:pn532')
 
     Returns:
         Card UID as hex string, or None if no card detected
+        
+    Raises:
+        Exception: If hardware is unresponsive after multiple retries (fatal error)
     """
     # Check if device is I2C (nfcpy doesn't support I2C, use libnfc instead)
     if device.startswith("i2c") or "i2c" in device.lower():
@@ -150,6 +153,9 @@ def read_uid_from_pn532(device: str) -> Optional[str]:
 
     # Retry logic for hardware stability
     max_retries = 3
+    timeout_count = 0
+    fatal_error = None
+    
     for attempt in range(max_retries):
         try:
             # Small delay to let UART settle
@@ -158,65 +164,141 @@ def read_uid_from_pn532(device: str) -> Optional[str]:
             with nfc.ContactlessFrontend(device) as clf:
                 clf.connect(rdwr={"on-connect": on_connect}, terminate=lambda: shutdown_event.is_set())
             return uid_hex["val"]
+            
         except IOError as e:
-            # Log timeout errors specifically - they indicate hardware issues
-            if "timeout" in str(e).lower() or "timed out" in str(e).lower():
-                # Only log on last retry to reduce noise
-                if attempt == max_retries - 1:
-                    print(f"[ERROR] Device {device} timeout - reader may be faulty or not responding")
-                    print(f"[ERROR] Check hardware connection")
+            error_str = str(e).lower()
+            
+            # Categorize errors for better handling
+            if "timeout" in error_str or "timed out" in error_str:
+                timeout_count += 1
+                if attempt < max_retries - 1:
+                    # Wait progressively longer for timeouts
+                    time.sleep(0.5 * (attempt + 1))
                 else:
-                    # Wait a bit longer before retry
-                    time.sleep(0.5)
+                    # Multiple timeouts indicate hardware issue
+                    print(f"[ERROR] Device {device} timeout after {max_retries} attempts")
+                    print(f"[ERROR] Hardware may be locked up or disconnected")
+                    fatal_error = e
+                    
+            elif "permission denied" in error_str:
+                print(f"[ERROR] Permission denied accessing {device}")
+                print(f"[ERROR] Add user to dialout group: sudo usermod -aG dialout $USER")
+                fatal_error = e
+                break  # Don't retry permission errors
+                
+            elif "no such file or directory" in error_str or "not found" in error_str:
+                print(f"[ERROR] Device {device} not found - may be disconnected")
+                fatal_error = e
+                break  # Don't retry if device doesn't exist
+                
+            elif "device or resource busy" in error_str:
+                print(f"[ERROR] Device {device} is busy - another process may be using it")
+                if attempt < max_retries - 1:
+                    time.sleep(1)  # Wait longer for busy device
+                else:
+                    fatal_error = e
+                    
             else:
-                # Other IO errors, maybe retry?
+                # Unknown IO error
                 if attempt == max_retries - 1:
-                    return None
+                    print(f"[ERROR] IO error on {device}: {e}")
+                    fatal_error = e
+                else:
+                    time.sleep(0.5)
+                    
+        except OSError as e:
+            # OS-level errors often indicate hardware disconnection
+            print(f"[ERROR] OS error accessing {device}: {e}")
+            fatal_error = e
+            break
+            
         except Exception as e:
-            # Return None on error - caller will handle retry
-            return None
+            # Unexpected errors
+            error_str = str(e).lower()
+            if "broken pipe" in error_str or "connection" in error_str:
+                print(f"[ERROR] Connection error on {device}: {e}")
+                fatal_error = e
+                break
+            else:
+                # For other exceptions, just return None
+                if attempt == max_retries - 1:
+                    print(f"[ERROR] Unexpected error on {device}: {e}")
+                return None
+    
+    # If we had multiple timeouts or fatal errors, raise exception
+    # This will trigger hardware reconnection logic
+    if timeout_count >= max_retries:
+        raise Exception(f"Hardware timeout: Device {device} unresponsive after {max_retries} attempts")
+    if fatal_error:
+        raise Exception(f"Hardware error: {fatal_error}")
             
     return None
 
 
 def read_uid_from_libnfc() -> Optional[str]:
     """
-    Read card UID using libnfc command-line tool (for I2C devices).
+    Read card UID using libnfc command-line tool (for I2C devices) with enhanced error detection.
     
     Returns:
         Card UID as hex string, or None if no card detected
+        
+    Raises:
+        Exception: If hardware is unresponsive after multiple failures (fatal error)
     """
-    try:
-        # Use nfc-list which is faster and doesn't wait for card removal
-        # 5-second timeout allows time for I2C initialization
-        result = subprocess.run(
-            ["nfc-list"],
-            capture_output=True,
-            text=True,
-            timeout=5
-        )
-        
-        # Parse output for UID
-        # Looking for line like: "       UID (NFCID1): ed  9d  25  02"
-        for line in result.stdout.split("\n"):
-            if "UID" in line and ("NFCID" in line or ":" in line):
-                # Extract hex bytes after colon
-                match = re.search(r':\s*((?:[0-9a-fA-F]{2}\s*)+)', line)
-                if match:
-                    uid_bytes = match.group(1).strip().replace(" ", "")
-                    return uid_bytes.upper()
-        
-        return None
-        
-    except FileNotFoundError:
-        print("Error: nfc-list not found. Install libnfc-bin: sudo apt install libnfc-bin")
-        sys.exit(1)
-    except subprocess.TimeoutExpired:
-        # Timeout means no card was detected, return None to try again
-        return None
-    except Exception as e:
-        # Return None on error - caller will handle retry
-        return None
+    max_retries = 3
+    timeout_count = 0
+    
+    for attempt in range(max_retries):
+        try:
+            # Use nfc-list which is faster and doesn't wait for card removal
+            # 5-second timeout allows time for I2C initialization
+            result = subprocess.run(
+                ["nfc-list"],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            
+            # Check for error messages in output
+            if "error" in result.stderr.lower() or "unable" in result.stderr.lower():
+                if attempt == max_retries - 1:
+                    print(f"[ERROR] libnfc error: {result.stderr}")
+                    raise Exception(f"libnfc hardware error: {result.stderr}")
+                time.sleep(0.5)
+                continue
+            
+            # Parse output for UID
+            # Looking for line like: "       UID (NFCID1): ed  9d  25  02"
+            for line in result.stdout.split("\n"):
+                if "UID" in line and ("NFCID" in line or ":" in line):
+                    # Extract hex bytes after colon
+                    match = re.search(r':\s*((?:[0-9a-fA-F]{2}\s*)+)', line)
+                    if match:
+                        uid_bytes = match.group(1).strip().replace(" ", "")
+                        return uid_bytes.upper()
+            
+            return None
+            
+        except FileNotFoundError:
+            print("Error: nfc-list not found. Install libnfc-bin: sudo apt install libnfc-bin")
+            sys.exit(1)
+            
+        except subprocess.TimeoutExpired:
+            timeout_count += 1
+            # Timeout means no card was detected or hardware is slow
+            if attempt == max_retries - 1 and timeout_count >= max_retries:
+                print(f"[ERROR] libnfc timeout after {max_retries} attempts - hardware may be stuck")
+                raise Exception("libnfc hardware timeout: Device unresponsive")
+            return None
+            
+        except Exception as e:
+            # Unexpected errors
+            if attempt == max_retries - 1:
+                print(f"[ERROR] libnfc unexpected error: {e}")
+                raise Exception(f"libnfc error: {e}")
+            time.sleep(0.5)
+    
+    return None
 
 
 async def broadcast_tap_ws(websocket, card_uid: str, lane: str, reader_id: Optional[str] = None) -> bool:
@@ -278,6 +360,8 @@ async def nfc_reader_loop(websocket, device: str, lane: str, reader_id: Optional
     print("[NFC] Waiting for card tap...")
 
     loop = asyncio.get_event_loop()
+    consecutive_failures = 0
+    last_success_time = time.time()
 
     while not shutdown_event.is_set():
         try:
@@ -292,11 +376,24 @@ async def nfc_reader_loop(websocket, device: str, lane: str, reader_id: Optional
                     # Card still present, don't rebroadcast
                     pass
 
+                # Reset failure counter on successful read
+                consecutive_failures = 0
+                last_success_time = time.time()
+
                 # Small delay to prevent excessive polling
                 await asyncio.sleep(0.1)
             else:
                 # No card detected, reset state
                 card_state.reset()
+
+                # Check if we've been getting None for too long (potential hardware issue)
+                time_since_success = time.time() - last_success_time
+                if time_since_success > 60:  # 60 seconds of no reads might indicate hardware issue
+                    consecutive_failures += 1
+                    if consecutive_failures > 3:
+                        print(f"[WARNING] No card reads for {time_since_success:.0f}s (failure #{consecutive_failures})")
+                        # This might be normal (no cards), but log it for awareness
+                    last_success_time = time.time()  # Reset to avoid spam
 
                 # Small delay before next poll
                 await asyncio.sleep(0.1)
@@ -305,8 +402,94 @@ async def nfc_reader_loop(websocket, device: str, lane: str, reader_id: Optional
             print("[NFC] Reader loop cancelled")
             break
         except Exception as e:
-            print(f"[ERROR] Reader error: {e}")
+            consecutive_failures += 1
+            print(f"[ERROR] Reader error (failure #{consecutive_failures}): {e}")
+            
+            # If we have many consecutive failures, hardware might be stuck
+            if consecutive_failures >= 10:
+                print(f"[ERROR] Too many consecutive failures ({consecutive_failures}), hardware may need reset")
+                # Raise exception to trigger hardware reconnection
+                raise
+            
             await asyncio.sleep(1)  # Wait before retry on error
+
+
+async def nfc_reader_loop_with_reconnection(websocket, device: str, lane: str, reader_id: Optional[str] = None):
+    """
+    Wrapper around nfc_reader_loop that handles automatic hardware reconnection.
+    
+    If the NFC hardware becomes unresponsive or fails repeatedly, this function
+    will automatically attempt to reinitialize the connection with exponential backoff.
+    This ensures the reader keeps working without manual intervention.
+    
+    Args:
+        websocket: WebSocket connection
+        device: NFC device string
+        lane: Lane identifier (for backward compatibility)
+        reader_id: Reader identifier (e.g., 'reader-1', 'reader-2')
+    """
+    reconnect_delay = 1
+    max_reconnect_delay = 30
+    reconnect_attempt = 0
+    
+    while not shutdown_event.is_set():
+        try:
+            # Attempt to run the NFC reader loop
+            await nfc_reader_loop(websocket, device, lane, reader_id)
+            
+            # If we get here, the loop exited normally (shutdown)
+            break
+            
+        except asyncio.CancelledError:
+            print("[NFC] Hardware reconnection cancelled")
+            break
+            
+        except Exception as e:
+            reconnect_attempt += 1
+            print(f"[NFC] Hardware connection lost: {e}")
+            print(f"[NFC] Attempting hardware reconnection #{reconnect_attempt} in {reconnect_delay}s...")
+            
+            # Wait before attempting reconnection
+            await asyncio.sleep(reconnect_delay)
+            
+            if shutdown_event.is_set():
+                break
+            
+            # Try to reinitialize hardware by testing the connection
+            print(f"[NFC] Reinitializing hardware connection to {device}...")
+            try:
+                # Test if we can connect to the device
+                import nfc
+                loop = asyncio.get_event_loop()
+                
+                def test_hardware():
+                    """Quick hardware test"""
+                    try:
+                        with nfc.ContactlessFrontend(device) as clf:
+                            return True
+                    except Exception as test_e:
+                        print(f"[NFC] Hardware test failed: {test_e}")
+                        return False
+                
+                # Run hardware test in executor
+                hardware_ok = await loop.run_in_executor(None, test_hardware)
+                
+                if hardware_ok:
+                    print(f"[NFC] Hardware reconnection successful! Resuming reader loop...")
+                    # Reset delay on successful reconnection
+                    reconnect_delay = 1
+                    reconnect_attempt = 0
+                    # Continue to next iteration to restart the reader loop
+                    continue
+                else:
+                    print(f"[NFC] Hardware not ready yet, will retry...")
+                    
+            except Exception as test_e:
+                print(f"[NFC] Error during hardware reconnection test: {test_e}")
+            
+            # Exponential backoff for next attempt
+            reconnect_delay = min(reconnect_delay * 2, max_reconnect_delay)
+            print(f"[NFC] Next reconnection attempt in {reconnect_delay}s...")
 
 
 async def simulation_mode(websocket, lane: str, reader_id: Optional[str] = None):
@@ -422,7 +605,7 @@ async def websocket_broadcaster(url: str, secret: Optional[str], lane: str, devi
                 if simulate:
                     await simulation_mode(websocket, effective_lane, reader_id)
                 else:
-                    await nfc_reader_loop(websocket, device, effective_lane, reader_id)
+                    await nfc_reader_loop_with_reconnection(websocket, device, effective_lane, reader_id)
                 
         except websockets.exceptions.WebSocketException as e:
             print(f"[WS] Connection error: {e}")
