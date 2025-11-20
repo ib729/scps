@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Copy, Check } from "lucide-react";
 import type { Transaction } from "@/lib/models";
+import { formatCurrency } from "@/lib/currency";
 
 interface TransactionsListProps {
   transactions: Transaction[];
@@ -77,7 +78,7 @@ export function TransactionsList({ transactions }: TransactionsListProps) {
             <p className="text-xs text-muted-foreground">Staff: {tx.staff || "-"}</p>
             {tx.overdraft_component > 0 && (
               <p className="text-xs text-orange-600">
-                Overdraft used: ¥{tx.overdraft_component}
+                Overdraft used: ¥{formatCurrency(tx.overdraft_component)}
               </p>
             )}
           </div>
@@ -86,7 +87,7 @@ export function TransactionsList({ transactions }: TransactionsListProps) {
               tx.amount >= 0 ? "text-green-600" : "text-red-600"
             }`}
           >
-            {tx.amount >= 0 ? "+" : ""}¥{tx.amount}
+            {tx.amount >= 0 ? "+" : ""}¥{formatCurrency(Math.abs(tx.amount))}
           </p>
         </div>
       ))}
