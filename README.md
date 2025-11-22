@@ -1,104 +1,112 @@
 # Student Council Payment System (SCPS)
 
-A system for managing payments using NFC cards. It includes Python CLI tools for quick operations and a modern web interface built with Next.js.
+A complete NFC-based payment system for managing student snack bar purchases. Tap a card, process payments instantly.
 
-## What It Does
+---
 
-This system helps manage everything related to student snack bar purchases:
+## Features
 
-- **Students and Accounts**: Keep track of student accounts, NFC cards, and balances
-- **Database**: Uses SQLite (`stuco.db`) to store students, cards, accounts, transactions, and overdraft information
-- **Point of Sale**: CLI tools for processing payments via NFC card taps
-- **Web Interface**: A full-featured dashboard built with Next.js 16, TypeScript, and Tailwind CSS
-- **NFC Hardware**: Works with PN532 NFC readers connected to a Raspberry Pi
+- **NFC Card Payments** - Fast, cashless transactions with contactless cards
+- **Student Account Management** - Track balances, cards, and transaction history
+- **Modern Web Dashboard** - Built with Next.js, TypeScript, and Tailwind CSS
+- **CLI Tools** - Quick command-line utilities for POS, top-ups, and enrollment
+- **Real-time Updates** - Live tap notifications in the web interface
+- **Dual Reader Support** - Run multiple NFC readers simultaneously
+
+---
 
 ## Platform
 
-This system is built for **Raspberry Pi 4 Model B** running **Raspberry Pi OS (ARM64)**.
+Built for **Raspberry Pi 4 Model B** running **Raspberry Pi OS (64-bit)**
 
-It has been tested on:
+Tested on:
 - Raspberry Pi 4 Model B (8GB RAM recommended)
-- Raspberry Pi OS (64-bit, Bookworm or later)
+- Raspberry Pi OS (Bookworm or later)
+- Debian-based Linux distributions
 - Arch Linux
 
-## CLI Tools
-
-Three Python scripts handle quick operations:
-
-- `pos.py` - Point-of-sale terminal for charging students via card taps
-- `topup.py` - Add money to student accounts
-- `enroll.py` - Register new students and link their NFC cards
+---
 
 ## Quick Start
 
-### 1. Prerequisites
-Check out [docs/getting-started.md](docs/getting-started.md) for setting up Node.js, pnpm, and other build tools.
+### 1. Initialize the Database
 
-### 2. Set Up the Database
-Make sure `stuco.db` exists, or create it:
 ```bash
 python init_db.py
 ```
 
-### 3. Configure Authentication
-The web UI uses Better Auth. See [docs/authentication.md](docs/authentication.md) for details:
+### 2. Install Web Dependencies
+
 ```bash
 cd web-next
-# Create .env.local with your config (check the docs)
-sqlite3 ../stuco.db < migrations/better_auth_schema.sql
+pnpm install
 ```
 
-### 4. Start the Web Interface
-For development:
+### 3. Run the Web Interface
+
+**Development mode:**
 ```bash
-cd web-next
-pnpm install  # Installs and builds dependencies
 pnpm dev
 ```
 
-For production:
+**Production mode:**
 ```bash
-cd web-next
-pnpm build  
+pnpm build
 pnpm start
 ```
 
-Then open http://localhost:3000 and create your account.
+Open http://localhost:3000 and create your admin account.
 
-### 5. Use the NFC Point of Sale
-Charge students by tapping their cards:
+### 4. Next Steps
+
+- **Set up authentication** - See [docs/authentication.md](docs/authentication.md)
+- **Configure NFC readers** - See [docs/nfc-setup.md](docs/nfc-setup.md)
+- **Deploy to production** - See [docs/deployment.md](docs/deployment.md)
+
+---
+
+## CLI Tools
+
+Quick operations from the command line:
+
+- `pos.py` - Process payments via NFC card taps
+- `topup.py` - Add money to student accounts
+- `enroll.py` - Register new students and link NFC cards
+- `tap-broadcaster.py` - Broadcast NFC taps to the web interface in real-time
+
+**Example:**
 ```bash
-python pos.py 6.5  # Charges ¥6.5 per tap
+python pos.py 6.5  # Charge ¥6.5 per tap
 ```
 
-### 6. Run the NFC Broadcaster
-This broadcasts NFC taps to the web UI in real-time:
-```bash
-python tap-broadcaster.py --simulate  # Test mode without hardware
-```
+---
 
 ## Documentation
 
-Everything is documented in the [docs/](docs/) folder:
+### Getting Started
+- [Getting Started](docs/getting-started.md) - Installation and prerequisites
+- [Deployment Guide](docs/deployment.md) - Production setup with Docker, systemd, and SSL
+- [Security Guide](docs/security-guide.md) - Best practices for securing your system
 
-### Setup and Administration
-- [Getting Started](docs/getting-started.md) - Installation and initial setup
-- [Deployment Guide](docs/deployment.md) - Running in production with Docker, systemd, and SSL
-- [Security Guide](docs/security-guide.md) - Keeping your system secure
-- [Database Guide](docs/database.md) - Understanding the database schema and migrations
-- [Scripts Reference](docs/scripts.md) - Documentation for utility scripts
+### Configuration
+- [Authentication](docs/authentication.md) - Set up Better Auth for the web interface
+- [NFC Setup](docs/nfc-setup.md) - Configure PN532 card readers
+- [Database Guide](docs/database.md) - Schema details and migrations
 
-### Using the System
-- [User Guide](docs/user-guide.md) - How to use the system day-to-day
-- [NFC Setup](docs/nfc-setup.md) - Setting up your card readers
+### Usage
+- [User Guide](docs/user-guide.md) - Day-to-day operations
+- [Scripts Reference](docs/scripts.md) - Utility scripts and tools
 
 ### Development
-- [Development Guide](docs/development.md) - System architecture and how to extend it
+- [Development Guide](docs/development.md) - Architecture and extending the system
 - [UI Components Guide](docs/ui-components.md) - Custom components and animations
+- [Testing Guide](docs/testing.md) - Running tests
 
-### Help
-- [Troubleshooting](docs/troubleshooting.md) - Solutions to common problems
-- [Changelog](docs/changelog.md) - What's new in each version
+### Support
+- [Troubleshooting](docs/troubleshooting.md) - Common issues and solutions
+- [Changelog](docs/changelog.md) - Version history and updates
+
+---
 
 ## Supporting This Project
 
