@@ -5,6 +5,7 @@ import { auth } from "@/lib/auth";
 import { getAllStudents } from "@/lib/repositories/students";
 import { getStudentIdsWithTransactions } from "@/lib/repositories/transactions";
 import { TopupForm } from "./topup-form";
+import { PageLoading } from "@/components/ui/page-loading";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +22,7 @@ export default async function TopupPage() {
   const studentIdsWithTransactions = getStudentIdsWithTransactions();
 
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense fallback={<PageLoading />}>
       <TopupForm 
         students={students} 
         studentIdsWithTransactions={studentIdsWithTransactions}
