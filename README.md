@@ -1,5 +1,10 @@
 # Student Council Payment System (SCPS)
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/Platform-Raspberry%20Pi%204-C51A4A?logo=raspberrypi)](https://www.raspberrypi.com/)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/ib729/scps)
+[![Donate Bitcoin](https://img.shields.io/badge/Donate-Bitcoin-orange?logo=bitcoin&logoColor=white)](#supporting-this-project)
+
 A complete NFC-based payment system for managing student snack bar purchases. Tap contactless cards for instant payments with real-time dashboard monitoring.
 
 ---
