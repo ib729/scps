@@ -1,6 +1,6 @@
 # Student Council Payment System (SCPS)
 
-A complete NFC-based payment system for managing student snack bar purchases. Tap a card, process payments instantly.
+A complete NFC-based payment system for managing student snack bar purchases. Tap contactless cards for instant payments with real-time dashboard monitoring.
 
 ---
 
