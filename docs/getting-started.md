@@ -1,6 +1,6 @@
 # Getting Started
 
-This guide covers installing prerequisites, setting up the database, installing dependencies, and running the system on macOS, Linux, or Raspberry Pi OS.
+This guide covers installing prerequisites, setting up the database, installing dependencies, and running the system on Raspberry Pi OS and Debian-based Linux.
 
 ## Prerequisites
 
@@ -8,12 +8,11 @@ This guide covers installing prerequisites, setting up the database, installing 
 
 - **Python 3.9+**: For CLI tools.
   - Check: `python --version`
-  - Install: Use your package manager (e.g., `brew install python` on macOS, `sudo apt install python3` on Debian).
+  - Install: `sudo apt install python3`
 
 - **Node.js 20+**: For the web UI.
   - Check: `node --version`
-  - macOS: `brew install node`
-  - Debian/Pi: `curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - && sudo apt install -y nodejs`
+  - Install: `curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - && sudo apt install -y nodejs`
 
 - **pnpm**: Package manager for Node.js.
   - Check: `pnpm --version`
@@ -22,14 +21,7 @@ This guide covers installing prerequisites, setting up the database, installing 
 - **Git**: For cloning the repository.
   - Check: `git --version`
 
-### macOS Specific
-
-**Xcode Command Line Tools** (for compiling native modules like better-sqlite3):
-
-- Check: `xcode-select -p`
-- Install: `xcode-select --install`
-
-### Debian/Raspberry Pi OS Specific
+### Debian/Raspberry Pi OS
 
 **Build Essentials** (for compiling native modules):
 
@@ -124,7 +116,7 @@ This verifies all tools and provides installation instructions if missing.
    ```
 
    - Automatically runs postinstall to rebuild `better-sqlite3` native bindings.
-   - Handles platform-specific compilation (macOS ARM64, Linux ARM64, etc.).
+   - Handles platform-specific compilation for ARM64 and x86_64 Linux.
 
 4. **Configure Environment**:
 
@@ -308,7 +300,7 @@ After setup:
 ### Raspberry Pi Compilation Slow/Out of Memory
 
 - Increase swap (see prerequisites).
-- Pre-build on faster machine and copy `node_modules/better-sqlite3`.
+- Pre-build on another Linux machine and copy `node_modules/better-sqlite3`.
 
 ### NFC Not Detecting Cards
 
@@ -332,4 +324,4 @@ For more, see [Troubleshooting](troubleshooting.md).
 
 Enjoy managing your snack bar!
 
-**Last updated: November 12, 2025**
+**Last updated: November 22, 2025**

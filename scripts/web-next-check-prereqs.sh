@@ -1,6 +1,6 @@
 #!/bin/bash
 # Check prerequisites for building better-sqlite3 native bindings
-# Works on macOS and Debian-based Linux (Raspberry Pi OS)
+# Works on Debian-based Linux (Raspberry Pi OS)
 
 set -e
 
@@ -11,27 +11,6 @@ OS_TYPE="$(uname -s)"
 MISSING_DEPS=()
 
 case "$OS_TYPE" in
-  Darwin*)
-    echo "Platform: macOS"
-    echo ""
-    
-    # Check for Xcode Command Line Tools
-    if ! xcode-select -p &> /dev/null; then
-      echo "❌ Xcode Command Line Tools not found"
-      MISSING_DEPS+=("xcode-clt")
-    else
-      echo "✅ Xcode Command Line Tools: $(xcode-select -p)"
-    fi
-    
-    # Check for clang
-    if ! command -v clang &> /dev/null; then
-      echo "❌ clang compiler not found"
-      MISSING_DEPS+=("clang")
-    else
-      echo "✅ clang: $(clang --version | head -n1)"
-    fi
-    ;;
-    
   Linux*)
     echo "Platform: Linux"
     echo ""
@@ -76,7 +55,7 @@ case "$OS_TYPE" in
     
   *)
     echo "⚠️  Unknown platform: $OS_TYPE"
-    echo "This script supports macOS and Linux only."
+    echo "This script is designed for Linux systems."
     ;;
 esac
 
@@ -115,18 +94,6 @@ else
   echo ""
   
   case "$OS_TYPE" in
-    Darwin*)
-      echo "To install on macOS:"
-      echo ""
-      if [[ " ${MISSING_DEPS[@]} " =~ " xcode-clt " ]] || [[ " ${MISSING_DEPS[@]} " =~ " clang " ]]; then
-        echo "  xcode-select --install"
-      fi
-      if [[ " ${MISSING_DEPS[@]} " =~ " pnpm " ]]; then
-        echo "  npm install -g pnpm"
-        echo "  # or: brew install pnpm"
-      fi
-      ;;
-      
     Linux*)
       echo "To install on Debian/Ubuntu/Raspberry Pi OS:"
       echo ""

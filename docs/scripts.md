@@ -25,8 +25,7 @@ The Student Council Payment System includes various scripts for:
 ```
 
 **Checks:**
-- Operating system (macOS or Linux)
-- Xcode Command Line Tools (macOS)
+- Operating system (Linux)
 - gcc, g++, make (Linux)
 - Node.js and version
 - pnpm package manager
@@ -980,5 +979,5 @@ chown stuco:stuco stuco.db*
 - [NFC Setup](nfc-setup.md) - NFC configuration
 - [Deployment Guide](deployment.md) - Production deployment
 
-**Last updated: November 12, 2025**
+**Last updated: November 22, 2025**
 

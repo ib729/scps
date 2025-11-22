@@ -1,6 +1,6 @@
 # Student Council Payment System (SCPS)
 
-A system for managing student snack bar payments using NFC cards. It includes Python CLI tools for quick operations and a modern web interface built with Next.js.
+A system for managing payments using NFC cards. It includes Python CLI tools for quick operations and a modern web interface built with Next.js.
 
 ## What It Does
 
@@ -11,7 +11,15 @@ This system helps manage everything related to student snack bar purchases:
 - **Point of Sale**: CLI tools for processing payments via NFC card taps
 - **Web Interface**: A full-featured dashboard built with Next.js 16, TypeScript, and Tailwind CSS
 - **NFC Hardware**: Works with PN532 NFC readers connected to a Raspberry Pi
-- **Platform**: Built and tested on Raspberry Pi 4 Model B running Raspberry Pi OS Lite (ARM64)
+
+## Platform
+
+This system is built for **Raspberry Pi 4 Model B** running **Raspberry Pi OS (ARM64)**.
+
+It has been tested on:
+- Raspberry Pi 4 Model B (8GB RAM recommended)
+- Raspberry Pi OS (64-bit, Bookworm or later)
+- Arch Linux
 
 ## CLI Tools
 
