@@ -239,7 +239,10 @@ export function AppSidebar({ user: initialUser, ...props }: AppSidebarProps) {
 
   const handleToggleTheme = () => {
     if (!mounted) return
-    setTheme(resolvedTheme === "dark" ? "light" : "dark")
+    const newTheme = resolvedTheme === "dark" ? "light" : "dark"
+    setTheme(newTheme)
+    // Sync to cookie immediately for server-side rendering
+    document.cookie = `theme=${newTheme}; path=/; max-age=31536000; SameSite=Strict`
   }
 
   const handleFormChange = (field: string, value: string) => {

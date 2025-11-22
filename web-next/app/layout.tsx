@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { cookies } from "next/headers";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -42,17 +43,30 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Read theme from cookie for server-side rendering
+  const cookieStore = await cookies();
+  const themeCookie = cookieStore.get('theme')?.value;
+  
+  // Apply theme class server-side if cookie exists (not 'system')
+  const themeClass = themeCookie && themeCookie !== 'system' ? themeCookie : undefined;
+  const colorScheme = themeClass === 'dark' ? 'dark' : themeClass === 'light' ? 'light' : undefined;
+  
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html 
+      lang="en" 
+      suppressHydrationWarning
+      className={themeClass}
+      style={colorScheme ? { colorScheme } : undefined}
+    >
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{let t=localStorage.getItem('theme')||'system',d=window.matchMedia('(prefers-color-scheme: dark)').matches;document.documentElement.style.colorScheme=t==='system'?(d?'dark':'light'):t;if(t==='dark'||(t==='system'&&d)){document.documentElement.classList.add('dark');document.documentElement.classList.remove('light')}else if(t==='light'||(t==='system'&&!d)){document.documentElement.classList.add('light');document.documentElement.classList.remove('dark')}}catch(e){}})()`,
+            __html: `!function(){try{var t=localStorage.getItem('theme');if(t&&t!=='system'){document.documentElement.className=t;document.documentElement.style.colorScheme=t}}catch(e){}}()`,
           }}
         />
       </head>
