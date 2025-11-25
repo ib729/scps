@@ -33,20 +33,20 @@ export function TransactionsList({ transactions }: TransactionsListProps) {
           key={tx.id}
           className="flex items-center justify-between border rounded-lg p-3"
         >
-          <div className="flex-1">
+          <div className="flex-1 pr-4">
             <div className="flex items-center gap-2 flex-wrap">
               <Badge
                 variant={
                   tx.type === "TOPUP"
                     ? "default"
                     : tx.type === "DEBIT"
-                    ? "destructive"
-                    : "secondary"
+                      ? "destructive"
+                      : "secondary"
                 }
               >
                 {tx.type}
               </Badge>
-              <p className="font-medium">{tx.description || "-"}</p>
+              <p className="font-medium break-all">{tx.description || "-"}</p>
             </div>
             <div className="flex items-center gap-2 mt-1">
               <span className="text-xs text-muted-foreground">
@@ -83,9 +83,8 @@ export function TransactionsList({ transactions }: TransactionsListProps) {
             )}
           </div>
           <p
-            className={`text-lg font-bold ${
-              tx.amount >= 0 ? "text-green-600" : "text-red-600"
-            }`}
+            className={`text-lg font-bold ${tx.amount >= 0 ? "text-green-600" : "text-red-600"
+              }`}
           >
             {tx.amount >= 0 ? "+" : ""}¥{formatCurrency(Math.abs(tx.amount))}
           </p>
