@@ -1,7 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getAllStudents } from "@/lib/repositories/students";
-import { getRecentTransactions, getStudentIdsWithTransactions, getWeeklyTopupData, getTotalSalesCount } from "@/lib/repositories/transactions";
-import { Users, ShoppingCart, AlertTriangle, DollarSign, ArrowUpRight, ArrowDownRight, Minus } from "lucide-react";
+import { getRecentTransactions, getStudentIdsWithTransactions, getWeeklyTopupData, getTotalSalesCount, getTotalSalesAmount } from "@/lib/repositories/transactions";
+import { Users, ShoppingCart, AlertTriangle, DollarSign, ArrowUpRight, ArrowDownRight, Minus, CreditCard, Landmark, HandCoins } from "lucide-react";
 import { WeeklyTopupChart } from "@/components/weekly-topup-chart";
 import { formatCurrency } from "@/lib/currency";
 import { Metadata } from 'next';
@@ -23,6 +23,7 @@ export default async function DashboardPage() {
   const studentIdsWithTransactions = getStudentIdsWithTransactions();
   const weeklyTopupData = getWeeklyTopupData(12);
   const totalSales = getTotalSalesCount();
+  const totalSalesAmount = getTotalSalesAmount();
 
   const totalStudents = students.length;
   const totalBalance = students.reduce((sum, s) => sum + s.balance, 0);
@@ -66,7 +67,7 @@ export default async function DashboardPage() {
             <CardTitle className="text-sm font-medium">
               Total Balance
             </CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <Landmark className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent className="flex flex-1 flex-col justify-end gap-1">
             <div className={`text-2xl font-bold ${totalBalance < 0 ? "text-red-600" : ""}`}>¥{formatCurrency(totalBalance)}</div>
@@ -79,14 +80,14 @@ export default async function DashboardPage() {
         <Card className="h-full flex flex-col">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              In Overdraft
+              Total Revenue
             </CardTitle>
-            <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+            <HandCoins className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent className="flex flex-1 flex-col justify-end gap-1">
-            <div className="text-2xl font-bold">{studentsWithNegativeBalance}</div>
+            <div className="text-2xl font-bold">¥{formatCurrency(totalSalesAmount)}</div>
             <p className="text-xs text-muted-foreground">
-              {studentsWithNegativeBalance > 0 ? "Needs attention" : "All accounts positive"}
+              Total revenue from sales
             </p>
           </CardContent>
         </Card>
@@ -112,21 +113,19 @@ export default async function DashboardPage() {
                   className="flex items-center justify-between gap-4"
                 >
                   <div className="flex items-center gap-4 min-w-0 flex-1">
-                    <div className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full ${
-                      tx.type === "TOPUP" 
-                        ? "bg-green-100 dark:bg-green-900/20" 
-                        : tx.type === "DEBIT"
+                    <div className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full ${tx.type === "TOPUP"
+                      ? "bg-green-100 dark:bg-green-900/20"
+                      : tx.type === "DEBIT"
                         ? "bg-red-100 dark:bg-red-900/20"
                         : tx.type === "ADJUST"
-                        ? "bg-gray-100 dark:bg-gray-800/40"
-                        : "bg-gray-100 dark:bg-gray-900/20"
-                    }`}>
+                          ? "bg-gray-100 dark:bg-gray-800/40"
+                          : "bg-gray-100 dark:bg-gray-900/20"
+                      }`}>
                       {tx.type === "ADJUST" ? (
                         <Minus className="h-4 w-4 text-gray-600 dark:text-gray-400" />
                       ) : tx.amount >= 0 ? (
-                        <ArrowUpRight className={`h-4 w-4 ${
-                          tx.type === "TOPUP" ? "text-green-600" : "text-gray-600"
-                        }`} />
+                        <ArrowUpRight className={`h-4 w-4 ${tx.type === "TOPUP" ? "text-green-600" : "text-gray-600"
+                          }`} />
                       ) : (
                         <ArrowDownRight className="h-4 w-4 text-red-600" />
                       )}
@@ -142,13 +141,12 @@ export default async function DashboardPage() {
                   </div>
                   <div className="text-right space-y-1 flex-shrink-0">
                     <p
-                      className={`text-sm font-medium whitespace-nowrap ${
-                        tx.type === "ADJUST" 
-                          ? "text-gray-600 dark:text-gray-400" 
-                          : tx.amount >= 0 
-                          ? "text-green-600" 
+                      className={`text-sm font-medium whitespace-nowrap ${tx.type === "ADJUST"
+                        ? "text-gray-600 dark:text-gray-400"
+                        : tx.amount >= 0
+                          ? "text-green-600"
                           : "text-red-600"
-                      }`}
+                        }`}
                     >
                       {tx.amount >= 0 ? "+" : ""}¥{formatCurrency(Math.abs(tx.amount))}
                     </p>

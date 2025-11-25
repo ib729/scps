@@ -98,7 +98,7 @@ export interface WeeklyTopupData {
 
 export function getWeeklyTopupData(weeks: number = 12): WeeklyTopupData[] {
   const db = getDb();
-  
+
   // Get top-up transactions from the last N weeks, grouped by week
   // SQLite doesn't support 'weeks' modifier, so we convert to days
   const days = weeks * 7;
@@ -113,9 +113,9 @@ export function getWeeklyTopupData(weeks: number = 12): WeeklyTopupData[] {
     GROUP BY week_start
     ORDER BY week_start ASC
   `);
-  
+
   const results = stmt.all() as { week_start: string; total_amount: number }[];
-  
+
   // Format the data for the chart
   return results.map((row) => {
     const date = new Date(row.week_start);
@@ -123,7 +123,7 @@ export function getWeeklyTopupData(weeks: number = 12): WeeklyTopupData[] {
       month: "short",
       day: "numeric",
     });
-    
+
     return {
       week: weekLabel,
       amount: row.total_amount || 0,
@@ -141,5 +141,17 @@ export function getTotalSalesCount(): number {
   `);
   const result = stmt.get() as { count: number };
   return result.count || 0;
+}
+
+export function getTotalSalesAmount(): number {
+  const db = getDb();
+  const stmt = db.prepare(`
+    SELECT SUM(amount) as total
+    FROM transactions
+    WHERE type = 'DEBIT'
+  `);
+  const result = stmt.get() as { total: number };
+  // DEBIT amounts are negative, so we return the absolute value
+  return Math.abs(result.total || 0);
 }
 
