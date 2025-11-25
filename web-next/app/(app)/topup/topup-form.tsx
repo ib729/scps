@@ -207,13 +207,12 @@ export function TopupForm({ students, studentIdsWithTransactions, userName }: To
                     Current Balance:
                   </span>
                   <span
-                    className={`font-bold ${
-                      selectedStudent.balance < 0
+                    className={`font-bold ${selectedStudent.balance < 0
                         ? "text-red-600"
                         : selectedStudent.balance <= 50 && studentIdsWithTransactions.includes(selectedStudent.id)
-                        ? "text-orange-600"
-                        : ""
-                    }`}
+                          ? "text-orange-600"
+                          : ""
+                      }`}
                   >
                     ¥{formatCurrency(selectedStudent.balance)}
                   </span>
@@ -246,12 +245,13 @@ export function TopupForm({ students, studentIdsWithTransactions, userName }: To
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="staff">Staff Name (Optional)</Label>
+              <Label htmlFor="staff">Staff Name</Label>
               <Input
                 id="staff"
                 value={staff}
                 onChange={(e) => setStaff(e.target.value)}
                 placeholder="Your name"
+                disabled
               />
             </div>
 
@@ -328,13 +328,12 @@ export function TopupForm({ students, studentIdsWithTransactions, userName }: To
                     Current Balance:
                   </span>
                   <span
-                    className={`font-bold ${
-                      selectedAdjustStudent.balance < 0
+                    className={`font-bold ${selectedAdjustStudent.balance < 0
                         ? "text-red-600"
                         : selectedAdjustStudent.balance <= 50 && studentIdsWithTransactions.includes(selectedAdjustStudent.id)
-                        ? "text-orange-600"
-                        : ""
-                    }`}
+                          ? "text-orange-600"
+                          : ""
+                      }`}
                   >
                     ¥{formatCurrency(selectedAdjustStudent.balance)}
                   </span>
@@ -370,12 +369,13 @@ export function TopupForm({ students, studentIdsWithTransactions, userName }: To
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="adjust-staff">Staff Name (Optional)</Label>
+              <Label htmlFor="adjust-staff">Staff Name</Label>
               <Input
                 id="adjust-staff"
                 value={adjustStaff}
                 onChange={(e) => setAdjustStaff(e.target.value)}
                 placeholder="Your name"
+                disabled
               />
             </div>
 
