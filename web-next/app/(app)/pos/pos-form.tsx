@@ -138,11 +138,11 @@ export function PosForm({ students, studentIdsWithTransactions, userName }: PosF
   // Repeat the encryption animation every 3 seconds when in tap-first mode
   useEffect(() => {
     if (mode !== "tap-first") return;
-    
+
     const interval = setInterval(() => {
       setAnimationKey((prev) => prev + 1);
     }, 5000); // Change this value to adjust repeat frequency
-    
+
     return () => clearInterval(interval);
   }, [mode]);
 
@@ -168,7 +168,7 @@ export function PosForm({ students, studentIdsWithTransactions, userName }: PosF
 
     // Look up the card to find the student
     const cardResult = await getCardByUidAction(uid);
-    
+
     if (!cardResult.success || !cardResult.data) {
       // Card not found - offer enrollment
       setEnrollCardUid(uid);
@@ -184,7 +184,7 @@ export function PosForm({ students, studentIdsWithTransactions, userName }: PosF
     }
 
     const student = students.find((s) => s.id === cardResult.data.student_id);
-    
+
     if (!student) {
       setError("Student not found");
       return;
@@ -421,13 +421,12 @@ export function PosForm({ students, studentIdsWithTransactions, userName }: PosF
                   <div className="flex justify-between">
                     <span className="text-sm text-muted-foreground">Current Balance:</span>
                     <span
-                      className={`font-bold ${
-                        dialogStudent.balance < 0
+                      className={`font-bold ${dialogStudent.balance < 0
                           ? "text-red-600"
                           : dialogStudent.balance <= 50 && studentIdsWithTransactions.includes(dialogStudent.id)
-                          ? "text-orange-600"
-                          : ""
-                      }`}
+                            ? "text-orange-600"
+                            : ""
+                        }`}
                     >
                       ¥{formatCurrency(dialogStudent.balance)}
                     </span>
@@ -464,13 +463,13 @@ export function PosForm({ students, studentIdsWithTransactions, userName }: PosF
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="dialog-staff">Staff Name (Optional)</Label>
+                <Label htmlFor="dialog-staff">Staff Name</Label>
                 <Input
                   id="dialog-staff"
                   value={dialogStaff}
                   onChange={(e) => setDialogStaff(e.target.value)}
                   placeholder="Your name"
-                  disabled={dialogLoading}
+                  disabled
                 />
               </div>
             </div>
@@ -514,7 +513,7 @@ export function PosForm({ students, studentIdsWithTransactions, userName }: PosF
               </Button>
             </div>
             <p className="text-sm text-muted-foreground mt-3 text-center">
-              {mode === "tap-first" 
+              {mode === "tap-first"
                 ? "Fast checkout with NFC card tap"
                 : "Select student manually from the list"}
             </p>
@@ -602,8 +601,8 @@ export function PosForm({ students, studentIdsWithTransactions, userName }: PosF
               <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="space-y-2">
                   <Label htmlFor="student" className="text-base">Student</Label>
-                  <Select 
-                    value={studentId} 
+                  <Select
+                    value={studentId}
                     onValueChange={setStudentId}
                   >
                     <SelectTrigger id="student" className="w-full h-12 text-base">
@@ -626,13 +625,12 @@ export function PosForm({ students, studentIdsWithTransactions, userName }: PosF
                         Current Balance:
                       </span>
                       <span
-                        className={`font-bold text-xl ${
-                          selectedStudent.balance < 0
+                        className={`font-bold text-xl ${selectedStudent.balance < 0
                             ? "text-red-600"
                             : selectedStudent.balance <= 50 && studentIdsWithTransactions.includes(selectedStudent.id)
-                            ? "text-orange-600"
-                            : ""
-                        }`}
+                              ? "text-orange-600"
+                              : ""
+                          }`}
                       >
                         ¥{formatCurrency(selectedStudent.balance)}
                       </span>
@@ -675,19 +673,20 @@ export function PosForm({ students, studentIdsWithTransactions, userName }: PosF
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="staff" className="text-base">Staff Name (Optional)</Label>
+                  <Label htmlFor="staff" className="text-base">Staff Name</Label>
                   <Input
                     id="staff"
                     value={staff}
                     onChange={(e) => setStaff(e.target.value)}
                     placeholder="Your name"
                     className="text-base h-12"
+                    disabled
                   />
                 </div>
 
-                <Button 
-                  type="submit" 
-                  disabled={loading || !studentId || !amount} 
+                <Button
+                  type="submit"
+                  disabled={loading || !studentId || !amount}
                   className="w-full h-14 text-lg font-semibold"
                 >
                   {loading ? "Processing..." : `Charge ¥${amount || "0"}`}
