@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { getCardByUidAction, createCardAction } from "@/app/actions/cards";
-import { getStudentByIdAction, createStudentAction } from "@/app/actions/students";
+import { getStudentByIdAction, createStudentAction, getStudentByNameAction } from "@/app/actions/students";
 import type { Card } from "@/lib/models";
 import { useNFCWebSocket } from "@/lib/use-nfc-websocket";
 import { useNFCReader } from "@/lib/nfc-reader-context";
@@ -29,7 +29,7 @@ import { useNFCReader } from "@/lib/nfc-reader-context";
  */
 export function TapAlert() {
   const pathname = usePathname();
-  
+
   // Don't render anything on the POS page (POS has its own dialog)
   // IMPORTANT: Check pathname BEFORE using any other hooks to prevent duplicate WebSocket connections
   if (pathname === "/pos") {
@@ -67,7 +67,7 @@ export function TapAlert() {
     const result = await getCardByUidAction(uid);
     if (result.success && result.data) {
       setCardData(result.data);
-      
+
       // Fetch student details
       const studentResult = await getStudentByIdAction(result.data.student_id);
       if (studentResult.success && studentResult.data) {
@@ -119,21 +119,34 @@ export function TapAlert() {
     setEnrollmentLoading(true);
 
     try {
-      // First create the student
-      const studentResult = await createStudentAction({
-        name: enrollmentName,
-      });
+      let studentId: number;
 
-      if (!studentResult.success || !studentResult.data) {
-        setEnrollmentError(studentResult.error || "Failed to create student");
-        setEnrollmentLoading(false);
-        return;
+      // Check if student already exists
+      const existingStudent = await getStudentByNameAction(enrollmentName);
+
+      if (existingStudent.success && existingStudent.data) {
+        // Attach to existing student
+        studentId = existingStudent.data.id;
+        console.log(`[TapAlert] Attaching card to existing student: ${enrollmentName} (${studentId})`);
+      } else {
+        // Create new student
+        console.log(`[TapAlert] Creating new student: ${enrollmentName}`);
+        const studentResult = await createStudentAction({
+          name: enrollmentName,
+        });
+
+        if (!studentResult.success || !studentResult.data) {
+          setEnrollmentError(studentResult.error || "Failed to create student");
+          setEnrollmentLoading(false);
+          return;
+        }
+        studentId = studentResult.data.id;
       }
 
-      // Then create the card linked to the student
+      // Create the card linked to the student
       const cardResult = await createCardAction({
         card_uid: cardUid,
-        student_id: studentResult.data.id,
+        student_id: studentId,
         status: "active",
       });
 
@@ -147,14 +160,16 @@ export function TapAlert() {
       setOpen(false);
       setShowEnrollmentForm(false);
       setEnrollmentName("");
-      
+
       // Navigate based on destination
       if (destination === 'pos') {
         router.push(`/pos?card=${cardUid}`);
       } else if (destination === 'topup') {
-        router.push(`/topup?student=${studentResult.data.id}`);
+        router.push(`/topup?student=${studentId}`);
+      } else {
+        // If just attaching, refresh to show updates
+        router.refresh();
       }
-      // If destination is 'none', just close the drawer - Next.js will auto-revalidate
     } catch (error) {
       setEnrollmentError("An unexpected error occurred");
       console.error("Enrollment error:", error);
@@ -164,8 +179,8 @@ export function TapAlert() {
   };
 
   return (
-    <Drawer 
-      open={open} 
+    <Drawer
+      open={open}
       onOpenChange={(isOpen) => {
         setOpen(isOpen);
         if (!isOpen) {
@@ -182,7 +197,7 @@ export function TapAlert() {
               <DrawerHeader>
                 <DrawerTitle>Card Detected!</DrawerTitle>
                 <DrawerDescription>
-                  {cardData 
+                  {cardData
                     ? "Go to POS to process the transaction."
                     : "This card is not registered. Enroll it now or cancel."}
                   <span className="mt-2 block text-xs text-muted-foreground">
@@ -255,25 +270,28 @@ export function TapAlert() {
                       required
                       disabled={enrollmentLoading}
                     />
+                    <p className="text-xs text-muted-foreground">
+                      If the student exists, the card will be attached to them.
+                    </p>
                   </div>
                 </div>
               </div>
               <DrawerFooter>
-                <Button 
+                <Button
                   onClick={() => handleEnrollmentSubmit('topup')}
                   disabled={enrollmentLoading || !enrollmentName}
                 >
                   {enrollmentLoading ? "Enrolling..." : "Enroll & Top-up"}
                 </Button>
-                <Button 
+                <Button
                   variant="secondary"
                   onClick={() => handleEnrollmentSubmit('none')}
                   disabled={enrollmentLoading || !enrollmentName}
                 >
                   {enrollmentLoading ? "Enrolling..." : "Enroll Only"}
                 </Button>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={() => setShowEnrollmentForm(false)}
                   disabled={enrollmentLoading}
                 >

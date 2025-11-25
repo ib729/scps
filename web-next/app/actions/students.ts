@@ -8,6 +8,7 @@ import {
   updateStudent,
   deleteStudent,
   searchStudents,
+  getStudentByName,
 } from "@/lib/repositories/students";
 import { createStudentSchema } from "@/lib/models";
 
@@ -69,6 +70,18 @@ export async function searchStudentsAction(query: string) {
     return { success: true, data: searchStudents(query) };
   } catch {
     return { success: false, error: "Failed to search students" };
+  }
+}
+
+export async function getStudentByNameAction(name: string) {
+  try {
+    const student = getStudentByName(name);
+    if (!student) {
+      return { success: true, data: null };
+    }
+    return { success: true, data: student };
+  } catch {
+    return { success: false, error: "Failed to fetch student by name" };
   }
 }
 
