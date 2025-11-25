@@ -208,10 +208,10 @@ export function TopupForm({ students, studentIdsWithTransactions, userName }: To
                   </span>
                   <span
                     className={`font-bold ${selectedStudent.balance < 0
-                        ? "text-red-600"
-                        : selectedStudent.balance <= 50 && studentIdsWithTransactions.includes(selectedStudent.id)
-                          ? "text-orange-600"
-                          : ""
+                      ? "text-red-600"
+                      : selectedStudent.balance <= 50 && studentIdsWithTransactions.includes(selectedStudent.id)
+                        ? "text-orange-600"
+                        : ""
                       }`}
                   >
                     ¥{formatCurrency(selectedStudent.balance)}
@@ -271,9 +271,7 @@ export function TopupForm({ students, studentIdsWithTransactions, userName }: To
           <CardTitle>Manual Balance Adjustment</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground mb-4">
-            Use this for corrections or adjustments. Can be positive or negative.
-          </p>
+
           <form onSubmit={handleAdjust} className="space-y-6">
             {adjustError && (
               <Alert variant="destructive">
@@ -329,10 +327,10 @@ export function TopupForm({ students, studentIdsWithTransactions, userName }: To
                   </span>
                   <span
                     className={`font-bold ${selectedAdjustStudent.balance < 0
-                        ? "text-red-600"
-                        : selectedAdjustStudent.balance <= 50 && studentIdsWithTransactions.includes(selectedAdjustStudent.id)
-                          ? "text-orange-600"
-                          : ""
+                      ? "text-red-600"
+                      : selectedAdjustStudent.balance <= 50 && studentIdsWithTransactions.includes(selectedAdjustStudent.id)
+                        ? "text-orange-600"
+                        : ""
                       }`}
                   >
                     ¥{formatCurrency(selectedAdjustStudent.balance)}
