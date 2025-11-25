@@ -46,7 +46,7 @@
 
 :root {
   --radius: 0.625rem;
-  
+
   /* Light mode colors */
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
@@ -195,24 +195,26 @@ html.dark,
 }
 
 @layer base {
+
   /* Prevent transitions on theme changes to avoid flash */
-  html, body {
+  html,
+  body {
     transition: none !important;
   }
-  
+
   /* Ensure color-scheme is properly set based on the class */
   html:not(.dark) {
     color-scheme: light;
   }
-  
+
   html.dark {
     color-scheme: dark;
   }
-  
+
   * {
     @apply border-border outline-ring/50;
   }
-  
+
   body {
     @apply bg-background text-foreground;
   }
@@ -220,10 +222,13 @@ html.dark,
 
 @layer utilities {
   @keyframes breathe {
-    0%, 100% {
+
+    0%,
+    100% {
       opacity: 1;
       transform: scale(1);
     }
+
     50% {
       opacity: 0.6;
       transform: scale(1.02);
@@ -232,5 +237,24 @@ html.dark,
 
   .animate-breathe {
     animation: breathe 3s ease-in-out infinite;
+  }
+
+  /* Custom Slim Scrollbar */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background-color: var(--border);
+    border-radius: 20px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: var(--muted-foreground);
   }
 }
