@@ -14,7 +14,6 @@ import {
 
 import { Input } from "@/components/ui/input";
 import {
-  Table,
   TableBody,
   TableCell,
   TableHead,
@@ -38,9 +37,14 @@ export function DataTable<TData, TValue>({
     []
   );
 
+  // Memoize data and columns to prevent unnecessary re-renders
+  const memoizedData = React.useMemo(() => data, [data]);
+  const memoizedColumns = React.useMemo(() => columns, [columns]);
+
+  // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
-    data,
-    columns,
+    data: memoizedData,
+    columns: memoizedColumns,
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
     getCoreRowModel: getCoreRowModel(),
