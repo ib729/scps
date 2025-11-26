@@ -25,6 +25,9 @@ Environment="NEXTJS_URL=http://localhost:3000"
 Environment="POS_LANE_ID=reader-2"
 Environment="PN532_DEVICE=tty:USB1:pn532"
 
+# Pre-start: Reset USB device to ensure clean state (Target USB1 specifically)
+ExecStartPre=/home/qiss/scps/scripts/reset-usb-nfc.sh USB1
+
 # Pre-start: Wait for device to be ready (avoid race condition)
 ExecStartPre=/bin/sleep 5
 

@@ -14,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { deleteStudentAction } from "@/app/actions/students";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { toast } from "sonner";
 
 interface DeleteStudentDialogProps {
   studentId: number;
@@ -37,6 +38,7 @@ export function DeleteStudentDialog({
 
     if (result.success) {
       setOpen(false);
+      toast.success(result.message || "Student deleted successfully");
     } else {
       setError(result.error || "Failed to delete student");
     }
@@ -55,9 +57,11 @@ export function DeleteStudentDialog({
         <DialogHeader>
           <DialogTitle>Delete Student</DialogTitle>
           <DialogDescription>
-            Are you sure you want to delete <strong>{studentName}</strong>? This
-            will also delete all associated cards, transactions, and account
-            data. This action cannot be undone.
+            Are you sure you want to delete <strong>{studentName}</strong>?
+            <br /><br />
+            If the student has no transactions, they will be permanently deleted.
+            <br />
+            If the student has transactions, they will be <strong>archived</strong> instead to preserve financial history.
           </DialogDescription>
         </DialogHeader>
         {error && (
@@ -79,7 +83,7 @@ export function DeleteStudentDialog({
             onClick={handleDelete}
             disabled={loading}
           >
-            {loading ? "Deleting..." : "Delete"}
+            {loading ? "Processing..." : "Delete / Archive"}
           </Button>
         </DialogFooter>
       </DialogContent>

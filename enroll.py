@@ -1,11 +1,10 @@
 import argparse, sqlite3, binascii
 from contextlib import contextmanager
-
-DB = "stuco.db"
+import config
 
 @contextmanager
 def db():
-    con = sqlite3.connect(DB)
+    con = sqlite3.connect(config.DB_PATH)
     con.execute("PRAGMA foreign_keys=ON;")
     con.execute("PRAGMA busy_timeout=5000;")
     try:
@@ -28,8 +27,8 @@ def read_uid_from_pn532(device):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--name", required=False, help="Student name")
-    ap.add_argument("--device", default="tty:AMA0:pn532",
-                    help="nfcpy device (e.g., tty:AMA0:pn532 or usb:USB0:pn532)")
+    ap.add_argument("--device", default=config.DEFAULT_NFC_DEVICE,
+                    help=f"nfcpy device (default: {config.DEFAULT_NFC_DEVICE})")
     ap.add_argument("--simulate", help="Provide UID hex manually (no reader)")
     args = ap.parse_args()
 

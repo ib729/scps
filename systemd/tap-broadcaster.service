@@ -25,8 +25,8 @@ Environment="NEXTJS_URL=http://localhost:3000"
 Environment="POS_LANE_ID=reader-1"
 Environment="PN532_DEVICE=tty:USB0:pn532"
 
-# Pre-start: Reset USB device to ensure clean state
-ExecStartPre=/path/to/stuco/scripts/reset-usb-nfc.sh
+# Pre-start: Reset USB device to ensure clean state (Target USB0 specifically)
+ExecStartPre=/path/to/stuco/scripts/reset-usb-nfc.sh USB0
 
 # Main process with unbuffered output
 ExecStart=/path/to/stuco/.venv/bin/python -u /path/to/stuco/tap-broadcaster.py

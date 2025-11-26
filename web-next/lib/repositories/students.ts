@@ -15,6 +15,7 @@ export function getAllStudents(): StudentWithAccount[] {
       COALESCE(a.max_overdraft_week, 0) as max_overdraft_week
     FROM students s
     LEFT JOIN accounts a ON s.id = a.student_id
+    WHERE s.archived = 0
     ORDER BY s.name ASC
   `);
   return stmt.all() as StudentWithAccount[];
@@ -70,6 +71,21 @@ export function deleteStudent(id: number): void {
   stmt.run(id);
 }
 
+export function archiveStudent(id: number): void {
+  const db = getDb();
+  const stmt = db.prepare("UPDATE students SET archived = 1 WHERE id = ?");
+  stmt.run(id);
+}
+
+export function hasTransactions(id: number): boolean {
+  const db = getDb();
+  const stmt = db.prepare(
+    "SELECT COUNT(*) as count FROM transactions WHERE student_id = ?"
+  );
+  const result = stmt.get(id) as { count: number };
+  return result.count > 0;
+}
+
 export function searchStudents(query: string): StudentWithAccount[] {
   const db = getDb();
   const stmt = db.prepare(`
@@ -80,7 +96,7 @@ export function searchStudents(query: string): StudentWithAccount[] {
       COALESCE(a.max_overdraft_week, 0) as max_overdraft_week
     FROM students s
     LEFT JOIN accounts a ON s.id = a.student_id
-    WHERE s.name LIKE ?
+    WHERE s.name LIKE ? AND s.archived = 0
     ORDER BY s.name ASC
   `);
   return stmt.all(`%${query}%`) as StudentWithAccount[];

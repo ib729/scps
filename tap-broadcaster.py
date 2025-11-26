@@ -32,6 +32,7 @@ import sys
 import time
 from datetime import datetime, timezone
 from typing import Optional, Callable
+import config
 
 try:
     import websockets
@@ -46,7 +47,7 @@ class CardState:
     def __init__(self):
         self.last_uid: Optional[str] = None
         self.last_tap_time: float = 0
-        self.debounce_seconds: float = 1.5
+        self.debounce_seconds: float = config.NFC_DEBOUNCE_SECONDS
     
     def should_broadcast(self, uid: str) -> bool:
         """Check if this UID should be broadcast (not a duplicate)"""
@@ -680,23 +681,23 @@ async def main():
     )
     parser.add_argument(
         "--url",
-        default=os.getenv("NEXTJS_URL", "http://localhost:3000"),
-        help="Next.js server URL (default: http://localhost:3000 or $NEXTJS_URL)",
+        default=config.DEFAULT_SERVER_URL,
+        help=f"Next.js server URL (default: {config.DEFAULT_SERVER_URL})",
     )
     parser.add_argument(
         "--secret",
-        default=os.getenv("NFC_TAP_SECRET"),
-        help="Shared secret for authentication (default: $NFC_TAP_SECRET)",
+        default=config.NFC_TAP_SECRET,
+        help="Shared secret for authentication",
     )
     parser.add_argument(
         "--lane",
-        default=os.getenv("POS_LANE_ID", "default"),
-        help="POS lane identifier (default: 'default' or $POS_LANE_ID)",
+        default=config.DEFAULT_LANE_ID,
+        help=f"POS lane identifier (default: '{config.DEFAULT_LANE_ID}')",
     )
     parser.add_argument(
         "--device",
-        default=os.getenv("PN532_DEVICE", "tty:AMA0:pn532"),
-        help="NFC device string (default: tty:AMA0:pn532 or $PN532_DEVICE)",
+        default=config.DEFAULT_NFC_DEVICE,
+        help=f"NFC device string (default: {config.DEFAULT_NFC_DEVICE})",
     )
     parser.add_argument(
         "--simulate",
