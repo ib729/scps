@@ -67,8 +67,8 @@ export function DataTable<TData, TValue>({
           {addButton}
         </div>
       </div>
-      <div className="rounded-md border max-h-[70vh] overflow-y-auto relative custom-scrollbar">
-        <Table>
+      <div className="rounded-md border max-h-[70vh] overflow-auto relative custom-scrollbar">
+        <table className="w-full caption-bottom text-sm">
           <TableHeader className="sticky top-0 bg-background z-10">
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
@@ -78,9 +78,9 @@ export function DataTable<TData, TValue>({
                       {header.isPlaceholder
                         ? null
                         : flexRender(
-                          header.column.columnDef.header,
-                          header.getContext()
-                        )}
+                            header.column.columnDef.header,
+                            header.getContext()
+                          )}
                     </TableHead>
                   );
                 })}
@@ -115,7 +115,7 @@ export function DataTable<TData, TValue>({
               </TableRow>
             )}
           </TableBody>
-        </Table>
+        </table>
       </div>
       <div className="flex items-center justify-end space-x-2 py-4">
         <div className="text-sm text-muted-foreground">
