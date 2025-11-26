@@ -49,7 +49,7 @@ export function PosForm({ students, studentIdsWithTransactions, userName }: PosF
   const [cardUid, setCardUid] = useState<string>("");
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
-  const [staff, setStaff] = useState("");
+  const [staff, setStaff] = useState(userName || "");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [transactionId, setTransactionId] = useState<number | null>(null);
@@ -64,29 +64,15 @@ export function PosForm({ students, studentIdsWithTransactions, userName }: PosF
     selectedReaderRef.current = selectedReader;
   }, [selectedReader]);
 
-  // Auto-fill staff name with current user's name
-  useEffect(() => {
-    if (userName && !staff) {
-      setStaff(userName);
-    }
-  }, [userName, staff]);
-
   // Dialog state for Tap mode
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogStudentId, setDialogStudentId] = useState<number>(0);
   const [dialogCardUid, setDialogCardUid] = useState<string>("");
   const [dialogAmount, setDialogAmount] = useState("");
   const [dialogDescription, setDialogDescription] = useState("");
-  const [dialogStaff, setDialogStaff] = useState("");
+  const [dialogStaff, setDialogStaff] = useState(userName || "");
   const [dialogError, setDialogError] = useState("");
   const [dialogLoading, setDialogLoading] = useState(false);
-
-  // Auto-fill dialog staff name with current user's name
-  useEffect(() => {
-    if (userName && !dialogStaff) {
-      setDialogStaff(userName);
-    }
-  }, [userName, dialogStaff]);
 
   // Enrollment dialog state for unknown cards
   const [enrollDialogOpen, setEnrollDialogOpen] = useState(false);
@@ -106,6 +92,43 @@ export function PosForm({ students, studentIdsWithTransactions, userName }: PosF
 
   const readerLabel =
     selectedReader === "reader-1" ? "Reader 1 (USB0)" : "Reader 2 (USB1)";
+
+  const handleCardTap = async (uid: string) => {
+    setCardUid(uid);
+
+    // Look up the card to find the student
+    const cardResult = await getCardByUidAction(uid);
+
+    if (!cardResult.success || !cardResult.data) {
+      // Card not found - offer enrollment
+      setEnrollCardUid(uid);
+      setEnrollName("");
+      setEnrollError("");
+      setEnrollDialogOpen(true);
+      return;
+    }
+
+    if (cardResult.data.status !== "active") {
+      setError(`Card ${uid} is not active`);
+      return;
+    }
+
+    const student = students.find((s) => s.id === cardResult.data.student_id);
+
+    if (!student) {
+      setError("Student not found");
+      return;
+    }
+
+    // Tap-first mode: open dialog for amount entry
+    setDialogStudentId(student.id);
+    setDialogCardUid(uid);
+    setDialogAmount("");
+    setDialogDescription("");
+    setDialogStaff(userName);
+    setDialogError("");
+    setDialogOpen(true);
+  };
 
   // WebSocket connection for tap events (only in tap-first mode)
   const { isConnected, statusMessage: tapStatus } = useNFCWebSocket({
@@ -163,42 +186,6 @@ export function PosForm({ students, studentIdsWithTransactions, userName }: PosF
     }
   }, [searchParams]);
 
-  const handleCardTap = async (uid: string) => {
-    setCardUid(uid);
-
-    // Look up the card to find the student
-    const cardResult = await getCardByUidAction(uid);
-
-    if (!cardResult.success || !cardResult.data) {
-      // Card not found - offer enrollment
-      setEnrollCardUid(uid);
-      setEnrollName("");
-      setEnrollError("");
-      setEnrollDialogOpen(true);
-      return;
-    }
-
-    if (cardResult.data.status !== "active") {
-      setError(`Card ${uid} is not active`);
-      return;
-    }
-
-    const student = students.find((s) => s.id === cardResult.data.student_id);
-
-    if (!student) {
-      setError("Student not found");
-      return;
-    }
-
-    // Tap-first mode: open dialog for amount entry
-    setDialogStudentId(student.id);
-    setDialogCardUid(uid);
-    setDialogAmount("");
-    setDialogDescription("");
-    setDialogStaff(userName);
-    setDialogError("");
-    setDialogOpen(true);
-  };
 
   const handleEnrollCard = async (action: 'checkout' | 'topup' | 'none') => {
     setEnrollError("");
@@ -446,6 +433,12 @@ export function PosForm({ students, studentIdsWithTransactions, userName }: PosF
                   step="0.1"
                   value={dialogAmount}
                   onChange={(e) => setDialogAmount(e.target.value)}
+                  onWheel={(e) => e.currentTarget.blur()}
+                  onKeyDown={(e) => {
+                    if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+                      e.preventDefault();
+                    }
+                  }}
                   placeholder="Enter amount (e.g., 5.5)"
                   required
                   autoFocus
@@ -655,6 +648,12 @@ export function PosForm({ students, studentIdsWithTransactions, userName }: PosF
                     step="0.1"
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
+                    onWheel={(e) => e.currentTarget.blur()}
+                    onKeyDown={(e) => {
+                      if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+                        e.preventDefault();
+                      }
+                    }}
                     placeholder="Enter amount (e.g., 5.5)"
                     required
                     className="text-base h-12"
