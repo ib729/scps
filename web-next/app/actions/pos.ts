@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 import { getDb } from "@/lib/db";
 import { getStudentById } from "@/lib/repositories/students";
 import { getCardByUid } from "@/lib/repositories/cards";
@@ -28,6 +30,13 @@ const posCheckoutSchema = z
 
 export async function posCheckoutAction(data: unknown) {
   try {
+    const session = await auth.api.getSession({
+      headers: await headers(),
+    });
+    if (!session) {
+      return { success: false, error: "Unauthorized" };
+    }
+
     const validated = posCheckoutSchema.parse(data);
     const db = getDb();
 
@@ -37,7 +46,7 @@ export async function posCheckoutAction(data: unknown) {
     const result = db.transaction(() => {
       // Resolve student: either from student_id or by looking up card_uid
       let studentId: number;
-      let cardUid: string | undefined = validated.card_uid;
+      const cardUid: string | undefined = validated.card_uid;
 
       if (validated.student_id) {
         // Direct student selection

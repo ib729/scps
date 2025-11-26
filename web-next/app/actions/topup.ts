@@ -2,6 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 import { getDb } from "@/lib/db";
 import { getStudentById } from "@/lib/repositories/students";
 import { createTransaction } from "@/lib/repositories/transactions";
@@ -17,6 +19,13 @@ const topupSchema = z.object({
 
 export async function topupAction(data: unknown) {
   try {
+    const session = await auth.api.getSession({
+      headers: await headers(),
+    });
+    if (!session) {
+      return { success: false, error: "Unauthorized" };
+    }
+
     const validated = topupSchema.parse(data);
     const db = getDb();
 
@@ -73,6 +82,13 @@ const adjustSchema = z.object({
 
 export async function adjustBalanceManualAction(data: unknown) {
   try {
+    const session = await auth.api.getSession({
+      headers: await headers(),
+    });
+    if (!session) {
+      return { success: false, error: "Unauthorized" };
+    }
+
     const validated = adjustSchema.parse(data);
     const db = getDb();
 

@@ -1,12 +1,11 @@
 import argparse, sqlite3, binascii, time
 from datetime import datetime, timedelta, timezone
+import config
+
 try:
     from zoneinfo import ZoneInfo
 except Exception:
     ZoneInfo = None  # Python <3.9: fallback uses UTC-week approximation
-
-DB = "stuco.db"
-WEEK_TZ = "Asia/Shanghai"  # stable UTC+8, no DST
 
 def week_start_utc(now_utc: datetime) -> str:
     """Return Monday 00:00 of the current week in Asia/Shanghai, converted to UTC (naive string)."""
@@ -14,7 +13,7 @@ def week_start_utc(now_utc: datetime) -> str:
         weekday = now_utc.weekday()
         start = (now_utc - timedelta(days=weekday)).replace(hour=0, minute=0, second=0, microsecond=0)
         return start.strftime("%Y-%m-%d %H:%M:%S")
-    local = now_utc.astimezone(ZoneInfo(WEEK_TZ))
+    local = now_utc.astimezone(ZoneInfo(config.TIMEZONE))
     weekday = local.weekday()  # Monday=0
     start_local = (local - timedelta(days=weekday)).replace(hour=0, minute=0, second=0, microsecond=0)
     start_utc = start_local.astimezone(timezone.utc).replace(tzinfo=None)
@@ -41,7 +40,7 @@ def charge_by_uid(uid_hex: str, price: float, staff="pos"):
     # Convert to tenths (e.g., 5.5 -> 55)
     price_tenths = round(price * 10)
 
-    con = sqlite3.connect(DB)
+    con = sqlite3.connect(config.DB_PATH)
     con.execute("PRAGMA foreign_keys=ON;")
     con.execute("PRAGMA busy_timeout=5000;")
     cur = con.cursor()
@@ -100,7 +99,7 @@ def read_uid_from_pn532(device):
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("price", type=float, help="price per tap in CNY (e.g., 6.5)")
-    ap.add_argument("--device", default="tty:AMA0:pn532",
+    ap.add_argument("--device", default=config.DEFAULT_NFC_DEVICE,
                     help="nfcpy device string (e.g., tty:AMA0:pn532, usb:USB0:pn532)")
     ap.add_argument("--simulate", action="store_true", help="type UIDs manually (no reader)")
     args = ap.parse_args()

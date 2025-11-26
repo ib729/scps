@@ -1,6 +1,5 @@
 import argparse, sqlite3
-
-DB = "stuco.db"
+import config
 
 def topup(uid_hex: str, amount: float, staff="admin"):
     if amount <= 0:
@@ -10,7 +9,7 @@ def topup(uid_hex: str, amount: float, staff="admin"):
     # Convert to tenths (e.g., 5.5 -> 55)
     amount_tenths = round(amount * 10)
 
-    con = sqlite3.connect(DB)
+    con = sqlite3.connect(config.DB_PATH)
     con.execute("PRAGMA foreign_keys=ON;")
     con.execute("PRAGMA busy_timeout=5000;")
     cur = con.cursor()

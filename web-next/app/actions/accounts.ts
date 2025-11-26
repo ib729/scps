@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 import {
   getAccountByStudentId,
   updateAccount,
@@ -11,6 +13,12 @@ import { toDbValue } from "@/lib/currency";
 
 export async function getAccountByStudentIdAction(studentId: number) {
   try {
+    const session = await auth.api.getSession({
+      headers: await headers(),
+    });
+    if (!session) {
+      return { success: false, error: "Unauthorized" };
+    }
     const account = getAccountByStudentId(studentId);
     if (!account) {
       return { success: false, error: "Account not found" };
@@ -23,6 +31,12 @@ export async function getAccountByStudentIdAction(studentId: number) {
 
 export async function updateAccountAction(studentId: number, data: unknown) {
   try {
+    const session = await auth.api.getSession({
+      headers: await headers(),
+    });
+    if (!session) {
+      return { success: false, error: "Unauthorized" };
+    }
     const validated = updateAccountSchema.parse(data);
     updateAccount(studentId, validated);
     revalidatePath("/students");
@@ -35,6 +49,12 @@ export async function updateAccountAction(studentId: number, data: unknown) {
 
 export async function adjustBalanceAction(studentId: number, delta: number) {
   try {
+    const session = await auth.api.getSession({
+      headers: await headers(),
+    });
+    if (!session) {
+      return { success: false, error: "Unauthorized" };
+    }
     adjustBalance(studentId, delta);
     revalidatePath("/students");
     revalidatePath(`/students/${studentId}`);

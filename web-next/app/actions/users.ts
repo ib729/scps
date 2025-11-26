@@ -1,5 +1,7 @@
 "use server";
 
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 import { getDb } from "@/lib/db";
 import { UsersRepository } from "@/lib/repositories";
 import {
@@ -29,6 +31,13 @@ export async function verifySignupCode(code: string) {
 
 export async function getCurrentUser() {
   try {
+    const session = await auth.api.getSession({
+      headers: await headers(),
+    });
+    if (!session) {
+      return { success: false, error: "Unauthorized" };
+    }
+
     const db = getDb();
     const usersRepo = new UsersRepository(db);
     
@@ -63,6 +72,13 @@ export async function updateUserProfile(
   data: { name?: string; email?: string; avatar?: string }
 ) {
   try {
+    const session = await auth.api.getSession({
+      headers: await headers(),
+    });
+    if (!session) {
+      return { success: false, error: "Unauthorized" };
+    }
+
     const validated = updateUserProfileSchema.parse(data);
     const db = getDb();
     const usersRepo = new UsersRepository(db);
@@ -84,9 +100,9 @@ export async function updateUserProfile(
         avatar: user.avatar || undefined,
       },
     };
-  } catch (error: any) {
+  } catch (error) {
     console.error("Failed to update profile:", error);
-    return { success: false, error: error.message || "Failed to update profile" };
+    return { success: false, error: error instanceof Error ? error.message : "Failed to update profile" };
   }
 }
 
@@ -97,6 +113,13 @@ export async function createUser(data: {
   avatar?: string;
 }) {
   try {
+    const session = await auth.api.getSession({
+      headers: await headers(),
+    });
+    if (!session) {
+      return { success: false, error: "Unauthorized" };
+    }
+
     const validated = createUserSchema.parse(data);
     const db = getDb();
     const usersRepo = new UsersRepository(db);
@@ -114,9 +137,9 @@ export async function createUser(data: {
         avatar: user.avatar || undefined,
       },
     };
-  } catch (error: any) {
+  } catch (error) {
     console.error("Failed to create user:", error);
-    return { success: false, error: error.message || "Failed to create user" };
+    return { success: false, error: error instanceof Error ? error.message : "Failed to create user" };
   }
 }
 

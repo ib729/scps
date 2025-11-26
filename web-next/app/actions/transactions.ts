@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { auth } from "@/lib/auth";
+import { headers } from "next/headers";
 import {
   getAllTransactions,
   getTransactionsByStudentId,
@@ -15,6 +17,12 @@ import { getDb } from "@/lib/db";
 
 export async function getTransactionsAction(limit?: number) {
   try {
+    const session = await auth.api.getSession({
+      headers: await headers(),
+    });
+    if (!session) {
+      return { success: false, error: "Unauthorized" };
+    }
     return { success: true, data: getAllTransactions(limit) };
   } catch {
     return { success: false, error: "Failed to fetch transactions" };
@@ -23,6 +31,12 @@ export async function getTransactionsAction(limit?: number) {
 
 export async function getTransactionsByStudentIdAction(studentId: number) {
   try {
+    const session = await auth.api.getSession({
+      headers: await headers(),
+    });
+    if (!session) {
+      return { success: false, error: "Unauthorized" };
+    }
     return { success: true, data: getTransactionsByStudentId(studentId) };
   } catch {
     return { success: false, error: "Failed to fetch transactions" };
@@ -31,6 +45,12 @@ export async function getTransactionsByStudentIdAction(studentId: number) {
 
 export async function getTransactionByIdAction(id: number) {
   try {
+    const session = await auth.api.getSession({
+      headers: await headers(),
+    });
+    if (!session) {
+      return { success: false, error: "Unauthorized" };
+    }
     const transaction = getTransactionById(id);
     if (!transaction) {
       return { success: false, error: "Transaction not found" };
@@ -43,6 +63,12 @@ export async function getTransactionByIdAction(id: number) {
 
 export async function createTransactionAction(data: unknown) {
   try {
+    const session = await auth.api.getSession({
+      headers: await headers(),
+    });
+    if (!session) {
+      return { success: false, error: "Unauthorized" };
+    }
     const validated = createTransactionSchema.parse(data);
     const db = getDb();
 
@@ -65,6 +91,12 @@ export async function createTransactionAction(data: unknown) {
 
 export async function deleteTransactionAction(id: number) {
   try {
+    const session = await auth.api.getSession({
+      headers: await headers(),
+    });
+    if (!session) {
+      return { success: false, error: "Unauthorized" };
+    }
     // Note: Deleting transactions should also adjust the balance back
     const transaction = getTransactionById(id);
     if (!transaction) {
@@ -90,6 +122,12 @@ export async function deleteTransactionAction(id: number) {
 
 export async function getRecentTransactionsAction(limit: number = 10) {
   try {
+    const session = await auth.api.getSession({
+      headers: await headers(),
+    });
+    if (!session) {
+      return { success: false, error: "Unauthorized" };
+    }
     return { success: true, data: getRecentTransactions(limit) };
   } catch {
     return { success: false, error: "Failed to fetch recent transactions" };
