@@ -104,6 +104,7 @@ def batch_import_students(csv_file, skip_duplicates=True, dry_run=False):
         print("\n=== DRY RUN MODE - No changes will be made ===\n")
     
     # Connect to database and import
+    print(f"Connecting to database at: {Path(DB).resolve()}")
     con = sqlite3.connect(DB)
     con.execute("PRAGMA foreign_keys=ON;")
     con.execute("PRAGMA busy_timeout=5000;")

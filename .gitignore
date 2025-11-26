@@ -230,3 +230,5 @@ rclone.conf
 # Claude Code documentation
 CLAUDE.md
 
+# Kilocode
+.kilocode/
