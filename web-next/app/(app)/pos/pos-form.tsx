@@ -27,6 +27,11 @@ import { formatCurrency } from "@/lib/currency";
 import { useNFCWebSocket } from "@/lib/use-nfc-websocket";
 import { useNFCReader } from "@/lib/nfc-reader-context";
 import { StudentSearchField } from "@/components/student-search-field";
+import {
+  DEFAULT_POS_MODE,
+  POS_DEFAULT_MODE_STORAGE_KEY,
+  parsePosDefaultMode,
+} from "@/lib/pos-preferences";
 
 interface PosFormProps {
   studentIdsWithTransactions: number[];
@@ -37,7 +42,7 @@ type WorkflowMode = "tap-first" | "manual";
 
 export function PosForm({ studentIdsWithTransactions, userName }: PosFormProps) {
   const { selectedReader, setSelectedReader } = useNFCReader();
-  const [mode, setMode] = useState<WorkflowMode>("tap-first");
+  const [mode, setMode] = useState<WorkflowMode>(DEFAULT_POS_MODE);
   const [cardUid, setCardUid] = useState<string>("");
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
@@ -84,6 +89,15 @@ export function PosForm({ studentIdsWithTransactions, userName }: PosFormProps) 
 
   const readerLabel =
     selectedReader === "reader-1" ? "Reader 1 (USB0)" : "Reader 2 (USB1)";
+
+  useEffect(() => {
+    const storedMode = parsePosDefaultMode(
+      typeof window === "undefined"
+        ? null
+        : window.localStorage.getItem(POS_DEFAULT_MODE_STORAGE_KEY)
+    );
+    setMode(storedMode);
+  }, []);
 
   const handleCardTap = async (uid: string) => {
     setCardUid(uid);
