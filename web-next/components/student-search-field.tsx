@@ -139,7 +139,7 @@ export function StudentSearchField({
             }
           }}
           placeholder={placeholder}
-          className="h-12 text-base"
+          className="h-12 text-base md:text-base"
           autoComplete="off"
         />
         {selectedStudent ? (

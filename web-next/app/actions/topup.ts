@@ -8,14 +8,32 @@ import { createTransaction } from "@/lib/repositories/transactions";
 import { adjustBalance } from "@/lib/repositories/accounts";
 import { toDbValue } from "@/lib/currency";
 import { requireAuthContext } from "@/lib/auth-session";
-import { PAYMENT_METHOD_VALUES } from "@/lib/payment-methods";
+import {
+  OTHER_PAYMENT_METHOD_MAX_LENGTH,
+  PAYMENT_METHOD_VALUES,
+} from "@/lib/payment-methods";
 
-const topupSchema = z.object({
-  student_id: z.number().int().positive(),
-  amount: z.number().positive(),
-  payment_method: z.enum(PAYMENT_METHOD_VALUES),
-  description: z.string().optional(),
-});
+const topupSchema = z
+  .object({
+    student_id: z.number().int().positive(),
+    amount: z.number().positive(),
+    payment_method: z.enum(PAYMENT_METHOD_VALUES),
+    other_payment_method: z
+      .string()
+      .trim()
+      .max(OTHER_PAYMENT_METHOD_MAX_LENGTH)
+      .optional(),
+    description: z.string().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.payment_method === "Other" && !data.other_payment_method) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["other_payment_method"],
+        message: "Enter the payment method",
+      });
+    }
+  });
 
 export async function topupAction(data: unknown) {
   try {
@@ -25,6 +43,10 @@ export async function topupAction(data: unknown) {
     const db = getDb();
 
     const amountInCents = toDbValue(validated.amount);
+    const paymentMethod =
+      validated.payment_method === "Other"
+        ? validated.other_payment_method!
+        : validated.payment_method;
 
     const result = db.transaction(() => {
       const student = getStudentById(validated.student_id);
@@ -37,7 +59,7 @@ export async function topupAction(data: unknown) {
         type: "TOPUP",
         amount: amountInCents,
         overdraft_component: 0,
-        payment_method: validated.payment_method,
+        payment_method: paymentMethod,
         description: validated.description || undefined,
         staff: user.name,
       });
