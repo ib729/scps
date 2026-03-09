@@ -22,7 +22,11 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { formatCurrency, LOW_BALANCE_THRESHOLD } from "@/lib/currency";
 import type { StudentWithAccount } from "@/lib/models";
-import { PAYMENT_METHOD_VALUES, type PaymentMethod } from "@/lib/payment-methods";
+import {
+  OTHER_PAYMENT_METHOD_MAX_LENGTH,
+  PAYMENT_METHOD_VALUES,
+  type PaymentMethod,
+} from "@/lib/payment-methods";
 
 interface TopupFormProps {
   studentIdsWithTransactions: number[];
@@ -32,6 +36,7 @@ interface TopupFormProps {
 export function TopupForm({ studentIdsWithTransactions, userName }: TopupFormProps) {
   const [amount, setAmount] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | "">("");
+  const [otherPaymentMethod, setOtherPaymentMethod] = useState("");
   const [description, setDescription] = useState("");
   const [staff, setStaff] = useState("");
   const [error, setError] = useState("");
@@ -113,6 +118,7 @@ export function TopupForm({ studentIdsWithTransactions, userName }: TopupFormPro
       student_id: selectedStudent.id,
       amount: parseFloat(amount),
       payment_method: paymentMethod as PaymentMethod,
+      other_payment_method: paymentMethod === "Other" ? otherPaymentMethod : undefined,
       description: description || undefined,
     });
 
@@ -129,6 +135,7 @@ export function TopupForm({ studentIdsWithTransactions, userName }: TopupFormPro
       });
       setAmount("");
       setPaymentMethod("");
+      setOtherPaymentMethod("");
       setDescription("");
     } else {
       setError(result.error || "Failed to process top-up");
@@ -253,7 +260,7 @@ export function TopupForm({ studentIdsWithTransactions, userName }: TopupFormPro
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder="Enter amount (e.g., 5.50)"
-                className="h-12 text-base"
+                className="h-12 text-base md:text-base"
                 required
               />
             </div>
@@ -264,20 +271,49 @@ export function TopupForm({ studentIdsWithTransactions, userName }: TopupFormPro
               </Label>
               <Select
                 value={paymentMethod}
-                onValueChange={(value) => setPaymentMethod(value as PaymentMethod)}
+                onValueChange={(value) => {
+                  const nextValue = value as PaymentMethod;
+                  setPaymentMethod(nextValue);
+                  if (nextValue !== "Other") {
+                    setOtherPaymentMethod("");
+                  }
+                }}
               >
-                <SelectTrigger id="payment-method" className="h-12 w-full text-base">
+                <SelectTrigger
+                  id="payment-method"
+                  className="h-12 w-full text-base md:text-base *:data-[slot=select-value]:text-base"
+                >
                   <SelectValue placeholder="Select payment method" />
                 </SelectTrigger>
                 <SelectContent>
                   {PAYMENT_METHOD_VALUES.map((method) => (
-                    <SelectItem key={method} value={method}>
+                    <SelectItem key={method} value={method} className="text-base md:text-base">
                       {method}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
+
+            {paymentMethod === "Other" ? (
+              <div className="space-y-2">
+                <Label htmlFor="other-payment-method" className="text-base font-medium">
+                  Other Payment Method
+                </Label>
+                <Input
+                  id="other-payment-method"
+                  value={otherPaymentMethod}
+                  onChange={(e) => setOtherPaymentMethod(e.target.value)}
+                  placeholder="Enter payment method"
+                  className="h-12 text-base md:text-base"
+                  maxLength={OTHER_PAYMENT_METHOD_MAX_LENGTH}
+                  required
+                />
+                <p className="text-xs text-muted-foreground">
+                  Up to {OTHER_PAYMENT_METHOD_MAX_LENGTH} characters.
+                </p>
+              </div>
+            ) : null}
 
             <div className="space-y-2">
               <Label htmlFor="description" className="text-base font-medium">
@@ -288,7 +324,7 @@ export function TopupForm({ studentIdsWithTransactions, userName }: TopupFormPro
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Optional notes about the top-up"
-                className="min-h-[88px] text-base"
+                className="min-h-[88px] text-base md:text-base"
               />
             </div>
 
@@ -301,14 +337,19 @@ export function TopupForm({ studentIdsWithTransactions, userName }: TopupFormPro
                 value={staff}
                 onChange={(e) => setStaff(e.target.value)}
                 placeholder="Your name"
-                className="h-12 text-base"
+                className="h-12 text-base md:text-base"
                 disabled
               />
             </div>
 
             <Button
               type="submit"
-              disabled={loading || !selectedStudent || !paymentMethod}
+              disabled={
+                loading ||
+                !selectedStudent ||
+                !paymentMethod ||
+                (paymentMethod === "Other" && !otherPaymentMethod.trim())
+              }
               className="w-full"
             >
               {loading ? "Processing..." : `Add ¥${amount || "0"}`}
@@ -399,7 +440,7 @@ export function TopupForm({ studentIdsWithTransactions, userName }: TopupFormPro
                 value={adjustAmount}
                 onChange={(e) => setAdjustAmount(e.target.value)}
                 placeholder="e.g., 10.50 or -5.25"
-                className="h-12 text-base"
+                className="h-12 text-base md:text-base"
                 required
               />
               <p className="text-xs text-muted-foreground">
@@ -416,7 +457,7 @@ export function TopupForm({ studentIdsWithTransactions, userName }: TopupFormPro
                 value={adjustDescription}
                 onChange={(e) => setAdjustDescription(e.target.value)}
                 placeholder="Explain the reason for this adjustment"
-                className="min-h-[88px] text-base"
+                className="min-h-[88px] text-base md:text-base"
                 required
               />
             </div>
