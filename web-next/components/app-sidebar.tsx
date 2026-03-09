@@ -23,6 +23,12 @@ import {
 } from "lucide-react"
 import { useTheme } from "next-themes"
 import { useNFCReader } from "@/lib/nfc-reader-context"
+import {
+  DEFAULT_POS_MODE,
+  POS_DEFAULT_MODE_STORAGE_KEY,
+  parsePosDefaultMode,
+  type PosDefaultMode,
+} from "@/lib/pos-preferences"
 
 import {
   Sidebar,
@@ -122,6 +128,8 @@ export function AppSidebar({ user: initialUser, ...props }: AppSidebarProps) {
   const [loading, setLoading] = React.useState(false)
   const [deletePassword, setDeletePassword] = React.useState("")
   const [localSelectedReader, setLocalSelectedReader] = React.useState(selectedReader)
+  const [localDefaultPosMode, setLocalDefaultPosMode] =
+    React.useState<PosDefaultMode>(DEFAULT_POS_MODE)
   const [restartingServices, setRestartingServices] = React.useState(false)
   const [downloadingBackup, setDownloadingBackup] = React.useState(false)
 
@@ -154,9 +162,17 @@ export function AppSidebar({ user: initialUser, ...props }: AppSidebarProps) {
     setLocalSelectedReader(selectedReader)
   }, [selectedReader])
 
+  React.useEffect(() => {
+    if (!mounted) return
+    setLocalDefaultPosMode(
+      parsePosDefaultMode(localStorage.getItem(POS_DEFAULT_MODE_STORAGE_KEY))
+    )
+  }, [mounted, showSettingsDialog])
+
   // Handle saving settings
   const handleSaveSettings = () => {
     setSelectedReader(localSelectedReader)
+    localStorage.setItem(POS_DEFAULT_MODE_STORAGE_KEY, localDefaultPosMode)
     setShowSettingsDialog(false)
     toast.success("Settings saved successfully")
   }
@@ -371,9 +387,9 @@ export function AppSidebar({ user: initialUser, ...props }: AppSidebarProps) {
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
               <Link href="/">
-                <div className="grid flex-1 text-left text-base leading-tight">
-                  <span className="truncate font-semibold">Student Council</span>
-                  <span className="truncate text-sm">2025-2026</span>
+                <div className="grid flex-1 text-left text-lg leading-tight">
+                  <span className="truncate font-semibold tracking-tight">Student Council</span>
+                  <span className="truncate text-base text-sidebar-foreground/70">2025-2026</span>
                 </div>
               </Link>
             </SidebarMenuButton>
@@ -822,6 +838,55 @@ export function AppSidebar({ user: initialUser, ...props }: AppSidebarProps) {
                 </div>
               </div>
 
+              <div className="space-y-3 pt-4 border-t">
+                <Label className="text-base font-semibold">
+                  POS Default Mode
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  Choose which mode the POS page should open with by default.
+                </p>
+                <div className="space-y-3 pl-6">
+                  <div className="flex items-center space-x-3">
+                    <input
+                      type="radio"
+                      id="pos-mode-tap"
+                      name="pos-default-mode"
+                      value="tap-first"
+                      checked={localDefaultPosMode === "tap-first"}
+                      onChange={(e) =>
+                        setLocalDefaultPosMode(e.target.value as PosDefaultMode)
+                      }
+                      className="h-4 w-4 cursor-pointer"
+                    />
+                    <label htmlFor="pos-mode-tap" className="text-sm cursor-pointer flex-1">
+                      <div className="font-medium">Tap Card</div>
+                      <div className="text-muted-foreground text-xs">
+                        Open POS ready for NFC card taps
+                      </div>
+                    </label>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <input
+                      type="radio"
+                      id="pos-mode-manual"
+                      name="pos-default-mode"
+                      value="manual"
+                      checked={localDefaultPosMode === "manual"}
+                      onChange={(e) =>
+                        setLocalDefaultPosMode(e.target.value as PosDefaultMode)
+                      }
+                      className="h-4 w-4 cursor-pointer"
+                    />
+                    <label htmlFor="pos-mode-manual" className="text-sm cursor-pointer flex-1">
+                      <div className="font-medium">Manual</div>
+                      <div className="text-muted-foreground text-xs">
+                        Open POS with student search selected
+                      </div>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
               {user?.role === "admin" ? (
                 <>
                   <div className="space-y-3 border-t pt-4">
@@ -891,6 +956,11 @@ export function AppSidebar({ user: initialUser, ...props }: AppSidebarProps) {
                 variant="outline"
                 onClick={() => {
                   setLocalSelectedReader(selectedReader)
+                  setLocalDefaultPosMode(
+                    mounted
+                      ? parsePosDefaultMode(localStorage.getItem(POS_DEFAULT_MODE_STORAGE_KEY))
+                      : DEFAULT_POS_MODE
+                  )
                   setShowSettingsDialog(false)
                 }}
               >
