@@ -69,7 +69,7 @@ export default async function StudentDetailPage({
                 student.balance < 0
                   ? "text-red-600"
                   : student.balance <= LOW_BALANCE_THRESHOLD && hasTransactions
-                  ? "text-orange-600"
+                  ? "text-red-600"
                   : ""
               }`}
             >

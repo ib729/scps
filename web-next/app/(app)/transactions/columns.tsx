@@ -226,6 +226,8 @@ export const columns: ColumnDef<TransactionWithStudent>[] = [
     },
     cell: ({ row }) => {
       const tx = row.original;
+      const sign = tx.amount > 0 ? "+" : tx.amount < 0 ? "-" : "";
+
       return (
         <div className="px-4 min-w-[100px]">
           <span
@@ -233,7 +235,7 @@ export const columns: ColumnDef<TransactionWithStudent>[] = [
               tx.amount >= 0 ? "text-green-600" : "text-red-600"
             }`}
           >
-            {tx.amount >= 0 ? "+" : ""}¥{formatCurrency(Math.abs(tx.amount))}
+            {sign}¥{formatCurrency(Math.abs(tx.amount))}
           </span>
         </div>
       );

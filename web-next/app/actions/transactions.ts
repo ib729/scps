@@ -9,6 +9,7 @@ import {
   deleteTransaction,
   getRecentTransactions,
   getTransactionsPage,
+  getTransactionsBatch,
 } from "@/lib/repositories/transactions";
 import { adjustBalance } from "@/lib/repositories/accounts";
 import { createTransactionSchema } from "@/lib/models";
@@ -108,6 +109,15 @@ export async function getTransactionsPageAction(page: number, pageSize: number) 
   try {
     await requireAuthContext();
     return { success: true, data: getTransactionsPage({ page, pageSize }) };
+  } catch {
+    return { success: false, error: "Failed to fetch transactions" };
+  }
+}
+
+export async function getTransactionsBatchAction(offset: number, limit: number) {
+  try {
+    await requireAuthContext();
+    return { success: true, data: getTransactionsBatch({ offset, limit }) };
   } catch {
     return { success: false, error: "Failed to fetch transactions" };
   }

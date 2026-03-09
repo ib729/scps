@@ -142,7 +142,7 @@ export default async function DashboardPage() {
                           : "text-red-600"
                         }`}
                     >
-                      {tx.amount >= 0 ? "+" : ""}¥{formatCurrency(Math.abs(tx.amount))}
+                      {(tx.amount > 0 ? "+" : tx.amount < 0 ? "-" : "")}¥{formatCurrency(Math.abs(tx.amount))}
                     </p>
                     <p className="text-xs text-muted-foreground whitespace-nowrap">
                       {new Date(tx.created_at).toLocaleDateString()}

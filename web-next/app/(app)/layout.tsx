@@ -20,11 +20,11 @@ export default async function AppLayout({
     <NFCReaderProvider>
       <SidebarProvider>
         <AppSidebar user={session.user} />
-        <SidebarInset>
+        <SidebarInset className="min-h-svh overflow-hidden">
           <header className="flex h-14 shrink-0 items-center px-4 md:hidden">
             <SidebarTrigger className="-ml-1" />
           </header>
-          <div className="flex flex-1 flex-col gap-4 p-4 md:p-6 lg:p-8">
+          <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden p-4 md:p-6 lg:p-8">
             <TapAlert />
             {children}
           </div>
