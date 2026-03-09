@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { authClient } from "@/lib/auth-client"
 import {
   LayoutDashboard,
@@ -111,6 +111,7 @@ interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
 }
 
 export function AppSidebar({ user: initialUser, ...props }: AppSidebarProps) {
+  const pathname = usePathname()
   const router = useRouter()
   const { setTheme, resolvedTheme } = useTheme()
   const { selectedReader, setSelectedReader } = useNFCReader()
@@ -255,6 +256,17 @@ export function AppSidebar({ user: initialUser, ...props }: AppSidebarProps) {
     setPasswordData((prev) => ({ ...prev, [field]: value }))
   }
 
+  const isNavItemActive = React.useCallback(
+    (url: string) => {
+      if (url === "/dashboard") {
+        return pathname === "/" || pathname === "/dashboard"
+      }
+
+      return pathname === url || pathname?.startsWith(`${url}/`)
+    },
+    [pathname]
+  )
+
   const handleSaveProfile = async () => {
     if (!user) return
 
@@ -375,7 +387,15 @@ export function AppSidebar({ user: initialUser, ...props }: AppSidebarProps) {
             <SidebarMenu>
               {navItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={isNavItemActive(item.url)}
+                    className={
+                      isNavItemActive(item.url)
+                        ? "shadow-[inset_3px_0_0_hsl(var(--sidebar-primary))] bg-sidebar-accent text-sidebar-accent-foreground"
+                        : undefined
+                    }
+                  >
                     <Link href={item.url}>
                       <item.icon />
                       <span>{item.title}</span>
