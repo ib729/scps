@@ -24,7 +24,7 @@ export function getAllTransactions(
       s.name as student_name
     FROM transactions t
     JOIN students s ON t.student_id = s.id
-    ORDER BY t.created_at DESC
+    ORDER BY t.created_at DESC, t.id DESC
     ${limit ? "LIMIT ?" : ""}
   `;
   const stmt = db.prepare(query);
@@ -38,7 +38,7 @@ export function getTransactionsByStudentId(
   const stmt = db.prepare(`
     SELECT * FROM transactions
     WHERE student_id = ?
-    ORDER BY created_at DESC
+    ORDER BY created_at DESC, id DESC
   `);
   return stmt.all(studentId) as Transaction[];
 }
@@ -240,7 +240,7 @@ export function getTransactionsPage({
           s.name as student_name
         FROM transactions t
         JOIN students s ON t.student_id = s.id
-        ORDER BY t.created_at DESC
+        ORDER BY t.created_at DESC, t.id DESC
         LIMIT ? OFFSET ?
       `,
     )
@@ -252,5 +252,57 @@ export function getTransactionsPage({
     page: normalizedPage,
     pageSize: normalizedPageSize,
     totalPages: Math.max(1, Math.ceil(total / normalizedPageSize)),
+  };
+}
+
+export function getTransactionsBatch({
+  offset,
+  limit,
+}: {
+  offset: number;
+  limit: number;
+}) {
+  const normalizedOffset = Math.max(0, offset);
+  const normalizedLimit = Math.min(Math.max(limit, 20), 200);
+  const db = getDb();
+
+  const total = (
+    db.prepare("SELECT COUNT(*) AS count FROM transactions").get() as {
+      count: number;
+    }
+  ).count;
+
+  const items = db
+    .prepare(
+      `
+        SELECT
+          t.id,
+          t.student_id,
+          t.card_uid,
+          t.type,
+          t.amount,
+          t.overdraft_component,
+          t.payment_method,
+          t.description,
+          t.staff,
+          t.created_at,
+          s.name as student_name
+        FROM transactions t
+        JOIN students s ON t.student_id = s.id
+        ORDER BY t.created_at DESC, t.id DESC
+        LIMIT ? OFFSET ?
+      `,
+    )
+    .all(normalizedLimit, normalizedOffset) as TransactionWithStudent[];
+
+  const nextOffset = normalizedOffset + items.length;
+
+  return {
+    items,
+    total,
+    offset: normalizedOffset,
+    limit: normalizedLimit,
+    nextOffset,
+    hasMore: nextOffset < total,
   };
 }

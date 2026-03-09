@@ -66,7 +66,7 @@ export const columns: ColumnDef<StudentTableData>[] = [
               balance < 0
                 ? "text-red-600 font-bold"
                 : balance <= LOW_BALANCE_THRESHOLD && hasTransactions
-                ? "text-orange-600 font-bold"
+                ? "text-red-600 font-bold"
                 : "font-bold"
             }
           >

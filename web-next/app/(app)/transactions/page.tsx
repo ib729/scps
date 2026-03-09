@@ -1,8 +1,6 @@
-import Link from "next/link";
 import type { Metadata } from "next";
 
-import { getTransactionsPage } from "@/lib/repositories/transactions";
-import { Button } from "@/components/ui/button";
+import { getTransactionsBatch } from "@/lib/repositories/transactions";
 import { DataTable } from "./data-table";
 import { columns } from "./columns";
 
@@ -16,54 +14,21 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
-export default async function TransactionsPage({
-  searchParams,
-}: {
-  searchParams?: Promise<Record<string, string | string[] | undefined>>;
-}) {
-  const resolvedSearchParams = searchParams ? await searchParams : undefined;
-  const pageValue = resolvedSearchParams?.page;
-  const page = Array.isArray(pageValue)
-    ? Number.parseInt(pageValue[0] || "1", 10)
-    : Number.parseInt(pageValue || "1", 10);
-  const transactions = getTransactionsPage({
-    page: Number.isFinite(page) ? page : 1,
-    pageSize: 100,
+export default async function TransactionsPage() {
+  const initialBatch = getTransactionsBatch({
+    offset: 0,
+    limit: 100,
   });
 
   return (
-    <div className="w-full space-y-6">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <DataTable
         columns={columns}
-        data={transactions.items}
-        totalCount={transactions.total}
+        initialData={initialBatch.items}
+        initialOffset={initialBatch.nextOffset}
+        initialHasMore={initialBatch.hasMore}
+        totalCount={initialBatch.total}
       />
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          Page {transactions.page} of {transactions.totalPages}
-        </p>
-        <div className="flex gap-2">
-          <Button asChild variant="outline" disabled={transactions.page <= 1}>
-            <Link href={`/transactions?page=${Math.max(1, transactions.page - 1)}`}>
-              Previous
-            </Link>
-          </Button>
-          <Button
-            asChild
-            variant="outline"
-            disabled={transactions.page >= transactions.totalPages}
-          >
-            <Link
-              href={`/transactions?page=${Math.min(
-                transactions.totalPages,
-                transactions.page + 1,
-              )}`}
-            >
-              Next
-            </Link>
-          </Button>
-        </div>
-      </div>
     </div>
   );
 }

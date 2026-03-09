@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useEffectEvent } from "react";
 import {
   ColumnDef,
   ColumnFiltersState,
@@ -12,7 +13,7 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 
-import { Button } from "@/components/ui/button";
+import { getTransactionsBatchAction } from "@/app/actions/transactions";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -21,26 +22,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
-  data: TData[];
+  initialData: TData[];
+  initialOffset: number;
+  initialHasMore: boolean;
   totalCount: number;
 }
 
 export function DataTable<TData, TValue>({
   columns,
-  data,
+  initialData,
+  initialOffset,
+  initialHasMore,
   totalCount,
 }: DataTableProps<TData, TValue>) {
+  const [data, setData] = React.useState<TData[]>(initialData);
   const [sorting, setSorting] = React.useState<SortingState>([
     { id: "created_at", desc: true }, // Default sort by date descending
   ]);
@@ -48,6 +47,11 @@ export function DataTable<TData, TValue>({
     []
   );
   const [typeFilter, setTypeFilter] = React.useState<string>("all");
+  const [hasMore, setHasMore] = React.useState(initialHasMore);
+  const [nextOffset, setNextOffset] = React.useState(initialOffset);
+  const [loadingMore, setLoadingMore] = React.useState(false);
+  const scrollContainerRef = React.useRef<HTMLDivElement | null>(null);
+  const sentinelRef = React.useRef<HTMLDivElement | null>(null);
 
   const table = useReactTable({
     data,
@@ -72,9 +76,56 @@ export function DataTable<TData, TValue>({
     }
   }, [typeFilter, table]);
 
+  const loadMore = useEffectEvent(async () => {
+    if (loadingMore || !hasMore) {
+      return;
+    }
+
+    setLoadingMore(true);
+    const result = await getTransactionsBatchAction(nextOffset, 100);
+
+    if (result.success && result.data) {
+      setData((currentData) => [
+        ...currentData,
+        ...(result.data.items as TData[]),
+      ]);
+      setNextOffset(result.data.nextOffset);
+      setHasMore(result.data.hasMore);
+    }
+
+    setLoadingMore(false);
+  });
+
+  React.useEffect(() => {
+    const root = scrollContainerRef.current;
+    const sentinel = sentinelRef.current;
+
+    if (!root || !sentinel || !hasMore) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries;
+        if (entry?.isIntersecting) {
+          void loadMore();
+        }
+      },
+      {
+        root,
+        rootMargin: "0px 0px 240px 0px",
+        threshold: 0.1,
+      },
+    );
+
+    observer.observe(sentinel);
+
+    return () => observer.disconnect();
+  }, [hasMore, loadMore]);
+
   return (
-    <div className="space-y-4">
-      <div className="flex gap-4">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="sticky top-0 z-20 flex gap-4 bg-background/95 pb-4 backdrop-blur supports-[backdrop-filter]:bg-background/80">
         <Input
           placeholder="Search by customer name..."
           value={
@@ -98,7 +149,10 @@ export function DataTable<TData, TValue>({
         </Select>
       </div>
 
-      <div className="rounded-md border max-h-[70vh] overflow-auto relative custom-scrollbar">
+      <div
+        ref={scrollContainerRef}
+        className="relative min-h-0 flex-1 overflow-auto rounded-md border custom-scrollbar"
+      >
         <table className="w-full caption-bottom text-sm">
           <TableHeader className="sticky top-0 bg-background z-10">
             {table.getHeaderGroups().map((headerGroup) => (
@@ -147,11 +201,19 @@ export function DataTable<TData, TValue>({
             )}
           </TableBody>
         </table>
+        <div ref={sentinelRef} className="h-12" />
       </div>
 
-      <div className="flex items-center justify-end space-x-2 py-4">
+      <div className="flex items-center justify-between gap-4 pt-4">
         <div className="text-sm text-muted-foreground">
-          Showing {table.getFilteredRowModel().rows.length} of {totalCount} transaction(s)
+          Showing {table.getFilteredRowModel().rows.length} of {data.length} loaded transaction(s)
+        </div>
+        <div className="text-sm text-muted-foreground">
+          {loadingMore
+            ? "Loading more..."
+            : hasMore
+              ? `Loaded ${data.length} of ${totalCount}`
+              : `All ${totalCount} transactions loaded`}
         </div>
       </div>
     </div>

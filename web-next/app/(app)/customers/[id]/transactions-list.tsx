@@ -90,7 +90,7 @@ export function TransactionsList({ transactions }: TransactionsListProps) {
             className={`text-lg font-bold ${tx.amount >= 0 ? "text-green-600" : "text-red-600"
               }`}
           >
-            {tx.amount >= 0 ? "+" : ""}¥{formatCurrency(Math.abs(tx.amount))}
+            {(tx.amount > 0 ? "+" : tx.amount < 0 ? "-" : "")}¥{formatCurrency(Math.abs(tx.amount))}
           </p>
         </div>
       ))}

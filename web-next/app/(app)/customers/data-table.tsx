@@ -57,8 +57,8 @@ export function DataTable<TData, TValue>({
   });
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-4">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="sticky top-0 z-20 flex items-center gap-4 bg-background/95 pb-4 backdrop-blur supports-[backdrop-filter]:bg-background/80">
         <Input
           placeholder="Filter customers..."
           value={(table.getColumn("name")?.getFilterValue() as string) ?? ""}
@@ -71,7 +71,7 @@ export function DataTable<TData, TValue>({
           {addButton}
         </div>
       </div>
-      <div className="rounded-md border max-h-[70vh] overflow-auto relative custom-scrollbar">
+      <div className="relative min-h-0 flex-1 overflow-auto rounded-md border custom-scrollbar">
         <table className="w-full caption-bottom text-sm">
           <TableHeader className="sticky top-0 bg-background z-10">
             {table.getHeaderGroups().map((headerGroup) => (
@@ -121,7 +121,7 @@ export function DataTable<TData, TValue>({
           </TableBody>
         </table>
       </div>
-      <div className="flex items-center justify-end space-x-2 py-4">
+      <div className="flex items-center justify-end pt-4">
         <div className="text-sm text-muted-foreground">
           {table.getFilteredRowModel().rows.length} customer(s) total
         </div>

@@ -25,9 +25,8 @@ export function StudentsTable({ students, studentIdsWithTransactions }: Students
   }));
 
   return (
-    <div className="space-y-4">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <DataTable columns={columns} data={tableData} addButton={mounted ? <CreateStudentDialog /> : null} />
     </div>
   );
 }
-

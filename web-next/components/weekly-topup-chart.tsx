@@ -25,7 +25,10 @@ interface WeeklyTopupChartProps {
 const chartConfig = {
   amount: {
     label: "Top-up Amount",
-    color: "hsl(var(--chart-1))",
+    theme: {
+      light: "oklch(0.646 0.222 41.116)",
+      dark: "oklch(0.696 0.17 162.48)",
+    },
   },
 } satisfies ChartConfig
 
