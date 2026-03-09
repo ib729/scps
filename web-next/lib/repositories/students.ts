@@ -86,7 +86,7 @@ export function hasTransactions(id: number): boolean {
   return result.count > 0;
 }
 
-export function searchStudents(query: string): StudentWithAccount[] {
+export function searchStudents(query: string, limit: number = 10): StudentWithAccount[] {
   const db = getDb();
   const stmt = db.prepare(`
     SELECT 
@@ -98,7 +98,7 @@ export function searchStudents(query: string): StudentWithAccount[] {
     LEFT JOIN accounts a ON s.id = a.student_id
     WHERE s.name LIKE ? AND s.archived = 0
     ORDER BY s.name ASC
+    LIMIT ?
   `);
-  return stmt.all(`%${query}%`) as StudentWithAccount[];
+  return stmt.all(`%${query}%`, limit) as StudentWithAccount[];
 }
-

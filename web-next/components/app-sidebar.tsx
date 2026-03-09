@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { authClient } from "@/lib/auth-client"
 import {
@@ -17,7 +18,6 @@ import {
   Sun,
   Eye,
   EyeOff,
-  Radio,
   RotateCw,
   DatabaseBackup,
 } from "lucide-react"
@@ -106,15 +106,15 @@ interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
     emailVerified: boolean
     createdAt: Date
     updatedAt: Date
+    role: "admin" | "staff"
   }
 }
 
 export function AppSidebar({ user: initialUser, ...props }: AppSidebarProps) {
   const router = useRouter()
-  const { theme, setTheme, resolvedTheme } = useTheme()
+  const { setTheme, resolvedTheme } = useTheme()
   const { selectedReader, setSelectedReader } = useNFCReader()
   const [mounted, setMounted] = React.useState(false)
-  const [showLogoutDialog, setShowLogoutDialog] = React.useState(false)
   const [showAccountDialog, setShowAccountDialog] = React.useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = React.useState(false)
   const [showSettingsDialog, setShowSettingsDialog] = React.useState(false)
@@ -358,12 +358,12 @@ export function AppSidebar({ user: initialUser, ...props }: AppSidebarProps) {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
-              <a href="/">
+              <Link href="/">
                 <div className="grid flex-1 text-left text-base leading-tight">
                   <span className="truncate font-semibold">Student Council</span>
                   <span className="truncate text-sm">2025-2026</span>
                 </div>
-              </a>
+              </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
@@ -376,10 +376,10 @@ export function AppSidebar({ user: initialUser, ...props }: AppSidebarProps) {
               {navItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
-                    <a href={item.url}>
+                    <Link href={item.url}>
                       <item.icon />
                       <span>{item.title}</span>
-                    </a>
+                    </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
@@ -802,67 +802,68 @@ export function AppSidebar({ user: initialUser, ...props }: AppSidebarProps) {
                 </div>
               </div>
 
-              {/* Database Management */}
-              <div className="space-y-3 pt-4 border-t">
-                <Label className="text-base font-semibold">
-                  Database Management
-                </Label>
-                <p className="text-sm text-muted-foreground">
-                  Download a compressed backup of the database.
-                </p>
-                <Button
-                  variant="outline"
-                  className="w-full"
-                  disabled={downloadingBackup}
-                  onClick={() => {
-                    setDownloadingBackup(true)
-                    window.location.href = "/api/backup/download"
-                    toast.success("Backup download started")
-                    // Reset loading state after a delay since we can't track the download completion directly
-                    setTimeout(() => setDownloadingBackup(false), 3000)
-                  }}
-                >
-                  {downloadingBackup ? (
-                    <>
-                      <RotateCw className="mr-2 h-4 w-4 animate-spin" />
-                      Downloading...
-                    </>
-                  ) : (
-                    <>
-                      <DatabaseBackup className="mr-2 h-4 w-4" />
-                      Download Database Backup
-                    </>
-                  )}
-                </Button>
-              </div>
+              {user?.role === "admin" ? (
+                <>
+                  <div className="space-y-3 border-t pt-4">
+                    <Label className="text-base font-semibold">
+                      Database Management
+                    </Label>
+                    <p className="text-sm text-muted-foreground">
+                      Download a compressed backup of the database.
+                    </p>
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      disabled={downloadingBackup}
+                      onClick={() => {
+                        setDownloadingBackup(true)
+                        window.location.href = "/api/backup/download"
+                        toast.success("Backup download started")
+                        setTimeout(() => setDownloadingBackup(false), 3000)
+                      }}
+                    >
+                      {downloadingBackup ? (
+                        <>
+                          <RotateCw className="mr-2 h-4 w-4 animate-spin" />
+                          Downloading...
+                        </>
+                      ) : (
+                        <>
+                          <DatabaseBackup className="mr-2 h-4 w-4" />
+                          Download Database Backup
+                        </>
+                      )}
+                    </Button>
+                  </div>
 
-              {/* System Services Section */}
-              <div className="space-y-3 pt-6 border-t">
-                <Label className="text-base font-semibold">
-                  System Services
-                </Label>
-                <p className="text-sm text-muted-foreground">
-                  Restart NFC drivers and services if readers become unresponsive.
-                </p>
-                <Button
-                  onClick={handleRestartServices}
-                  disabled={restartingServices}
-                  variant="outline"
-                  className="w-full"
-                >
-                  {restartingServices ? (
-                    <>
-                      <RotateCw className="mr-2 h-4 w-4 animate-spin" />
-                      Resetting Hardware...
-                    </>
-                  ) : (
-                    <>
-                      <RotateCw className="mr-2 h-4 w-4" />
-                      Reset NFC Hardware
-                    </>
-                  )}
-                </Button>
-              </div>
+                  <div className="space-y-3 border-t pt-6">
+                    <Label className="text-base font-semibold">
+                      System Services
+                    </Label>
+                    <p className="text-sm text-muted-foreground">
+                      Restart NFC drivers and services if readers become unresponsive.
+                    </p>
+                    <Button
+                      onClick={handleRestartServices}
+                      disabled={restartingServices}
+                      variant="outline"
+                      className="w-full"
+                    >
+                      {restartingServices ? (
+                        <>
+                          <RotateCw className="mr-2 h-4 w-4 animate-spin" />
+                          Resetting Hardware...
+                        </>
+                      ) : (
+                        <>
+                          <RotateCw className="mr-2 h-4 w-4" />
+                          Reset NFC Hardware
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </>
+              ) : null}
             </div>
 
             <div className="flex justify-end gap-2">
@@ -886,4 +887,3 @@ export function AppSidebar({ user: initialUser, ...props }: AppSidebarProps) {
     </Sidebar >
   )
 }
-

@@ -2,13 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
 import { getDb } from "@/lib/db";
 import { getStudentById } from "@/lib/repositories/students";
 import { createTransaction } from "@/lib/repositories/transactions";
 import { adjustBalance } from "@/lib/repositories/accounts";
 import { toDbValue } from "@/lib/currency";
+import { requireAuthContext } from "@/lib/auth-session";
 
 const topupSchema = z.object({
   student_id: z.number().int().positive(),
@@ -19,12 +18,7 @@ const topupSchema = z.object({
 
 export async function topupAction(data: unknown) {
   try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
-    if (!session) {
-      return { success: false, error: "Unauthorized" };
-    }
+    await requireAuthContext();
 
     const validated = topupSchema.parse(data);
     const db = getDb();
@@ -82,12 +76,7 @@ const adjustSchema = z.object({
 
 export async function adjustBalanceManualAction(data: unknown) {
   try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
-    if (!session) {
-      return { success: false, error: "Unauthorized" };
-    }
+    await requireAuthContext();
 
     const validated = adjustSchema.parse(data);
     const db = getDb();
@@ -134,4 +123,3 @@ export async function adjustBalanceManualAction(data: unknown) {
     return { success: false, error: "Failed to adjust balance" };
   }
 }
-

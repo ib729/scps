@@ -1,7 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { getAllStudents } from "@/lib/repositories/students";
-import { getRecentTransactions, getStudentIdsWithTransactions, getWeeklyTopupData, getTotalSalesCount, getTotalSalesAmount } from "@/lib/repositories/transactions";
-import { Users, ShoppingCart, AlertTriangle, DollarSign, ArrowUpRight, ArrowDownRight, Minus, CreditCard, Landmark, HandCoins } from "lucide-react";
+import { getDashboardStats, getRecentTransactions, getWeeklyTopupData } from "@/lib/repositories/transactions";
+import { Users, ShoppingCart, ArrowUpRight, ArrowDownRight, Minus, Landmark, HandCoins } from "lucide-react";
 import { WeeklyTopupChart } from "@/components/weekly-topup-chart";
 import { formatCurrency } from "@/lib/currency";
 import { Metadata } from 'next';
@@ -18,16 +17,9 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  const students = getAllStudents();
+  const dashboardStats = getDashboardStats();
   const recentTransactions = getRecentTransactions(10);
-  const studentIdsWithTransactions = getStudentIdsWithTransactions();
   const weeklyTopupData = getWeeklyTopupData(12);
-  const totalSales = getTotalSalesCount();
-  const totalSalesAmount = getTotalSalesAmount();
-
-  const totalStudents = students.length;
-  const totalBalance = students.reduce((sum, s) => sum + s.balance, 0);
-  const studentsWithNegativeBalance = students.filter((s) => s.balance < 0).length;
 
   return (
     <div className="w-full space-y-8">
@@ -40,7 +32,7 @@ export default async function DashboardPage() {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent className="flex flex-1 flex-col justify-end gap-1">
-            <div className="text-2xl font-bold">{totalStudents}</div>
+            <div className="text-2xl font-bold">{dashboardStats.totalStudents}</div>
             <p className="text-xs text-muted-foreground">
               Active accounts in system
             </p>
@@ -55,7 +47,7 @@ export default async function DashboardPage() {
             <ShoppingCart className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent className="flex flex-1 flex-col justify-end gap-1">
-            <div className="text-2xl font-bold">{totalSales.toLocaleString()}</div>
+            <div className="text-2xl font-bold">{dashboardStats.totalSales.toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">
               Debit transactions completed
             </p>
@@ -70,7 +62,7 @@ export default async function DashboardPage() {
             <Landmark className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent className="flex flex-1 flex-col justify-end gap-1">
-            <div className={`text-2xl font-bold ${totalBalance < 0 ? "text-red-600" : ""}`}>¥{formatCurrency(totalBalance)}</div>
+            <div className={`text-2xl font-bold ${dashboardStats.totalBalance < 0 ? "text-red-600" : ""}`}>¥{formatCurrency(dashboardStats.totalBalance)}</div>
             <p className="text-xs text-muted-foreground">
               Combined balance across all accounts
             </p>
@@ -85,7 +77,7 @@ export default async function DashboardPage() {
             <HandCoins className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent className="flex flex-1 flex-col justify-end gap-1">
-            <div className="text-2xl font-bold">¥{formatCurrency(totalSalesAmount)}</div>
+            <div className="text-2xl font-bold">¥{formatCurrency(dashboardStats.totalSalesAmount)}</div>
             <p className="text-xs text-muted-foreground">
               Total revenue from sales
             </p>
@@ -163,4 +155,3 @@ export default async function DashboardPage() {
     </div>
   );
 }
-

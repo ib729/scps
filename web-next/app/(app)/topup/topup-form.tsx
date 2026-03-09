@@ -1,33 +1,27 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Copy, Check } from "lucide-react";
+
+import { getStudentByIdAction } from "@/app/actions/students";
+import { topupAction, adjustBalanceManualAction } from "@/app/actions/topup";
+import { StudentSearchField } from "@/components/student-search-field";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Copy, Check } from "lucide-react";
+import { formatCurrency } from "@/lib/currency";
 import type { StudentWithAccount } from "@/lib/models";
-import { topupAction, adjustBalanceManualAction } from "@/app/actions/topup";
-import { toDisplayValue, formatCurrency } from "@/lib/currency";
 
 interface TopupFormProps {
-  students: StudentWithAccount[];
   studentIdsWithTransactions: number[];
   userName: string;
 }
 
-export function TopupForm({ students, studentIdsWithTransactions, userName }: TopupFormProps) {
-  const [studentId, setStudentId] = useState<string>("");
+export function TopupForm({ studentIdsWithTransactions, userName }: TopupFormProps) {
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
   const [staff, setStaff] = useState("");
@@ -36,47 +30,52 @@ export function TopupForm({ students, studentIdsWithTransactions, userName }: To
   const [transactionId, setTransactionId] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState<StudentWithAccount | null>(null);
+  const [selectedAdjustStudent, setSelectedAdjustStudent] =
+    useState<StudentWithAccount | null>(null);
+  const [adjustAmount, setAdjustAmount] = useState("");
+  const [adjustDescription, setAdjustDescription] = useState("");
+  const [adjustStaff, setAdjustStaff] = useState("");
+  const [adjustError, setAdjustError] = useState("");
+  const [adjustSuccess, setAdjustSuccess] = useState("");
+  const [adjustTransactionId, setAdjustTransactionId] = useState<number | null>(null);
+  const [adjustCopied, setAdjustCopied] = useState(false);
+  const [adjustLoading, setAdjustLoading] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // Auto-fill staff name with current user's name
   useEffect(() => {
     if (userName && !staff) {
       setStaff(userName);
     }
   }, [userName, staff]);
 
-  // Auto-select student from query parameter
-  useEffect(() => {
-    const studentFromUrl = searchParams.get("student");
-    if (studentFromUrl && !studentId) {
-      setStudentId(studentFromUrl);
-      // Clear the URL parameter after setting
-      router.replace("/topup");
-    }
-  }, [searchParams, studentId, router]);
-
-  // For manual adjustment
-  const [adjustStudentId, setAdjustStudentId] = useState<string>("");
-  const [adjustAmount, setAdjustAmount] = useState("");
-  const [adjustDescription, setAdjustDescription] = useState("");
-  const [adjustStaff, setAdjustStaff] = useState("");
-
-  const [adjustError, setAdjustError] = useState("");
-  const [adjustSuccess, setAdjustSuccess] = useState("");
-  const [adjustTransactionId, setAdjustTransactionId] = useState<number | null>(null);
-  const [adjustCopied, setAdjustCopied] = useState(false);
-  const [adjustLoading, setAdjustLoading] = useState(false);
-
-  // Auto-fill adjust staff name with current user's name
   useEffect(() => {
     if (userName && !adjustStaff) {
       setAdjustStaff(userName);
     }
   }, [userName, adjustStaff]);
 
-  const selectedStudent = students.find((s) => s.id === parseInt(studentId));
-  const selectedAdjustStudent = students.find((s) => s.id === parseInt(adjustStudentId));
+  useEffect(() => {
+    const studentFromUrl = searchParams.get("student");
+    if (!studentFromUrl || selectedStudent) {
+      return;
+    }
+
+    const studentId = Number.parseInt(studentFromUrl, 10);
+    if (!Number.isFinite(studentId)) {
+      router.replace("/topup");
+      return;
+    }
+
+    void (async () => {
+      const result = await getStudentByIdAction(studentId);
+      if (result.success && result.data) {
+        setSelectedStudent(result.data);
+      }
+      router.replace("/topup");
+    })();
+  }, [searchParams, selectedStudent, router]);
 
   const copyTransactionId = async (txId: number) => {
     await navigator.clipboard.writeText(txId.toString());
@@ -92,13 +91,17 @@ export function TopupForm({ students, studentIdsWithTransactions, userName }: To
 
   const handleTopup = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!selectedStudent) {
+      return;
+    }
+
     setError("");
     setSuccess("");
     setTransactionId(null);
     setLoading(true);
 
     const result = await topupAction({
-      student_id: parseInt(studentId),
+      student_id: selectedStudent.id,
       amount: parseFloat(amount),
       description: description || undefined,
       staff: staff || undefined,
@@ -106,9 +109,15 @@ export function TopupForm({ students, studentIdsWithTransactions, userName }: To
 
     if (result.success && result.data) {
       setSuccess(
-        `Successfully added ¥${amount} to ${selectedStudent?.name}. New balance: ¥${formatCurrency(result.data.newBalance)}`
+        `Successfully added ¥${amount} to ${selectedStudent.name}. New balance: ¥${formatCurrency(
+          result.data.newBalance,
+        )}`,
       );
       setTransactionId(result.data.transaction.id);
+      setSelectedStudent({
+        ...selectedStudent,
+        balance: result.data.newBalance,
+      });
       setAmount("");
       setDescription("");
     } else {
@@ -120,13 +129,17 @@ export function TopupForm({ students, studentIdsWithTransactions, userName }: To
 
   const handleAdjust = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!selectedAdjustStudent) {
+      return;
+    }
+
     setAdjustError("");
     setAdjustSuccess("");
     setAdjustTransactionId(null);
     setAdjustLoading(true);
 
     const result = await adjustBalanceManualAction({
-      student_id: parseInt(adjustStudentId),
+      student_id: selectedAdjustStudent.id,
       amount: parseFloat(adjustAmount),
       description: adjustDescription,
       staff: adjustStaff || undefined,
@@ -134,9 +147,15 @@ export function TopupForm({ students, studentIdsWithTransactions, userName }: To
 
     if (result.success && result.data) {
       setAdjustSuccess(
-        `Balance adjusted by ¥${adjustAmount} for ${selectedAdjustStudent?.name}. New balance: ¥${formatCurrency(result.data.newBalance)}`
+        `Balance adjusted by ¥${adjustAmount} for ${selectedAdjustStudent.name}. New balance: ¥${formatCurrency(
+          result.data.newBalance,
+        )}`,
       );
       setAdjustTransactionId(result.data.transaction.id);
+      setSelectedAdjustStudent({
+        ...selectedAdjustStudent,
+        balance: result.data.newBalance,
+      });
       setAdjustAmount("");
       setAdjustDescription("");
     } else {
@@ -154,20 +173,21 @@ export function TopupForm({ students, studentIdsWithTransactions, userName }: To
         </CardHeader>
         <CardContent>
           <form onSubmit={handleTopup} className="space-y-6">
-            {error && (
+            {error ? (
               <Alert variant="destructive">
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
-            )}
-            {success && (
+            ) : null}
+            {success ? (
               <Alert>
                 <AlertDescription>
                   <div className="space-y-2">
                     <div>{success}</div>
-                    {transactionId && (
-                      <div className="flex items-center gap-2 mt-2">
+                    {transactionId ? (
+                      <div className="mt-2 flex items-center gap-2">
                         <span className="text-sm text-muted-foreground">
-                          Transaction ID: <span className="font-mono font-medium">{transactionId}</span>
+                          Transaction ID:{" "}
+                          <span className="font-mono font-medium">{transactionId}</span>
                         </span>
                         <Button
                           variant="ghost"
@@ -178,47 +198,39 @@ export function TopupForm({ students, studentIdsWithTransactions, userName }: To
                           {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
                         </Button>
                       </div>
-                    )}
+                    ) : null}
                   </div>
                 </AlertDescription>
               </Alert>
-            )}
+            ) : null}
 
-            <div className="space-y-2">
-              <Label htmlFor="student">Student</Label>
-              <Select value={studentId} onValueChange={setStudentId} required>
-                <SelectTrigger id="student" className="w-full">
-                  <SelectValue placeholder="Select a student" />
-                </SelectTrigger>
-                <SelectContent>
-                  {students.map((student) => (
-                    <SelectItem key={student.id} value={student.id.toString()}>
-                      {student.name} (¥{formatCurrency(student.balance)})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <StudentSearchField
+              id="student"
+              label="Student"
+              placeholder="Search students by name"
+              selectedStudent={selectedStudent}
+              onSelect={setSelectedStudent}
+            />
 
-            {selectedStudent && (
-              <div className="p-4 bg-muted rounded-lg space-y-2">
+            {selectedStudent ? (
+              <div className="space-y-2 rounded-lg bg-muted p-4">
                 <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">
-                    Current Balance:
-                  </span>
+                  <span className="text-sm text-muted-foreground">Current Balance:</span>
                   <span
-                    className={`font-bold ${selectedStudent.balance < 0
-                      ? "text-red-600"
-                      : selectedStudent.balance <= 50 && studentIdsWithTransactions.includes(selectedStudent.id)
-                        ? "text-orange-600"
-                        : ""
-                      }`}
+                    className={`font-bold ${
+                      selectedStudent.balance < 0
+                        ? "text-red-600"
+                        : selectedStudent.balance <= 50 &&
+                            studentIdsWithTransactions.includes(selectedStudent.id)
+                          ? "text-orange-600"
+                          : ""
+                    }`}
                   >
                     ¥{formatCurrency(selectedStudent.balance)}
                   </span>
                 </div>
               </div>
-            )}
+            ) : null}
 
             <div className="space-y-2">
               <Label htmlFor="amount">Amount (¥)</Label>
@@ -255,11 +267,7 @@ export function TopupForm({ students, studentIdsWithTransactions, userName }: To
               />
             </div>
 
-            <Button
-              type="submit"
-              disabled={loading || !studentId}
-              className="w-full"
-            >
+            <Button type="submit" disabled={loading || !selectedStudent} className="w-full">
               {loading ? "Processing..." : `Add ¥${amount || "0"}`}
             </Button>
           </form>
@@ -271,22 +279,24 @@ export function TopupForm({ students, studentIdsWithTransactions, userName }: To
           <CardTitle>Manual Balance Adjustment</CardTitle>
         </CardHeader>
         <CardContent>
-
           <form onSubmit={handleAdjust} className="space-y-6">
-            {adjustError && (
+            {adjustError ? (
               <Alert variant="destructive">
                 <AlertDescription>{adjustError}</AlertDescription>
               </Alert>
-            )}
-            {adjustSuccess && (
+            ) : null}
+            {adjustSuccess ? (
               <Alert>
                 <AlertDescription>
                   <div className="space-y-2">
                     <div>{adjustSuccess}</div>
-                    {adjustTransactionId && (
-                      <div className="flex items-center gap-2 mt-2">
+                    {adjustTransactionId ? (
+                      <div className="mt-2 flex items-center gap-2">
                         <span className="text-sm text-muted-foreground">
-                          Transaction ID: <span className="font-mono font-medium">{adjustTransactionId}</span>
+                          Transaction ID:{" "}
+                          <span className="font-mono font-medium">
+                            {adjustTransactionId}
+                          </span>
                         </span>
                         <Button
                           variant="ghost"
@@ -294,50 +304,46 @@ export function TopupForm({ students, studentIdsWithTransactions, userName }: To
                           onClick={() => copyAdjustTransactionId(adjustTransactionId)}
                           className="h-6 w-6 p-0"
                         >
-                          {adjustCopied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                          {adjustCopied ? (
+                            <Check className="h-3 w-3" />
+                          ) : (
+                            <Copy className="h-3 w-3" />
+                          )}
                         </Button>
                       </div>
-                    )}
+                    ) : null}
                   </div>
                 </AlertDescription>
               </Alert>
-            )}
+            ) : null}
 
-            <div className="space-y-2">
-              <Label htmlFor="adjust-student">Student</Label>
-              <Select value={adjustStudentId} onValueChange={setAdjustStudentId} required>
-                <SelectTrigger id="adjust-student" className="w-full">
-                  <SelectValue placeholder="Select a student" />
-                </SelectTrigger>
-                <SelectContent>
-                  {students.map((student) => (
-                    <SelectItem key={student.id} value={student.id.toString()}>
-                      {student.name} (¥{formatCurrency(student.balance)})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <StudentSearchField
+              id="adjust-student"
+              label="Student"
+              placeholder="Search students by name"
+              selectedStudent={selectedAdjustStudent}
+              onSelect={setSelectedAdjustStudent}
+            />
 
-            {selectedAdjustStudent && (
-              <div className="p-4 bg-muted rounded-lg space-y-2">
+            {selectedAdjustStudent ? (
+              <div className="space-y-2 rounded-lg bg-muted p-4">
                 <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">
-                    Current Balance:
-                  </span>
+                  <span className="text-sm text-muted-foreground">Current Balance:</span>
                   <span
-                    className={`font-bold ${selectedAdjustStudent.balance < 0
-                      ? "text-red-600"
-                      : selectedAdjustStudent.balance <= 50 && studentIdsWithTransactions.includes(selectedAdjustStudent.id)
-                        ? "text-orange-600"
-                        : ""
-                      }`}
+                    className={`font-bold ${
+                      selectedAdjustStudent.balance < 0
+                        ? "text-red-600"
+                        : selectedAdjustStudent.balance <= 50 &&
+                            studentIdsWithTransactions.includes(selectedAdjustStudent.id)
+                          ? "text-orange-600"
+                          : ""
+                    }`}
                   >
                     ¥{formatCurrency(selectedAdjustStudent.balance)}
                   </span>
                 </div>
               </div>
-            )}
+            ) : null}
 
             <div className="space-y-2">
               <Label htmlFor="adjust-amount">Adjustment Amount (¥)</Label>
@@ -379,7 +385,7 @@ export function TopupForm({ students, studentIdsWithTransactions, userName }: To
 
             <Button
               type="submit"
-              disabled={adjustLoading || !adjustStudentId}
+              disabled={adjustLoading || !selectedAdjustStudent}
               variant="secondary"
               className="w-full"
             >
@@ -391,4 +397,3 @@ export function TopupForm({ students, studentIdsWithTransactions, userName }: To
     </div>
   );
 }
-

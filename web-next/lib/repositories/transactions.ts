@@ -80,6 +80,54 @@ export function getRecentTransactions(limit: number = 10): TransactionWithStuden
   return getAllTransactions(limit);
 }
 
+export function getDashboardStats() {
+  const db = getDb();
+  const result = db
+    .prepare(
+      `
+        SELECT
+          (SELECT COUNT(*) FROM students WHERE archived = 0) AS totalStudents,
+          (
+            SELECT COALESCE(SUM(COALESCE(a.balance, 0)), 0)
+            FROM students s
+            LEFT JOIN accounts a ON a.student_id = s.id
+            WHERE s.archived = 0
+          ) AS totalBalance,
+          (
+            SELECT COUNT(*)
+            FROM students s
+            LEFT JOIN accounts a ON a.student_id = s.id
+            WHERE s.archived = 0 AND COALESCE(a.balance, 0) < 0
+          ) AS studentsWithNegativeBalance,
+          (
+            SELECT COUNT(*)
+            FROM transactions
+            WHERE type = 'DEBIT'
+          ) AS totalSales,
+          (
+            SELECT COALESCE(ABS(SUM(amount)), 0)
+            FROM transactions
+            WHERE type = 'DEBIT'
+          ) AS totalSalesAmount
+      `,
+    )
+    .get() as {
+    totalStudents: number;
+    totalBalance: number;
+    studentsWithNegativeBalance: number;
+    totalSales: number;
+    totalSalesAmount: number;
+  };
+
+  return {
+    totalStudents: result.totalStudents || 0,
+    totalBalance: result.totalBalance || 0,
+    studentsWithNegativeBalance: result.studentsWithNegativeBalance || 0,
+    totalSales: result.totalSales || 0,
+    totalSalesAmount: result.totalSalesAmount || 0,
+  };
+}
+
 export function getStudentIdsWithTransactions(): number[] {
   const db = getDb();
   const stmt = db.prepare(`
@@ -155,3 +203,51 @@ export function getTotalSalesAmount(): number {
   return Math.abs(result.total || 0);
 }
 
+export function getTransactionsPage({
+  page,
+  pageSize,
+}: {
+  page: number;
+  pageSize: number;
+}) {
+  const normalizedPage = Math.max(1, page);
+  const normalizedPageSize = Math.min(Math.max(pageSize, 10), 200);
+  const offset = (normalizedPage - 1) * normalizedPageSize;
+  const db = getDb();
+
+  const total = (
+    db.prepare("SELECT COUNT(*) AS count FROM transactions").get() as {
+      count: number;
+    }
+  ).count;
+
+  const items = db
+    .prepare(
+      `
+        SELECT
+          t.id,
+          t.student_id,
+          t.card_uid,
+          t.type,
+          t.amount,
+          t.overdraft_component,
+          t.description,
+          t.staff,
+          t.created_at,
+          s.name as student_name
+        FROM transactions t
+        JOIN students s ON t.student_id = s.id
+        ORDER BY t.created_at DESC
+        LIMIT ? OFFSET ?
+      `,
+    )
+    .all(normalizedPageSize, offset) as TransactionWithStudent[];
+
+  return {
+    items,
+    total,
+    page: normalizedPage,
+    pageSize: normalizedPageSize,
+    totalPages: Math.max(1, Math.ceil(total / normalizedPageSize)),
+  };
+}

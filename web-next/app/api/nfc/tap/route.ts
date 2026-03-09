@@ -21,9 +21,9 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validated = tapEventSchema.parse(body);
 
-    // Verify shared secret if configured
     const expectedSecret = process.env.NFC_TAP_SECRET;
-    if (expectedSecret && validated.secret !== expectedSecret) {
+    const isProduction = process.env.NODE_ENV === "production";
+    if ((!expectedSecret && isProduction) || validated.secret !== expectedSecret) {
       console.warn("[NFC Tap] Authentication failed");
       return NextResponse.json(
         { success: false, error: "Unauthorized" },
@@ -72,4 +72,3 @@ export async function GET() {
     timestamp: new Date().toISOString(),
   });
 }
-

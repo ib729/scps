@@ -1,14 +1,19 @@
 import type { NextConfig } from "next";
+import path from "node:path";
 
 const nextConfig: NextConfig = {
 	/* config options here */
 	serverExternalPackages: ["better-sqlite3"],
 	output: "standalone",
+	outputFileTracingRoot: path.resolve(__dirname, "."),
 	allowedDevOrigins: [
 		"scps.ivanbelousov.com",
 		"*.scps.ivanbelousov.com",
 		"http://192.168.50.43:3000",
 	],
+	turbopack: {
+		root: path.resolve(__dirname, "."),
+	},
 	// Disable Fast Refresh in development to prevent automatic reloads
 	reactStrictMode: false,
 

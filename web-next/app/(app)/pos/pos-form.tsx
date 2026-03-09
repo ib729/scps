@@ -8,13 +8,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -28,24 +21,23 @@ import { Copy, Check } from "lucide-react";
 import type { StudentWithAccount } from "@/lib/models";
 import { posCheckoutAction } from "@/app/actions/pos";
 import { getCardByUidAction, createCardAction } from "@/app/actions/cards";
-import { createStudentAction } from "@/app/actions/students";
+import { createStudentAction, getStudentByIdAction } from "@/app/actions/students";
 import { EncryptedText } from "@/components/ui/encrypted-text";
-import { toDisplayValue, formatCurrency } from "@/lib/currency";
+import { formatCurrency } from "@/lib/currency";
 import { useNFCWebSocket } from "@/lib/use-nfc-websocket";
 import { useNFCReader } from "@/lib/nfc-reader-context";
+import { StudentSearchField } from "@/components/student-search-field";
 
 interface PosFormProps {
-  students: StudentWithAccount[];
   studentIdsWithTransactions: number[];
   userName: string;
 }
 
 type WorkflowMode = "tap-first" | "manual";
 
-export function PosForm({ students, studentIdsWithTransactions, userName }: PosFormProps) {
+export function PosForm({ studentIdsWithTransactions, userName }: PosFormProps) {
   const { selectedReader, setSelectedReader } = useNFCReader();
   const [mode, setMode] = useState<WorkflowMode>("tap-first");
-  const [studentId, setStudentId] = useState<string>("");
   const [cardUid, setCardUid] = useState<string>("");
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
@@ -84,8 +76,8 @@ export function PosForm({ students, studentIdsWithTransactions, userName }: PosF
   // Reader selection prompt dialog
   const [showReaderPrompt, setShowReaderPrompt] = useState(false);
 
-  const selectedStudent = students.find((s) => s.id === parseInt(studentId));
-  const dialogStudent = students.find((s) => s.id === dialogStudentId);
+  const [selectedStudent, setSelectedStudent] = useState<StudentWithAccount | null>(null);
+  const [dialogStudent, setDialogStudent] = useState<StudentWithAccount | null>(null);
 
   // State to trigger re-animation of the encrypted text
   const [animationKey, setAnimationKey] = useState(0);
@@ -113,12 +105,12 @@ export function PosForm({ students, studentIdsWithTransactions, userName }: PosF
       return;
     }
 
-    const student = students.find((s) => s.id === cardResult.data.student_id);
-
-    if (!student) {
+    const studentResult = await getStudentByIdAction(cardResult.data.student_id);
+    if (!studentResult.success || !studentResult.data) {
       setError("Student not found");
       return;
     }
+    const student = studentResult.data;
 
     // Tap-first mode: open dialog for amount entry
     setDialogStudentId(student.id);
@@ -127,6 +119,7 @@ export function PosForm({ students, studentIdsWithTransactions, userName }: PosF
     setDialogDescription("");
     setDialogStaff(userName);
     setDialogError("");
+    setDialogStudent(student);
     setDialogOpen(true);
   };
 
@@ -178,13 +171,13 @@ export function PosForm({ students, studentIdsWithTransactions, userName }: PosF
   // Handle card UID from URL parameter (from tap alert navigation)
   useEffect(() => {
     const cardFromUrl = searchParams.get("card");
-    if (cardFromUrl && !studentId) {
+    if (cardFromUrl && !selectedStudent) {
       // Auto-select student from URL parameter
       handleCardTap(cardFromUrl);
       // Clear the URL parameter after processing
       router.replace("/pos");
     }
-  }, [searchParams]);
+  }, [searchParams, selectedStudent, router]);
 
 
   const handleEnrollCard = async (action: 'checkout' | 'topup' | 'none') => {
@@ -229,6 +222,12 @@ export function PosForm({ students, studentIdsWithTransactions, userName }: PosF
         setDialogDescription("");
         setDialogStaff(userName);
         setDialogError("");
+        setDialogStudent({
+          id: studentResult.data.id,
+          name: studentResult.data.name,
+          balance: 0,
+          max_overdraft_week: 0,
+        });
         setDialogOpen(true);
       } else if (action === 'topup') {
         // Navigate to top-up page with student ID
@@ -246,7 +245,7 @@ export function PosForm({ students, studentIdsWithTransactions, userName }: PosF
   };
 
   const processCheckout = async (studId?: number, uid?: string) => {
-    const finalStudentId = studId || parseInt(studentId);
+    const finalStudentId = studId || selectedStudent?.id;
     const finalCardUid = uid || cardUid;
 
     setLoading(true);
@@ -263,14 +262,13 @@ export function PosForm({ students, studentIdsWithTransactions, userName }: PosF
     });
 
     if (result.success && result.data) {
-      const studentName = students.find((s) => s.id === result.data.transaction.student_id)?.name;
       setSuccess(
-        `Successfully charged ¥${amount} to ${studentName}. New balance: ¥${formatCurrency(result.data.newBalance)}`
+        `Successfully charged ¥${amount} to ${selectedStudent?.name || "student"}. New balance: ¥${formatCurrency(result.data.newBalance)}`
       );
       setTransactionId(result.data.transaction.id);
       setAmount("");
       setDescription("");
-      setStudentId("");
+      setSelectedStudent(null);
       setCardUid("");
     } else {
       setError(result.error || "Failed to process checkout");
@@ -298,9 +296,8 @@ export function PosForm({ students, studentIdsWithTransactions, userName }: PosF
     });
 
     if (result.success && result.data) {
-      const studentName = students.find((s) => s.id === result.data.transaction.student_id)?.name;
       setSuccess(
-        `Successfully charged ¥${dialogAmount} to ${studentName}. New balance: ¥${formatCurrency(result.data.newBalance)}`
+        `Successfully charged ¥${dialogAmount} to ${dialogStudent?.name || "student"}. New balance: ¥${formatCurrency(result.data.newBalance)}`
       );
       setTransactionId(result.data.transaction.id);
       setDialogOpen(false);
@@ -308,6 +305,7 @@ export function PosForm({ students, studentIdsWithTransactions, userName }: PosF
       setDialogDescription("");
       setDialogStaff("");
       setDialogStudentId(0);
+      setDialogStudent(null);
       setDialogCardUid("");
     } else {
       setDialogError(result.error || "Failed to process checkout");
@@ -593,22 +591,16 @@ export function PosForm({ students, studentIdsWithTransactions, userName }: PosF
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="space-y-2">
-                  <Label htmlFor="student" className="text-base">Student</Label>
-                  <Select
-                    value={studentId}
-                    onValueChange={setStudentId}
-                  >
-                    <SelectTrigger id="student" className="w-full h-12 text-base">
-                      <SelectValue placeholder="Select a student" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {students.map((student) => (
-                        <SelectItem key={student.id} value={student.id.toString()}>
-                          {student.name} (¥{formatCurrency(student.balance)})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <StudentSearchField
+                    id="student"
+                    label="Student"
+                    placeholder="Search students by name"
+                    selectedStudent={selectedStudent}
+                    onSelect={(student) => {
+                      setSelectedStudent(student);
+                      setError("");
+                    }}
+                  />
                 </div>
 
                 {selectedStudent && (
@@ -685,7 +677,7 @@ export function PosForm({ students, studentIdsWithTransactions, userName }: PosF
 
                 <Button
                   type="submit"
-                  disabled={loading || !studentId || !amount}
+                  disabled={loading || !selectedStudent || !amount}
                   className="w-full h-14 text-lg font-semibold"
                 >
                   {loading ? "Processing..." : `Charge ¥${amount || "0"}`}
@@ -753,4 +745,3 @@ export function PosForm({ students, studentIdsWithTransactions, userName }: PosF
     </>
   );
 }
-

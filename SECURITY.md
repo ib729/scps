@@ -5,6 +5,23 @@ Public threads can expose the problem to everyone, including malicious actors.
 
 Send reports to hello@ivanbelousov.com
 
-Thank you for your attention to this matter!
+Thank you!
 
-PGP: 8DEE AD99 E07E 3285 9B4B E61A 616D 5D96 311B 5945
+-----BEGIN PGP PUBLIC KEY BLOCK-----
+
+xjMEZ4XVbBYJKwYBBAHaRw8BAQdAsgfrgKpA6g1GrlP/Tnop2Ig+UAnRV/fo
+S9dRf9M3hqHNL2hlbGxvQGl2YW5iZWxvdXNvdi5jb20gPGhlbGxvQGl2YW5i
+ZWxvdXNvdi5jb20+wsARBBMWCgCDBYJnhdVsAwsJBwmQHa+vDfqL4GhFFAAA
+AAAAHAAgc2FsdEBub3RhdGlvbnMub3BlbnBncGpzLm9yZ30tE4yNiQrhl+RM
+ciI7O9bIhTZ+QdXF6lfpv+/ZxEoeAxUKCAQWAAIBAhkBApsDAh4BFiEEU3MJ
+FkFM14ozOgEdHa+vDfqL4GgAAKbHAP4wwz96gKyqeMT9sbib2wC0frf1Qh0x
+dRPaUswZU60B3QEA0U5WnsiNWvTtnggOQKOcRqkee2k8Ey0v9xWN/5X4tA/O
+OARnhdVsEgorBgEEAZdVAQUBAQdAnInPdxwQBnEnsHhN9wmSCrdsRKNdYpLo
+sJPd0mX/IQcDAQgHwr4EGBYKAHAFgmeF1WwJkB2vrw36i+BoRRQAAAAAABwA
+IHNhbHRAbm90YXRpb25zLm9wZW5wZ3Bqcy5vcmeI0PdHsxkb6qM5ZvzEkSIH
+Q3brR3PYYcO6Gx4NvpeIzAKbDBYhBFNzCRZBTNeKMzoBHR2vrw36i+BoAAAK
+UQD/XSI8iYPlly58SQPHvtsJ80hNDGsNyOBrb2S8OL4X0BcBAPrd7UEaUA7f
+zKAykLXHY0Zhsyj2P+Q77Ar9agQXD1gN
+=med1
+-----END PGP PUBLIC KEY BLOCK-----
+

@@ -5,69 +5,53 @@
  * Requires passwordless sudo to be configured for the web UI user.
  */
 
-import { NextRequest, NextResponse } from "next/server";
-import { headers } from "next/headers";
-import { auth } from "@/lib/auth";
-import { exec } from "child_process";
-import { promisify } from "util";
+import { NextResponse } from "next/server";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 
-const execAsync = promisify(exec);
+import { getAuthErrorDetails, requireRole } from "@/lib/auth-session";
+import { getFixReadersScriptPath } from "@/lib/server-paths";
 
-export async function POST(request: NextRequest) {
+const execFileAsync = promisify(execFile);
+
+export async function POST() {
   try {
-    // Check if user is authenticated
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
-
-    if (!session) {
-      return NextResponse.json(
-        { success: false, error: "Unauthorized" },
-        { status: 401 }
-      );
-    }
+    const session = await requireRole("admin");
 
     console.log(`[System] Restarting NFC services - Requested by: ${session.user.email}`);
 
-    // Execute the fix-readers.sh script instead of just restarting services
-    // This script handles driver reset (modprobe) and service restarts
-    const command = "sudo /home/qiss/scps/scripts/fix-readers.sh";
-    
-    // Increase timeout for this command as it takes ~10-15 seconds
-    const { stdout, stderr } = await execAsync(command, { timeout: 20000 });
-
-    if (stderr && !stderr.includes("Warning")) {
-      console.error("[System] Error restarting services:", stderr);
-      return NextResponse.json(
-        { success: false, error: "Failed to restart services", details: stderr },
-        { status: 500 }
-      );
-    }
+    await execFileAsync("sudo", [getFixReadersScriptPath()], { timeout: 20000 });
 
     console.log("[System] Successfully restarted NFC services");
 
     return NextResponse.json({
       success: true,
       message: "NFC services restarted successfully",
-      output: stdout,
     });
   } catch (error) {
     console.error("[System] Error processing restart request:", error);
-    
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
-    
+
+    const authError = getAuthErrorDetails(error, "Internal server error");
+
     return NextResponse.json(
-      { success: false, error: "Internal server error", details: errorMessage },
-      { status: 500 }
+      { success: false, error: authError.message },
+      { status: authError.status }
     );
   }
 }
 
-// Health check endpoint
 export async function GET() {
-  return NextResponse.json({
-    service: "system-services-manager",
-    timestamp: new Date().toISOString(),
-  });
+  try {
+    await requireRole("admin");
+    return NextResponse.json({
+      service: "system-services-manager",
+      timestamp: new Date().toISOString(),
+    });
+  } catch (error) {
+    const authError = getAuthErrorDetails(error, "Unauthorized");
+    return NextResponse.json(
+      { success: false, error: authError.message },
+      { status: authError.status }
+    );
+  }
 }
-

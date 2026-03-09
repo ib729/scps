@@ -2,8 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
 import { getDb } from "@/lib/db";
 import { getStudentById } from "@/lib/repositories/students";
 import { getCardByUid } from "@/lib/repositories/cards";
@@ -15,6 +13,7 @@ import {
   getCurrentWeekStartUtc,
 } from "@/lib/repositories/overdraft";
 import { toDbValue } from "@/lib/currency";
+import { requireAuthContext } from "@/lib/auth-session";
 
 const posCheckoutSchema = z
   .object({
@@ -30,12 +29,7 @@ const posCheckoutSchema = z
 
 export async function posCheckoutAction(data: unknown) {
   try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
-    if (!session) {
-      return { success: false, error: "Unauthorized" };
-    }
+    await requireAuthContext();
 
     const validated = posCheckoutSchema.parse(data);
     const db = getDb();
@@ -130,4 +124,3 @@ export async function posCheckoutAction(data: unknown) {
     return { success: false, error: "Failed to process checkout" };
   }
 }
-

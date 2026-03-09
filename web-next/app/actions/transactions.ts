@@ -1,8 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
 import {
   getAllTransactions,
   getTransactionsByStudentId,
@@ -10,19 +8,16 @@ import {
   createTransaction,
   deleteTransaction,
   getRecentTransactions,
+  getTransactionsPage,
 } from "@/lib/repositories/transactions";
 import { adjustBalance } from "@/lib/repositories/accounts";
 import { createTransactionSchema } from "@/lib/models";
 import { getDb } from "@/lib/db";
+import { requireAuthContext } from "@/lib/auth-session";
 
 export async function getTransactionsAction(limit?: number) {
   try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
-    if (!session) {
-      return { success: false, error: "Unauthorized" };
-    }
+    await requireAuthContext();
     return { success: true, data: getAllTransactions(limit) };
   } catch {
     return { success: false, error: "Failed to fetch transactions" };
@@ -31,12 +26,7 @@ export async function getTransactionsAction(limit?: number) {
 
 export async function getTransactionsByStudentIdAction(studentId: number) {
   try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
-    if (!session) {
-      return { success: false, error: "Unauthorized" };
-    }
+    await requireAuthContext();
     return { success: true, data: getTransactionsByStudentId(studentId) };
   } catch {
     return { success: false, error: "Failed to fetch transactions" };
@@ -45,12 +35,7 @@ export async function getTransactionsByStudentIdAction(studentId: number) {
 
 export async function getTransactionByIdAction(id: number) {
   try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
-    if (!session) {
-      return { success: false, error: "Unauthorized" };
-    }
+    await requireAuthContext();
     const transaction = getTransactionById(id);
     if (!transaction) {
       return { success: false, error: "Transaction not found" };
@@ -63,12 +48,7 @@ export async function getTransactionByIdAction(id: number) {
 
 export async function createTransactionAction(data: unknown) {
   try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
-    if (!session) {
-      return { success: false, error: "Unauthorized" };
-    }
+    await requireAuthContext();
     const validated = createTransactionSchema.parse(data);
     const db = getDb();
 
@@ -91,12 +71,7 @@ export async function createTransactionAction(data: unknown) {
 
 export async function deleteTransactionAction(id: number) {
   try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
-    if (!session) {
-      return { success: false, error: "Unauthorized" };
-    }
+    await requireAuthContext();
     // Note: Deleting transactions should also adjust the balance back
     const transaction = getTransactionById(id);
     if (!transaction) {
@@ -122,15 +97,18 @@ export async function deleteTransactionAction(id: number) {
 
 export async function getRecentTransactionsAction(limit: number = 10) {
   try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
-    if (!session) {
-      return { success: false, error: "Unauthorized" };
-    }
+    await requireAuthContext();
     return { success: true, data: getRecentTransactions(limit) };
   } catch {
     return { success: false, error: "Failed to fetch recent transactions" };
   }
 }
 
+export async function getTransactionsPageAction(page: number, pageSize: number) {
+  try {
+    await requireAuthContext();
+    return { success: true, data: getTransactionsPage({ page, pageSize }) };
+  } catch {
+    return { success: false, error: "Failed to fetch transactions" };
+  }
+}
