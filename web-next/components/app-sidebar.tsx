@@ -391,24 +391,28 @@ export function AppSidebar({ user: initialUser, ...props }: AppSidebarProps) {
 
   return (
     <Sidebar collapsible="icon" {...props}>
-      <SidebarHeader>
+      <SidebarHeader className="pt-1 md:pt-3 lg:pt-5">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" asChild>
+            <SidebarMenuButton
+              size="lg"
+              asChild
+              className="group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:-translate-x-1 group-data-[collapsible=icon]:size-10! group-data-[collapsible=icon]:p-0!"
+            >
               <Link href="/">
-                <div className="flex flex-1 items-center gap-3">
-                  <div className="grid min-w-0 flex-1 text-left text-lg leading-tight">
+                <div className="flex flex-1 items-center gap-3 group-data-[collapsible=icon]:justify-center">
+                  <div className="grid min-w-0 flex-1 text-left text-lg leading-tight group-data-[collapsible=icon]:hidden">
                     <span className="truncate font-semibold tracking-tight">Student Council</span>
                     <span className="truncate text-base text-sidebar-foreground/70">2025-2026</span>
                   </div>
-                  <div className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border border-sidebar-border/70 bg-sidebar-accent/40">
+                  <div className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border border-sidebar-border/70 bg-sidebar-accent/40 group-data-[collapsible=icon]:h-9 group-data-[collapsible=icon]:w-9">
                     {brandLogoSrc ? (
                       <Image
                         key={brandLogoSrc}
                         src={brandLogoSrc}
                         alt="School logo"
                         fill
-                        sizes="44px"
+                        sizes="(max-width: 768px) 36px, 44px"
                         className="object-cover"
                         onError={() => setBrandLogoIndex((currentIndex) => currentIndex + 1)}
                       />
@@ -435,7 +439,7 @@ export function AppSidebar({ user: initialUser, ...props }: AppSidebarProps) {
                     isActive={isNavItemActive(item.url)}
                     className={
                       isNavItemActive(item.url)
-                        ? "shadow-[inset_3px_0_0_hsl(var(--sidebar-primary))] bg-sidebar-accent text-sidebar-accent-foreground"
+                        ? "bg-sidebar-primary/10 text-sidebar-foreground font-medium shadow-[inset_3px_0_0_hsl(var(--sidebar-primary))] dark:bg-sidebar-accent dark:text-sidebar-accent-foreground"
                         : undefined
                     }
                   >
