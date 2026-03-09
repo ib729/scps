@@ -138,7 +138,7 @@ export const columns: ColumnDef<TransactionWithStudent>[] = [
       return (
         <div className="px-4">
           <Link
-            href={`/students/${tx.student_id}`}
+            href={`/customers/${tx.student_id}`}
             className="hover:underline font-medium"
           >
             {tx.student_name}

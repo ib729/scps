@@ -48,8 +48,8 @@ export async function createCardAction(data: unknown) {
     await requireAuthContext();
     const validated = createCardSchema.parse(data);
     const card = createCard(validated);
-    revalidatePath("/students");
-    revalidatePath(`/students/${validated.student_id}`);
+    revalidatePath("/customers");
+    revalidatePath(`/customers/${validated.student_id}`);
     return { success: true, data: card };
   } catch {
     return { success: false, error: "Failed to create card" };
@@ -63,7 +63,7 @@ export async function updateCardStatusAction(
   try {
     await requireAuthContext();
     updateCardStatus(cardUid, status);
-    revalidatePath("/students");
+    revalidatePath("/customers");
     return { success: true };
   } catch {
     return { success: false, error: "Failed to update card status" };
@@ -74,7 +74,7 @@ export async function deleteCardAction(cardUid: string) {
   try {
     await requireAuthContext();
     deleteCard(cardUid);
-    revalidatePath("/students");
+    revalidatePath("/customers");
     return { success: true };
   } catch {
     return { success: false, error: "Failed to delete card" };

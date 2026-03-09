@@ -32,7 +32,7 @@ export const columns: ColumnDef<StudentTableData>[] = [
       return (
         <div className="px-4">
           <Link
-            href={`/students/${student.id}`}
+            href={`/customers/${student.id}`}
             className="font-medium hover:underline"
           >
             {student.name}
@@ -109,7 +109,7 @@ export const columns: ColumnDef<StudentTableData>[] = [
       return (
         <div className="flex justify-end gap-2">
           <Button variant="ghost" size="sm" asChild>
-            <Link href={`/students/${student.id}`}>View</Link>
+            <Link href={`/customers/${student.id}`}>View</Link>
           </Button>
           <DeleteStudentDialog
             studentId={student.id}

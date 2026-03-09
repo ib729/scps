@@ -27,8 +27,8 @@ export async function updateAccountAction(studentId: number, data: unknown) {
     await requireAuthContext();
     const validated = updateAccountSchema.parse(data);
     updateAccount(studentId, validated);
-    revalidatePath("/students");
-    revalidatePath(`/students/${studentId}`);
+    revalidatePath("/customers");
+    revalidatePath(`/customers/${studentId}`);
     return { success: true };
   } catch {
     return { success: false, error: "Failed to update account" };
@@ -39,8 +39,8 @@ export async function adjustBalanceAction(studentId: number, delta: number) {
   try {
     await requireAuthContext();
     adjustBalance(studentId, delta);
-    revalidatePath("/students");
-    revalidatePath(`/students/${studentId}`);
+    revalidatePath("/customers");
+    revalidatePath(`/customers/${studentId}`);
     return { success: true };
   } catch {
     return { success: false, error: "Failed to adjust balance" };

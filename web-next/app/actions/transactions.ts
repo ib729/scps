@@ -60,8 +60,8 @@ export async function createTransactionAction(data: unknown) {
     })();
 
     revalidatePath("/transactions");
-    revalidatePath("/students");
-    revalidatePath(`/students/${validated.student_id}`);
+    revalidatePath("/customers");
+    revalidatePath(`/customers/${validated.student_id}`);
     revalidatePath("/dashboard");
     return { success: true, data: result };
   } catch {
@@ -86,8 +86,8 @@ export async function deleteTransactionAction(id: number) {
     })();
 
     revalidatePath("/transactions");
-    revalidatePath("/students");
-    revalidatePath(`/students/${transaction.student_id}`);
+    revalidatePath("/customers");
+    revalidatePath(`/customers/${transaction.student_id}`);
     revalidatePath("/dashboard");
     return { success: true };
   } catch {

@@ -24,8 +24,19 @@ if [ ! -f "$DB_FILE" ]; then
     exit 1
 fi
 
-# Create tar archive
-# We suppress stderr for the tar command regarding missing files if WAL/SHM don't exist
-tar -czf "$OUTPUT_FILE" "$DB_FILE" "$DB_WAL" "$DB_SHM" 2>/dev/null || tar -czf "$OUTPUT_FILE" "$DB_FILE"
+if ! command -v zstd >/dev/null 2>&1; then
+    echo "Error: zstd is required to create .tar.zst backups."
+    exit 1
+fi
+
+# Balanced high-compression profile:
+# - level 15 gives strong compression without the extreme CPU/RAM hit of ultra modes
+# - multithreading helps stronger machines, while zstd scales down on weaker ones
+export ZSTD_CLEVEL="${ZSTD_CLEVEL:-15}"
+export ZSTD_NBTHREADS="${ZSTD_NBTHREADS:-0}"
+
+# Create tar archive with zstd compression.
+# Suppress stderr so missing WAL/SHM sidecars do not fail the normal backup path.
+tar --zstd -cf "$OUTPUT_FILE" "$DB_FILE" "$DB_WAL" "$DB_SHM" 2>/dev/null || tar --zstd -cf "$OUTPUT_FILE" "$DB_FILE"
 
 echo "Backup created at $OUTPUT_FILE"

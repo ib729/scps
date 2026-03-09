@@ -102,8 +102,8 @@ export async function posCheckoutAction(data: unknown) {
 
     revalidatePath("/pos");
     revalidatePath("/transactions");
-    revalidatePath("/students");
-    revalidatePath(`/students/${result.transaction.student_id}`);
+    revalidatePath("/customers");
+    revalidatePath(`/customers/${result.transaction.student_id}`);
     revalidatePath("/dashboard");
 
     return { success: true, data: result };
