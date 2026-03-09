@@ -1,5 +1,6 @@
 "use client"
 
+import Image from "next/image"
 import * as React from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
@@ -102,6 +103,13 @@ const navItems = [
   },
 ]
 
+const BRAND_LOGO_SOURCES = [
+  "/school-logo.webp",
+  "/school-logo.png",
+  "/school-logo.jpg",
+  "/school-logo.jpeg",
+] as const
+
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   user?: {
     id: string
@@ -118,6 +126,7 @@ interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
 export function AppSidebar({ user: initialUser, ...props }: AppSidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
+  const [brandLogoIndex, setBrandLogoIndex] = React.useState(0)
   const { setTheme, resolvedTheme } = useTheme()
   const { selectedReader, setSelectedReader } = useNFCReader()
   const [mounted, setMounted] = React.useState(false)
@@ -155,6 +164,7 @@ export function AppSidebar({ user: initialUser, ...props }: AppSidebarProps) {
   const [showCurrentPassword, setShowCurrentPassword] = React.useState(false)
   const [showNewPassword, setShowNewPassword] = React.useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = React.useState(false)
+  const brandLogoSrc = BRAND_LOGO_SOURCES[brandLogoIndex] ?? null
 
   // Update local state when context changes
   React.useEffect(() => {
@@ -386,9 +396,28 @@ export function AppSidebar({ user: initialUser, ...props }: AppSidebarProps) {
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
               <Link href="/">
-                <div className="grid flex-1 text-left text-lg leading-tight">
-                  <span className="truncate font-semibold tracking-tight">Student Council</span>
-                  <span className="truncate text-base text-sidebar-foreground/70">2025-2026</span>
+                <div className="flex flex-1 items-center gap-3">
+                  <div className="grid min-w-0 flex-1 text-left text-lg leading-tight">
+                    <span className="truncate font-semibold tracking-tight">Student Council</span>
+                    <span className="truncate text-base text-sidebar-foreground/70">2025-2026</span>
+                  </div>
+                  <div className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border border-sidebar-border/70 bg-sidebar-accent/40">
+                    {brandLogoSrc ? (
+                      <Image
+                        key={brandLogoSrc}
+                        src={brandLogoSrc}
+                        alt="School logo"
+                        fill
+                        sizes="44px"
+                        className="object-cover"
+                        onError={() => setBrandLogoIndex((currentIndex) => currentIndex + 1)}
+                      />
+                    ) : (
+                      <span className="text-xs font-semibold text-sidebar-foreground/70">
+                        SC
+                      </span>
+                    )}
+                  </div>
                 </div>
               </Link>
             </SidebarMenuButton>
@@ -443,9 +472,11 @@ export function AppSidebar({ user: initialUser, ...props }: AppSidebarProps) {
                           : "U"}
                       </AvatarFallback>
                     </Avatar>
-                    <div className="grid flex-1 text-left text-sm leading-tight">
+                    <div className="grid flex-1 text-left leading-tight">
                       <span className="truncate font-semibold">{user?.name || "User"}</span>
-                      <span className="truncate text-xs">{user?.email || ""}</span>
+                      <span className="truncate text-sm text-sidebar-foreground/80">
+                        {user?.email || ""}
+                      </span>
                     </div>
                     <ChevronsUpDown className="ml-auto size-4" />
                   </SidebarMenuButton>
@@ -456,27 +487,6 @@ export function AppSidebar({ user: initialUser, ...props }: AppSidebarProps) {
                   align="end"
                   sideOffset={4}
                 >
-                  <DropdownMenuLabel className="p-0 font-normal">
-                    <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                      <Avatar className="h-8 w-8 rounded-lg">
-                        {user?.image && <AvatarImage src={user.image} alt={user.name} />}
-                        <AvatarFallback className="rounded-lg">
-                          {user?.name
-                            ? user.name
-                              .split(" ")
-                              .map((n) => n[0])
-                              .join("")
-                              .toUpperCase()
-                            : "U"}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="grid flex-1 text-left text-sm leading-tight">
-                        <span className="truncate font-semibold">{user?.name || "User"}</span>
-                        <span className="truncate text-xs">{user?.email || ""}</span>
-                      </div>
-                    </div>
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => setShowAccountDialog(true)}>
                     <User className="mr-2 h-4 w-4" />
                     Account
@@ -510,9 +520,9 @@ export function AppSidebar({ user: initialUser, ...props }: AppSidebarProps) {
                     ...
                   </AvatarFallback>
                 </Avatar>
-                <div className="grid flex-1 text-left text-sm leading-tight">
+                <div className="grid flex-1 text-left leading-tight">
                   <span className="truncate font-semibold">Loading...</span>
-                  <span className="truncate text-xs">&nbsp;</span>
+                  <span className="truncate text-sm text-sidebar-foreground/80">&nbsp;</span>
                 </div>
               </SidebarMenuButton>
             )}
