@@ -82,7 +82,7 @@ const navItems = [
     icon: LayoutDashboard,
   },
   {
-    title: "Students",
+    title: "Customers",
     url: "/students",
     icon: Users,
   },
@@ -880,7 +880,7 @@ export function AppSidebar({ user: initialUser, ...props }: AppSidebarProps) {
                     <label htmlFor="pos-mode-manual" className="text-sm cursor-pointer flex-1">
                       <div className="font-medium">Manual</div>
                       <div className="text-muted-foreground text-xs">
-                        Open POS with student search selected
+                        Open POS with customer search selected
                       </div>
                     </label>
                   </div>

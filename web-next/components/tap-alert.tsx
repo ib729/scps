@@ -63,17 +63,17 @@ export function TapAlert() {
     setLoading(true);
     setOpen(true);
 
-    // Look up the card to get student info
+    // Look up the card to get customer info
     const result = await getCardByUidAction(uid);
     if (result.success && result.data) {
       setCardData(result.data);
 
-      // Fetch student details
+      // Fetch customer details
       const studentResult = await getStudentByIdAction(result.data.student_id);
       if (studentResult.success && studentResult.data) {
         setStudentName(studentResult.data.name);
       } else {
-        setStudentName(`Student ID: ${result.data.student_id}`);
+        setStudentName(`Customer ID: ${result.data.student_id}`);
       }
     } else {
       setCardData(null);
@@ -121,29 +121,29 @@ export function TapAlert() {
     try {
       let studentId: number;
 
-      // Check if student already exists
+      // Check if customer already exists
       const existingStudent = await getStudentByNameAction(enrollmentName);
 
       if (existingStudent.success && existingStudent.data) {
-        // Attach to existing student
+        // Attach to existing customer
         studentId = existingStudent.data.id;
-        console.log(`[TapAlert] Attaching card to existing student: ${enrollmentName} (${studentId})`);
+        console.log(`[TapAlert] Attaching card to existing customer: ${enrollmentName} (${studentId})`);
       } else {
-        // Create new student
-        console.log(`[TapAlert] Creating new student: ${enrollmentName}`);
+        // Create new customer
+        console.log(`[TapAlert] Creating new customer: ${enrollmentName}`);
         const studentResult = await createStudentAction({
           name: enrollmentName,
         });
 
         if (!studentResult.success || !studentResult.data) {
-          setEnrollmentError(studentResult.error || "Failed to create student");
+          setEnrollmentError(studentResult.error || "Failed to create customer");
           setEnrollmentLoading(false);
           return;
         }
         studentId = studentResult.data.id;
       }
 
-      // Create the card linked to the student
+      // Create the card linked to the customer
       const cardResult = await createCardAction({
         card_uid: cardUid,
         student_id: studentId,
@@ -215,7 +215,7 @@ export function TapAlert() {
                     <div className="text-sm text-muted-foreground">Loading card info...</div>
                   ) : cardData ? (
                     <div className="flex flex-col gap-2">
-                      <div className="text-sm text-muted-foreground">Student:</div>
+                      <div className="text-sm text-muted-foreground">Customer:</div>
                       <div className="font-medium">{studentName}</div>
                       <div className="text-xs text-muted-foreground">
                         Status: {cardData.status === "active" ? "✓ Active" : "✗ Revoked"}
@@ -246,7 +246,7 @@ export function TapAlert() {
               <DrawerHeader>
                 <DrawerTitle>Enroll New Card</DrawerTitle>
                 <DrawerDescription>
-                  Enter the student&apos;s name to register this card.
+                  Enter the customer&apos;s name to register this card.
                 </DrawerDescription>
               </DrawerHeader>
               <div className="p-4 pb-0">
@@ -261,17 +261,17 @@ export function TapAlert() {
                     </Alert>
                   )}
                   <div className="space-y-2">
-                    <Label htmlFor="student-name">Student Name</Label>
+                    <Label htmlFor="student-name">Customer Name</Label>
                     <Input
                       id="student-name"
                       value={enrollmentName}
                       onChange={(e) => setEnrollmentName(e.target.value)}
-                      placeholder="Enter student name"
+                      placeholder="Enter customer name"
                       required
                       disabled={enrollmentLoading}
                     />
                     <p className="text-xs text-muted-foreground">
-                      If the student exists, the card will be attached to them.
+                      If the customer exists, the card will be attached to them.
                     </p>
                   </div>
                 </div>
@@ -305,4 +305,3 @@ export function TapAlert() {
     </Drawer>
   );
 }
-

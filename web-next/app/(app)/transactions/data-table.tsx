@@ -76,7 +76,7 @@ export function DataTable<TData, TValue>({
     <div className="space-y-4">
       <div className="flex gap-4">
         <Input
-          placeholder="Search by student name..."
+          placeholder="Search by customer name..."
           value={
             (table.getColumn("student_name")?.getFilterValue() as string) ?? ""
           }

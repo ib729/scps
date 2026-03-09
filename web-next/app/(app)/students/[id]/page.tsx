@@ -11,7 +11,7 @@ import { UpdateAccountForm } from "./update-account-form";
 import { AddCardDialogWrapper } from "./add-card-dialog-wrapper";
 import { TransactionsList } from "./transactions-list";
 import { CardsList } from "./cards-list";
-import { formatCurrency } from "@/lib/currency";
+import { formatCurrency, LOW_BALANCE_THRESHOLD } from "@/lib/currency";
 
 export const dynamic = "force-dynamic";
 
@@ -43,10 +43,10 @@ export default async function StudentDetailPage({
       <div className="flex justify-between items-start">
         <div>
           <h2 className="text-2xl font-bold">{student.name}</h2>
-          <p className="text-muted-foreground mt-1">Student ID: {student.id}</p>
+          <p className="text-muted-foreground mt-1">Customer ID: {student.id}</p>
         </div>
         <Button variant="outline" asChild>
-          <Link href="/students">Back to Students</Link>
+          <Link href="/students">Back to Customers</Link>
         </Button>
       </div>
 
@@ -60,7 +60,7 @@ export default async function StudentDetailPage({
               className={`text-4xl font-bold ${
                 student.balance < 0
                   ? "text-red-600"
-                  : student.balance <= 50 && hasTransactions
+                  : student.balance <= LOW_BALANCE_THRESHOLD && hasTransactions
                   ? "text-orange-600"
                   : ""
               }`}
@@ -70,7 +70,7 @@ export default async function StudentDetailPage({
             <div className="mt-2">
               {student.balance < 0 ? (
                 <Badge variant="destructive">Overdraft</Badge>
-              ) : student.balance <= 50 && hasTransactions ? (
+              ) : student.balance <= LOW_BALANCE_THRESHOLD && hasTransactions ? (
                 <Badge variant="secondary">Low Balance</Badge>
               ) : (
                 <Badge variant="default">Active</Badge>
@@ -95,7 +95,7 @@ export default async function StudentDetailPage({
       <div className="grid gap-6 md:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Student Information</CardTitle>
+            <CardTitle>Customer Information</CardTitle>
           </CardHeader>
           <CardContent>
             <UpdateStudentForm student={student} />
@@ -133,4 +133,3 @@ export default async function StudentDetailPage({
     </div>
   );
 }
-

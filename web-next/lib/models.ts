@@ -33,13 +33,13 @@ export type CreateCard = z.infer<typeof createCardSchema>;
 // Account schemas
 export const accountSchema = z.object({
   student_id: z.number().int().positive(),
-  balance: z.number().int(), // stored as tenths internally
-  max_overdraft_week: z.number().int().nonnegative(), // stored as tenths internally
+  balance: z.number().int(), // stored as cents internally
+  max_overdraft_week: z.number().int().nonnegative(), // stored as cents internally
 });
 
 export const updateAccountSchema = z.object({
-  balance: z.number().int().optional(), // stored as tenths internally
-  max_overdraft_week: z.number().int().nonnegative().optional(), // stored as tenths internally
+  balance: z.number().int().optional(), // stored as cents internally
+  max_overdraft_week: z.number().int().nonnegative().optional(), // stored as cents internally
 });
 
 export type Account = z.infer<typeof accountSchema>;
@@ -51,8 +51,9 @@ export const transactionSchema = z.object({
   student_id: z.number().int().positive(),
   card_uid: z.string().nullable(),
   type: z.enum(["TOPUP", "DEBIT", "ADJUST"]),
-  amount: z.number().int(), // stored as tenths internally
-  overdraft_component: z.number().int(), // stored as tenths internally
+  amount: z.number().int(), // stored as cents internally
+  overdraft_component: z.number().int(), // stored as cents internally
+  payment_method: z.string().nullable(),
   description: z.string().nullable(),
   staff: z.string().nullable(),
   created_at: z.string(),
@@ -62,8 +63,9 @@ export const createTransactionSchema = z.object({
   student_id: z.number().int().positive(),
   card_uid: z.string().optional(),
   type: z.enum(["TOPUP", "DEBIT", "ADJUST"]),
-  amount: z.number().int(), // stored as tenths internally
-  overdraft_component: z.number().int().default(0), // stored as tenths internally
+  amount: z.number().int(), // stored as cents internally
+  overdraft_component: z.number().int().default(0), // stored as cents internally
+  payment_method: z.string().optional(),
   description: z.string().optional(),
   staff: z.string().optional(),
 });
@@ -75,7 +77,7 @@ export type CreateTransaction = z.infer<typeof createTransactionSchema>;
 export const overdraftWeekSchema = z.object({
   student_id: z.number().int().positive(),
   week_start_utc: z.string(),
-  used: z.number().int().nonnegative(), // stored as tenths internally
+  used: z.number().int().nonnegative(), // stored as cents internally
 });
 
 export type OverdraftWeek = z.infer<typeof overdraftWeekSchema>;
@@ -121,4 +123,3 @@ export const updateUserProfileSchema = z.object({
 export type User = z.infer<typeof userSchema>;
 export type CreateUser = z.infer<typeof createUserSchema>;
 export type UpdateUserProfile = z.infer<typeof updateUserProfileSchema>;
-

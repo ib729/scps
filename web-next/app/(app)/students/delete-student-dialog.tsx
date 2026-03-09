@@ -36,9 +36,9 @@ export function DeleteStudentDialog({
 
     if (result.success) {
       setOpen(false);
-      toast.success(result.message || "Student deleted successfully");
+      toast.success(result.message || "Customer deleted successfully");
     } else {
-      setError(result.error || "Failed to delete student");
+      setError(result.error || "Failed to delete customer");
     }
 
     setLoading(false);
@@ -53,13 +53,13 @@ export function DeleteStudentDialog({
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Delete Student</DialogTitle>
+          <DialogTitle>Delete Customer</DialogTitle>
           <DialogDescription>
             Are you sure you want to delete <strong>{studentName}</strong>?
             <br /><br />
-            If the student has no transactions, they will be permanently deleted.
+            If the customer has no transactions, they will be permanently deleted.
             <br />
-            If the student has transactions, they will be <strong>archived</strong> instead to preserve financial history.
+            If the customer has transactions, they will be <strong>archived</strong> instead to preserve financial history.
           </DialogDescription>
         </DialogHeader>
         {error && (
@@ -88,4 +88,3 @@ export function DeleteStudentDialog({
     </Dialog>
   );
 }
-

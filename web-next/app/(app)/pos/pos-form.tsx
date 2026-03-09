@@ -23,7 +23,7 @@ import { posCheckoutAction } from "@/app/actions/pos";
 import { getCardByUidAction, createCardAction } from "@/app/actions/cards";
 import { createStudentAction, getStudentByIdAction } from "@/app/actions/students";
 import { EncryptedText } from "@/components/ui/encrypted-text";
-import { formatCurrency } from "@/lib/currency";
+import { formatCurrency, LOW_BALANCE_THRESHOLD } from "@/lib/currency";
 import { useNFCWebSocket } from "@/lib/use-nfc-websocket";
 import { useNFCReader } from "@/lib/nfc-reader-context";
 import { StudentSearchField } from "@/components/student-search-field";
@@ -102,7 +102,7 @@ export function PosForm({ studentIdsWithTransactions, userName }: PosFormProps) 
   const handleCardTap = async (uid: string) => {
     setCardUid(uid);
 
-    // Look up the card to find the student
+    // Look up the card to find the customer
     const cardResult = await getCardByUidAction(uid);
 
     if (!cardResult.success || !cardResult.data) {
@@ -121,7 +121,7 @@ export function PosForm({ studentIdsWithTransactions, userName }: PosFormProps) 
 
     const studentResult = await getStudentByIdAction(cardResult.data.student_id);
     if (!studentResult.success || !studentResult.data) {
-      setError("Student not found");
+      setError("Customer not found");
       return;
     }
     const student = studentResult.data;
@@ -199,13 +199,13 @@ export function PosForm({ studentIdsWithTransactions, userName }: PosFormProps) 
     setEnrollLoading(true);
 
     try {
-      // Create the student
+      // Create the customer
       const studentResult = await createStudentAction({
         name: enrollName,
       });
 
       if (!studentResult.success || !studentResult.data) {
-        setEnrollError(studentResult.error || "Failed to create student");
+        setEnrollError(studentResult.error || "Failed to create customer");
         setEnrollLoading(false);
         return;
       }
@@ -244,7 +244,7 @@ export function PosForm({ studentIdsWithTransactions, userName }: PosFormProps) 
         });
         setDialogOpen(true);
       } else if (action === 'topup') {
-        // Navigate to top-up page with student ID
+        // Navigate to top-up page with customer ID
         router.push(`/topup?student=${studentResult.data.id}`);
       } else {
         // Just show success message
@@ -272,12 +272,11 @@ export function PosForm({ studentIdsWithTransactions, userName }: PosFormProps) 
       card_uid: finalCardUid || undefined,
       amount: parseFloat(amount),
       description: description || undefined,
-      staff: staff || undefined,
     });
 
     if (result.success && result.data) {
       setSuccess(
-        `Successfully charged ¥${amount} to ${selectedStudent?.name || "student"}. New balance: ¥${formatCurrency(result.data.newBalance)}`
+        `Successfully charged ¥${amount} to ${selectedStudent?.name || "customer"}. New balance: ¥${formatCurrency(result.data.newBalance)}`
       );
       setTransactionId(result.data.transaction.id);
       setAmount("");
@@ -306,12 +305,11 @@ export function PosForm({ studentIdsWithTransactions, userName }: PosFormProps) 
       card_uid: dialogCardUid,
       amount: parseFloat(dialogAmount),
       description: dialogDescription || undefined,
-      staff: dialogStaff || undefined,
     });
 
     if (result.success && result.data) {
       setSuccess(
-        `Successfully charged ¥${dialogAmount} to ${dialogStudent?.name || "student"}. New balance: ¥${formatCurrency(result.data.newBalance)}`
+        `Successfully charged ¥${dialogAmount} to ${dialogStudent?.name || "customer"}. New balance: ¥${formatCurrency(result.data.newBalance)}`
       );
       setTransactionId(result.data.transaction.id);
       setDialogOpen(false);
@@ -336,7 +334,7 @@ export function PosForm({ studentIdsWithTransactions, userName }: PosFormProps) 
           <DialogHeader>
             <DialogTitle>Enroll New Card</DialogTitle>
             <DialogDescription>
-              This card is not registered. Enter the student&apos;s name to enroll.
+              This card is not registered. Enter the customer&apos;s name to enroll.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -355,12 +353,12 @@ export function PosForm({ studentIdsWithTransactions, userName }: PosFormProps) 
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="enroll-name">Student Name</Label>
+              <Label htmlFor="enroll-name">Customer Name</Label>
               <Input
                 id="enroll-name"
                 value={enrollName}
                 onChange={(e) => setEnrollName(e.target.value)}
-                placeholder="Enter student name"
+                placeholder="Enter customer name"
                 disabled={enrollLoading}
                 autoFocus
               />
@@ -414,7 +412,7 @@ export function PosForm({ studentIdsWithTransactions, userName }: PosFormProps) 
               {dialogStudent && (
                 <div className="p-4 bg-muted rounded-lg space-y-2">
                   <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Student:</span>
+                    <span className="text-sm text-muted-foreground">Customer:</span>
                     <span className="font-medium">{dialogStudent.name}</span>
                   </div>
                   <div className="flex justify-between">
@@ -422,7 +420,8 @@ export function PosForm({ studentIdsWithTransactions, userName }: PosFormProps) 
                     <span
                       className={`font-bold ${dialogStudent.balance < 0
                           ? "text-red-600"
-                          : dialogStudent.balance <= 50 && studentIdsWithTransactions.includes(dialogStudent.id)
+                          : dialogStudent.balance <= LOW_BALANCE_THRESHOLD &&
+                            studentIdsWithTransactions.includes(dialogStudent.id)
                             ? "text-orange-600"
                             : ""
                         }`}
@@ -441,8 +440,8 @@ export function PosForm({ studentIdsWithTransactions, userName }: PosFormProps) 
                 <Input
                   id="dialog-amount"
                   type="number"
-                  min="0.1"
-                  step="0.1"
+                  min="0.01"
+                  step="0.01"
                   value={dialogAmount}
                   onChange={(e) => setDialogAmount(e.target.value)}
                   onWheel={(e) => e.currentTarget.blur()}
@@ -451,7 +450,7 @@ export function PosForm({ studentIdsWithTransactions, userName }: PosFormProps) 
                       e.preventDefault();
                     }
                   }}
-                  placeholder="Enter amount (e.g., 5.5)"
+                  placeholder="Enter amount (e.g., 5.50)"
                   required
                   autoFocus
                   disabled={dialogLoading}
@@ -520,7 +519,7 @@ export function PosForm({ studentIdsWithTransactions, userName }: PosFormProps) 
             <p className="text-sm text-muted-foreground mt-3 text-center">
               {mode === "tap-first"
                 ? "Fast checkout with NFC card tap"
-                : "Select student manually from the list"}
+                : "Select a customer manually from the list"}
             </p>
           </CardContent>
         </Card>
@@ -583,7 +582,7 @@ export function PosForm({ studentIdsWithTransactions, userName }: PosFormProps) 
                   <p className="text-lg font-normal">
                     <EncryptedText
                       key={animationKey}
-                      text="Waiting for student to tap card..."
+                      text="Waiting for customer to tap card..."
                       encryptedClassName="text-neutral-500"
                       revealedClassName="dark:text-white text-black"
                       revealDelayMs={50}
@@ -607,8 +606,8 @@ export function PosForm({ studentIdsWithTransactions, userName }: PosFormProps) 
                 <div className="space-y-2">
                   <StudentSearchField
                     id="student"
-                    label="Student"
-                    placeholder="Search students by name"
+                    label="Customer"
+                    placeholder="Search customers by name"
                     selectedStudent={selectedStudent}
                     onSelect={(student) => {
                       setSelectedStudent(student);
@@ -626,7 +625,8 @@ export function PosForm({ studentIdsWithTransactions, userName }: PosFormProps) 
                       <span
                         className={`font-bold text-xl ${selectedStudent.balance < 0
                             ? "text-red-600"
-                            : selectedStudent.balance <= 50 && studentIdsWithTransactions.includes(selectedStudent.id)
+                            : selectedStudent.balance <= LOW_BALANCE_THRESHOLD &&
+                              studentIdsWithTransactions.includes(selectedStudent.id)
                               ? "text-orange-600"
                               : ""
                           }`}
@@ -650,8 +650,8 @@ export function PosForm({ studentIdsWithTransactions, userName }: PosFormProps) 
                   <Input
                     id="amount"
                     type="number"
-                    min="0.1"
-                    step="0.1"
+                    min="0.01"
+                    step="0.01"
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
                     onWheel={(e) => e.currentTarget.blur()}
@@ -660,7 +660,7 @@ export function PosForm({ studentIdsWithTransactions, userName }: PosFormProps) 
                         e.preventDefault();
                       }
                     }}
-                    placeholder="Enter amount (e.g., 5.5)"
+                    placeholder="Enter amount (e.g., 5.50)"
                     required
                     className="text-base h-12"
                   />

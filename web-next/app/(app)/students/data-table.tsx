@@ -60,7 +60,7 @@ export function DataTable<TData, TValue>({
     <div className="space-y-4">
       <div className="flex items-center gap-4">
         <Input
-          placeholder="Filter students..."
+          placeholder="Filter customers..."
           value={(table.getColumn("name")?.getFilterValue() as string) ?? ""}
           onChange={(event) =>
             table.getColumn("name")?.setFilterValue(event.target.value)
@@ -123,7 +123,7 @@ export function DataTable<TData, TValue>({
       </div>
       <div className="flex items-center justify-end space-x-2 py-4">
         <div className="text-sm text-muted-foreground">
-          {table.getFilteredRowModel().rows.length} student(s) total
+          {table.getFilteredRowModel().rows.length} customer(s) total
         </div>
       </div>
     </div>

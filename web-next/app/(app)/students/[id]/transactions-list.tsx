@@ -46,7 +46,11 @@ export function TransactionsList({ transactions }: TransactionsListProps) {
               >
                 {tx.type}
               </Badge>
-              <p className="font-medium break-all">{tx.description || "-"}</p>
+              <p className="font-medium break-all">
+                {tx.payment_method
+                  ? `${tx.payment_method}${tx.description ? ` • ${tx.description}` : ""}`
+                  : tx.description || "-"}
+              </p>
             </div>
             <div className="flex items-center gap-2 mt-1">
               <span className="text-xs text-muted-foreground">
@@ -93,4 +97,3 @@ export function TransactionsList({ transactions }: TransactionsListProps) {
     </div>
   );
 }
-

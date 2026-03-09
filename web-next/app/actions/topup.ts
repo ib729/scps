@@ -8,47 +8,45 @@ import { createTransaction } from "@/lib/repositories/transactions";
 import { adjustBalance } from "@/lib/repositories/accounts";
 import { toDbValue } from "@/lib/currency";
 import { requireAuthContext } from "@/lib/auth-session";
+import { PAYMENT_METHOD_VALUES } from "@/lib/payment-methods";
 
 const topupSchema = z.object({
   student_id: z.number().int().positive(),
-  amount: z.number().positive(), // accepts decimals, will be converted to tenths
+  amount: z.number().positive(),
+  payment_method: z.enum(PAYMENT_METHOD_VALUES),
   description: z.string().optional(),
-  staff: z.string().optional(),
 });
 
 export async function topupAction(data: unknown) {
   try {
-    await requireAuthContext();
+    const { user } = await requireAuthContext();
 
     const validated = topupSchema.parse(data);
     const db = getDb();
 
-    // Convert display amount to database value (tenths)
-    const amountInTenths = toDbValue(validated.amount);
+    const amountInCents = toDbValue(validated.amount);
 
     const result = db.transaction(() => {
-      // Verify student exists
       const student = getStudentById(validated.student_id);
       if (!student) {
-        throw new Error("Student not found");
+        throw new Error("Customer not found");
       }
 
-      // Create transaction
       const transaction = createTransaction({
         student_id: validated.student_id,
         type: "TOPUP",
-        amount: amountInTenths,
+        amount: amountInCents,
         overdraft_component: 0,
+        payment_method: validated.payment_method,
         description: validated.description || undefined,
-        staff: validated.staff || undefined,
+        staff: user.name,
       });
 
-      // Update balance
-      adjustBalance(validated.student_id, amountInTenths);
+      adjustBalance(validated.student_id, amountInCents);
 
       return {
         transaction,
-        newBalance: student.balance + amountInTenths,
+        newBalance: student.balance + amountInCents,
       };
     })();
 
@@ -69,44 +67,39 @@ export async function topupAction(data: unknown) {
 
 const adjustSchema = z.object({
   student_id: z.number().int().positive(),
-  amount: z.number(), // accepts decimals (positive or negative), will be converted to tenths
+  amount: z.number(),
   description: z.string(),
-  staff: z.string().optional(),
 });
 
 export async function adjustBalanceManualAction(data: unknown) {
   try {
-    await requireAuthContext();
+    const { user } = await requireAuthContext();
 
     const validated = adjustSchema.parse(data);
     const db = getDb();
 
-    // Convert display amount to database value (tenths)
-    const amountInTenths = toDbValue(validated.amount);
+    const amountInCents = toDbValue(validated.amount);
 
     const result = db.transaction(() => {
-      // Verify student exists
       const student = getStudentById(validated.student_id);
       if (!student) {
-        throw new Error("Student not found");
+        throw new Error("Customer not found");
       }
 
-      // Create adjustment transaction
       const transaction = createTransaction({
         student_id: validated.student_id,
         type: "ADJUST",
-        amount: amountInTenths,
+        amount: amountInCents,
         overdraft_component: 0,
         description: validated.description || undefined,
-        staff: validated.staff || undefined,
+        staff: user.name,
       });
 
-      // Update balance
-      adjustBalance(validated.student_id, amountInTenths);
+      adjustBalance(validated.student_id, amountInCents);
 
       return {
         transaction,
-        newBalance: student.balance + amountInTenths,
+        newBalance: student.balance + amountInCents,
       };
     })();
 

@@ -29,7 +29,7 @@ export function UpdateStudentForm({ student }: UpdateStudentFormProps) {
     if (result.success) {
       router.refresh();
     } else {
-      setError(result.error || "Failed to update student");
+      setError(result.error || "Failed to update customer");
     }
 
     setLoading(false);
@@ -57,4 +57,3 @@ export function UpdateStudentForm({ student }: UpdateStudentFormProps) {
     </form>
   );
 }
-
