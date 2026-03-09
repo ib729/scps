@@ -1,8 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
 import {
   getAllStudents,
   getStudentById,
@@ -15,15 +13,11 @@ import {
   getStudentByName,
 } from "@/lib/repositories/students";
 import { createStudentSchema } from "@/lib/models";
+import { requireAuthContext } from "@/lib/auth-session";
 
 export async function getStudentsAction() {
   try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
-    if (!session) {
-      return { success: false, error: "Unauthorized" };
-    }
+    await requireAuthContext();
     return { success: true, data: getAllStudents() };
   } catch {
     return { success: false, error: "Failed to fetch students" };
@@ -32,12 +26,7 @@ export async function getStudentsAction() {
 
 export async function getStudentByIdAction(id: number) {
   try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
-    if (!session) {
-      return { success: false, error: "Unauthorized" };
-    }
+    await requireAuthContext();
     const student = getStudentById(id);
     if (!student) {
       return { success: false, error: "Student not found" };
@@ -50,12 +39,7 @@ export async function getStudentByIdAction(id: number) {
 
 export async function createStudentAction(data: unknown) {
   try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
-    if (!session) {
-      return { success: false, error: "Unauthorized" };
-    }
+    await requireAuthContext();
     const validated = createStudentSchema.parse(data);
     const student = createStudent(validated);
     revalidatePath("/students");
@@ -67,12 +51,7 @@ export async function createStudentAction(data: unknown) {
 
 export async function updateStudentAction(id: number, data: unknown) {
   try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
-    if (!session) {
-      return { success: false, error: "Unauthorized" };
-    }
+    await requireAuthContext();
     const validated = createStudentSchema.parse(data);
     updateStudent(id, validated);
     revalidatePath("/students");
@@ -85,12 +64,7 @@ export async function updateStudentAction(id: number, data: unknown) {
 
 export async function deleteStudentAction(id: number) {
   try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
-    if (!session) {
-      return { success: false, error: "Unauthorized" };
-    }
+    await requireAuthContext();
 
     if (hasTransactions(id)) {
       archiveStudent(id);
@@ -124,15 +98,10 @@ export async function deleteStudentAction(id: number) {
   }
 }
 
-export async function searchStudentsAction(query: string) {
+export async function searchStudentsAction(query: string, limit: number = 10) {
   try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
-    if (!session) {
-      return { success: false, error: "Unauthorized" };
-    }
-    return { success: true, data: searchStudents(query) };
+    await requireAuthContext();
+    return { success: true, data: searchStudents(query, limit) };
   } catch {
     return { success: false, error: "Failed to search students" };
   }
@@ -140,12 +109,7 @@ export async function searchStudentsAction(query: string) {
 
 export async function getStudentByNameAction(name: string) {
   try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
-    if (!session) {
-      return { success: false, error: "Unauthorized" };
-    }
+    await requireAuthContext();
     const student = getStudentByName(name);
     if (!student) {
       return { success: true, data: null };
@@ -155,4 +119,3 @@ export async function getStudentByNameAction(name: string) {
     return { success: false, error: "Failed to fetch student by name" };
   }
 }
-

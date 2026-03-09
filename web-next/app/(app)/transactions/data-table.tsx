@@ -33,11 +33,13 @@ import {
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
+  totalCount: number;
 }
 
 export function DataTable<TData, TValue>({
   columns,
   data,
+  totalCount,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([
     { id: "created_at", desc: true }, // Default sort by date descending
@@ -149,10 +151,9 @@ export function DataTable<TData, TValue>({
 
       <div className="flex items-center justify-end space-x-2 py-4">
         <div className="text-sm text-muted-foreground">
-          {table.getFilteredRowModel().rows.length} transaction(s) total
+          Showing {table.getFilteredRowModel().rows.length} of {totalCount} transaction(s)
         </div>
       </div>
     </div>
   );
 }
-

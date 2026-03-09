@@ -13,10 +13,33 @@ const { parse } = require('url');
 const next = require('next');
 const { WebSocketServer } = require('ws');
 const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
+const Database = require('better-sqlite3');
 
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = process.env.HOSTNAME || 'localhost';
 const port = parseInt(process.env.PORT || '3000', 10);
+const TRUST_PROXY = process.env.TRUST_PROXY === 'true';
+const trustedOrigins = new Set(
+  (
+    process.env.BETTER_AUTH_TRUSTED_ORIGINS ||
+    process.env.TRUSTED_ORIGINS ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    'http://localhost:3000'
+  )
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean)
+    .map((origin) => {
+      try {
+        return new URL(origin).origin;
+      } catch {
+        return null;
+      }
+    })
+    .filter(Boolean)
+);
 
 // Rate limiting: Track failed auth attempts per IP
 const failedAttempts = new Map(); // ip -> { count, firstAttempt, blocked }
@@ -26,12 +49,170 @@ const BLOCK_DURATION = 300000; // 5 minutes block
 
 // Connection tracking
 let connectionCounter = 0;
+let authDb = null;
+
+function resolveDbPath() {
+  const envDbPath = process.env.DATABASE_PATH?.trim();
+  const candidates = envDbPath
+    ? [envDbPath]
+    : [
+        path.resolve(process.cwd(), 'stuco.db'),
+        path.resolve(process.cwd(), '..', 'stuco.db'),
+      ];
+
+  const dbPath = candidates.find((candidate) => fs.existsSync(candidate));
+  if (!dbPath) {
+    throw new Error(`SQLite database not found. Checked: ${candidates.join(', ')}`);
+  }
+
+  return dbPath;
+}
+
+function hasColumn(database, tableName, columnName) {
+  const columns = database.prepare(`PRAGMA table_info(${tableName})`).all();
+  return columns.some((column) => column.name === columnName);
+}
+
+function ensureSecuritySchema(database) {
+  if (!hasColumn(database, 'user', 'role')) {
+    try {
+      database.exec(`
+        ALTER TABLE user
+        ADD COLUMN role TEXT NOT NULL DEFAULT 'staff' CHECK(role IN ('admin', 'staff'));
+      `);
+    } catch (error) {
+      if (!error.message.includes('duplicate column name: role')) {
+        throw error;
+      }
+    }
+  }
+
+  database.exec(`
+    UPDATE user
+    SET role = 'staff'
+    WHERE role IS NULL OR role NOT IN ('admin', 'staff');
+  `);
+
+  const adminCount = database
+    .prepare("SELECT COUNT(*) AS count FROM user WHERE role = 'admin'")
+    .get();
+
+  if (adminCount.count === 0) {
+    const bootstrapAdmin = database
+      .prepare("SELECT id FROM user ORDER BY createdAt ASC LIMIT 1")
+      .get();
+
+    if (bootstrapAdmin) {
+      database.prepare("UPDATE user SET role = 'admin' WHERE id = ?").run(bootstrapAdmin.id);
+    }
+  }
+}
+
+function getAuthDb() {
+  if (!authDb) {
+    authDb = new Database(resolveDbPath());
+    authDb.pragma('foreign_keys = ON');
+    ensureSecuritySchema(authDb);
+  }
+
+  return authDb;
+}
+
+function isAllowedOrigin(origin) {
+  if (!origin) {
+    return false;
+  }
+
+  try {
+    return trustedOrigins.has(new URL(origin).origin);
+  } catch {
+    return false;
+  }
+}
+
+function parseCookieHeader(cookieHeader) {
+  if (!cookieHeader) {
+    return {};
+  }
+
+  return cookieHeader.split(';').reduce((cookies, part) => {
+    const [rawKey, ...rawValue] = part.trim().split('=');
+    if (!rawKey) {
+      return cookies;
+    }
+
+    cookies[rawKey] = decodeURIComponent(rawValue.join('=') || '');
+    return cookies;
+  }, {});
+}
+
+function getSessionToken(request) {
+  const cookies = parseCookieHeader(request.headers.cookie);
+  return (
+    cookies['__Secure-better-auth.session_token'] ||
+    cookies['better-auth.session_token'] ||
+    null
+  );
+}
+
+function validateBrowserSession(request) {
+  const origin = request.headers.origin;
+  if (!isAllowedOrigin(origin)) {
+    return { error: 'Origin not allowed' };
+  }
+
+  const sessionToken = getSessionToken(request);
+  if (!sessionToken) {
+    return { error: 'Missing session token' };
+  }
+
+  const session = getAuthDb()
+    .prepare(
+      `
+        SELECT
+          s.userId,
+          s.expiresAt,
+          u.email,
+          u.name,
+          COALESCE(u.role, 'staff') AS role
+        FROM session s
+        JOIN user u ON u.id = s.userId
+        WHERE s.token = ?
+        LIMIT 1
+      `
+    )
+    .get(sessionToken);
+
+  if (!session) {
+    return { error: 'Invalid session' };
+  }
+
+  if (Date.parse(session.expiresAt) <= Date.now()) {
+    return { error: 'Expired session' };
+  }
+
+  return { session };
+}
+
+function safeCompareSecret(expected, provided) {
+  if (!expected || !provided) {
+    return false;
+  }
+
+  const expectedBuffer = Buffer.from(expected);
+  const providedBuffer = Buffer.from(provided);
+  if (expectedBuffer.length !== providedBuffer.length) {
+    return false;
+  }
+
+  return crypto.timingSafeEqual(expectedBuffer, providedBuffer);
+}
 
 /**
  * Get client IP address from request
  */
 function getClientIP(request) {
-  const forwarded = request.headers['x-forwarded-for'];
+  const forwarded = TRUST_PROXY ? request.headers['x-forwarded-for'] : null;
   if (forwarded) {
     return forwarded.split(',')[0].trim();
   }
@@ -124,6 +305,13 @@ app.prepare().then(() => {
     const { pathname } = parse(request.url);
 
     if (pathname === '/api/nfc/ws') {
+      const origin = request.headers.origin;
+      if (origin && !isAllowedOrigin(origin)) {
+        socket.write('HTTP/1.1 403 Forbidden\r\n\r\n');
+        socket.destroy();
+        return;
+      }
+
       wss.handleUpgrade(request, socket, head, (ws) => {
         wss.emit('connection', ws, request);
       });
@@ -240,9 +428,18 @@ function handleWebSocketConnection(ws, request) {
       
       console.log(`[WS #${connectionId}] Broadcaster auth - Expected: ${maskSecret(expectedSecret)}, Provided: ${maskSecret(providedSecret)}`);
       
-      if (!expectedSecret) {
-        console.warn(`[WS #${connectionId}] NFC_TAP_SECRET not configured - allowing broadcaster (INSECURE!)`);
-      } else if (providedSecret !== expectedSecret) {
+      if (!expectedSecret && !dev) {
+        recordFailedAttempt(clientIP);
+        console.error(`[WS #${connectionId}] NFC_TAP_SECRET is required outside development`);
+        ws.send(JSON.stringify({
+          type: 'auth_failed',
+          message: 'Broadcaster authentication is unavailable'
+        }));
+        ws.close(1008, 'Authentication failed');
+        return;
+      }
+
+      if (expectedSecret && !safeCompareSecret(expectedSecret, providedSecret)) {
         // Record failed attempt (only for broadcaster)
         recordFailedAttempt(clientIP);
         
@@ -286,9 +483,18 @@ function handleWebSocketConnection(ws, request) {
       startPingInterval();
 
     } else if (role === 'client') {
-      // Browser clients are NOT rate limited
-      // We trust Next.js app-level authentication for browser clients
-      // Rate limiting only applies to broadcaster authentication failures
+      const sessionResult = validateBrowserSession(request);
+      if (!sessionResult.session) {
+        console.warn(
+          `[WS #${connectionId}] Browser client rejected: ${sessionResult.error}`
+        );
+        ws.send(JSON.stringify({
+          type: 'auth_failed',
+          message: 'Unauthorized'
+        }));
+        ws.close(1008, 'Authentication failed');
+        return;
+      }
       
       connectionInfo = {
         role: 'client',
@@ -296,11 +502,13 @@ function handleWebSocketConnection(ws, request) {
         ip: clientIP,
         connectedAt,
         userAgent,
+        userId: sessionResult.session.userId,
+        email: sessionResult.session.email,
       };
 
       authenticated = true;
 
-      console.log(`[WS #${connectionId}] ✓ Browser client authenticated (lane: ${lane})`);
+      console.log(`[WS #${connectionId}] ✓ Browser client authenticated (${sessionResult.session.email}, lane: ${lane})`);
 
       ws.send(JSON.stringify({
         type: 'auth_success',
@@ -413,4 +621,3 @@ function handleWebSocketConnection(ws, request) {
     console.error(`[WS #${connectionId}] Socket error:`, error);
   });
 }
-

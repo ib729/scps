@@ -1,24 +1,17 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
 import {
   getAccountByStudentId,
   updateAccount,
   adjustBalance,
 } from "@/lib/repositories/accounts";
 import { updateAccountSchema } from "@/lib/models";
-import { toDbValue } from "@/lib/currency";
+import { requireAuthContext } from "@/lib/auth-session";
 
 export async function getAccountByStudentIdAction(studentId: number) {
   try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
-    if (!session) {
-      return { success: false, error: "Unauthorized" };
-    }
+    await requireAuthContext();
     const account = getAccountByStudentId(studentId);
     if (!account) {
       return { success: false, error: "Account not found" };
@@ -31,12 +24,7 @@ export async function getAccountByStudentIdAction(studentId: number) {
 
 export async function updateAccountAction(studentId: number, data: unknown) {
   try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
-    if (!session) {
-      return { success: false, error: "Unauthorized" };
-    }
+    await requireAuthContext();
     const validated = updateAccountSchema.parse(data);
     updateAccount(studentId, validated);
     revalidatePath("/students");
@@ -49,12 +37,7 @@ export async function updateAccountAction(studentId: number, data: unknown) {
 
 export async function adjustBalanceAction(studentId: number, delta: number) {
   try {
-    const session = await auth.api.getSession({
-      headers: await headers(),
-    });
-    if (!session) {
-      return { success: false, error: "Unauthorized" };
-    }
+    await requireAuthContext();
     adjustBalance(studentId, delta);
     revalidatePath("/students");
     revalidatePath(`/students/${studentId}`);
@@ -63,4 +46,3 @@ export async function adjustBalanceAction(studentId: number, delta: number) {
     return { success: false, error: "Failed to adjust balance" };
   }
 }
-

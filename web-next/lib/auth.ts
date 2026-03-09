@@ -3,11 +3,20 @@ import { getDb } from "./db";
 
 export const auth = betterAuth({
   database: getDb(),
+  secret: process.env.BETTER_AUTH_SECRET,
   emailAndPassword: {
     enabled: true,
-    autoSignIn: true,
+    autoSignIn: false,
   },
   user: {
+    additionalFields: {
+      role: {
+        type: "string",
+        required: false,
+        input: false,
+        defaultValue: "staff",
+      },
+    },
     deleteUser: {
       enabled: true,
     },
@@ -21,9 +30,15 @@ export const auth = betterAuth({
     },
   }),
   baseURL: process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
-  trustedOrigins: process.env.TRUSTED_ORIGINS
-    ? process.env.TRUSTED_ORIGINS.split(",").map((origin) => origin.trim())
-    : ["http://localhost:3000"],
+  trustedOrigins: (
+    process.env.BETTER_AUTH_TRUSTED_ORIGINS ||
+    process.env.TRUSTED_ORIGINS ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    "http://localhost:3000"
+  )
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean),
   session: {
     cookieCache: {
       enabled: true,

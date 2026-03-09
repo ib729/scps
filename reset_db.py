@@ -10,6 +10,8 @@ import shutil
 from datetime import datetime
 from getpass import getpass
 import hashlib
+import secrets
+import uuid
 
 DB_FILE = "stuco.db"
 DB_WAL = "stuco.db-wal"
@@ -18,8 +20,17 @@ SCHEMA_FILE = "migrations/schema.sql"
 BACKUP_DIR = "db_backups"
 
 def hash_password(password):
-    """Simple password hashing (consider using bcrypt in production)"""
-    return hashlib.sha256(password.encode()).hexdigest()
+    """Match Better Auth's default scrypt password format."""
+    salt = secrets.token_hex(16)
+    derived_key = hashlib.scrypt(
+        password.encode("utf-8"),
+        salt=bytes.fromhex(salt),
+        n=16384,
+        r=16,
+        p=1,
+        dklen=64,
+    ).hex()
+    return f"{salt}:{derived_key}"
 
 def backup_database():
     """Backup existing database files if they exist"""
@@ -85,12 +96,19 @@ def initialize_database():
 def create_admin_user(con, name, email, password):
     """Create an admin user account"""
     password_hash = hash_password(password)
+    user_id = uuid.uuid4().hex
+    account_id = uuid.uuid4().hex
+    now = datetime.utcnow().isoformat(timespec="milliseconds") + "Z"
     
     try:
         con.execute("""
-            INSERT INTO users (name, email, password_hash, avatar)
-            VALUES (?, ?, ?, ?)
-        """, (name, email, password_hash, None))
+            INSERT INTO user (id, name, email, emailVerified, image, role, createdAt, updatedAt)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, (user_id, name, email, 1, None, "admin", now, now))
+        con.execute("""
+            INSERT INTO account (id, userId, accountId, providerId, password, createdAt, updatedAt)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (account_id, user_id, user_id, "credential", password_hash, now, now))
         con.commit()
         print(f"✓ Admin user created: {email}")
         return True
@@ -168,4 +186,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

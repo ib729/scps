@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS user (
     email TEXT NOT NULL UNIQUE,
     emailVerified INTEGER DEFAULT 0,
     image TEXT,
+    role TEXT NOT NULL DEFAULT 'staff' CHECK(role IN ('admin', 'staff')),
     createdAt INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
     updatedAt INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
 );
@@ -60,4 +61,3 @@ CREATE INDEX IF NOT EXISTS idx_session_token ON session(token);
 CREATE INDEX IF NOT EXISTS idx_account_userId ON account(userId);
 CREATE INDEX IF NOT EXISTS idx_account_providerId ON account(providerId);
 CREATE INDEX IF NOT EXISTS idx_verification_identifier ON verification(identifier);
-
