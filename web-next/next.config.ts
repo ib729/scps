@@ -48,6 +48,20 @@ const nextConfig: NextConfig = {
 			},
 		];
 	},
+	async redirects() {
+		return [
+			{
+				source: "/students",
+				destination: "/customers",
+				permanent: true,
+			},
+			{
+				source: "/students/:path*",
+				destination: "/customers/:path*",
+				permanent: true,
+			},
+		];
+	},
 };
 
 export default nextConfig;

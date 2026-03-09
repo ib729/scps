@@ -15,8 +15,8 @@ export async function GET() {
     try {
         await requireRole("admin");
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-    const filename = `stuco_backup_${timestamp}.tar.gz`;
-    const tempFilePath = path.join(os.tmpdir(), `backup_${Date.now()}_${Math.random().toString(36).substring(7)}.tar.gz`);
+    const filename = `stuco_backup_${timestamp}.tar.zst`;
+    const tempFilePath = path.join(os.tmpdir(), `backup_${Date.now()}_${Math.random().toString(36).substring(7)}.tar.zst`);
 
     try {
         await execFileAsync(getBackupScriptPath(), [tempFilePath], {
@@ -29,7 +29,7 @@ export async function GET() {
 
         return new NextResponse(fileBuffer, {
             headers: {
-                "Content-Type": "application/gzip",
+                "Content-Type": "application/zstd",
                 "Content-Disposition": `attachment; filename="${filename}"`,
             },
         });

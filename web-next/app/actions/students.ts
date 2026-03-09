@@ -42,7 +42,7 @@ export async function createStudentAction(data: unknown) {
     await requireAuthContext();
     const validated = createStudentSchema.parse(data);
     const student = createStudent(validated);
-    revalidatePath("/students");
+    revalidatePath("/customers");
     return { success: true, data: student };
   } catch {
     return { success: false, error: "Failed to create customer" };
@@ -54,8 +54,8 @@ export async function updateStudentAction(id: number, data: unknown) {
     await requireAuthContext();
     const validated = createStudentSchema.parse(data);
     updateStudent(id, validated);
-    revalidatePath("/students");
-    revalidatePath(`/students/${id}`);
+    revalidatePath("/customers");
+    revalidatePath(`/customers/${id}`);
     return { success: true };
   } catch {
     return { success: false, error: "Failed to update customer" };
@@ -68,12 +68,12 @@ export async function deleteStudentAction(id: number) {
 
     if (hasTransactions(id)) {
       archiveStudent(id);
-      revalidatePath("/students");
+      revalidatePath("/customers");
       return { success: true, message: "Customer archived due to existing transactions." };
     }
 
     deleteStudent(id);
-    revalidatePath("/students");
+    revalidatePath("/customers");
     return { success: true, message: "Customer deleted successfully." };
   } catch (error: unknown) {
     if (
@@ -85,7 +85,7 @@ export async function deleteStudentAction(id: number) {
       // Fallback if hasTransactions check missed something or race condition
       try {
         archiveStudent(id);
-        revalidatePath("/students");
+        revalidatePath("/customers");
         return { success: true, message: "Customer archived due to existing financial history." };
       } catch {
         return {

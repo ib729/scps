@@ -76,12 +76,25 @@ mkdir -p "$LOCAL_BACKUP_DIR"
 echo "------------------------------------------------------------"
 echo "Step 1: Creating compressed backup"
 echo "------------------------------------------------------------"
-BACKUP_FILE="${LOCAL_BACKUP_DIR}/${BACKUP_NAME}.tar.gz"
+BACKUP_FILE="${LOCAL_BACKUP_DIR}/${BACKUP_NAME}.tar.zst"
+
+if ! command -v zstd &> /dev/null; then
+    echo "❌ Error: zstd is not installed!"
+    echo ""
+    echo "Install with:"
+    echo "  sudo apt install zstd"
+    echo "or"
+    echo "  brew install zstd"
+    exit 1
+fi
+
+export ZSTD_CLEVEL="${ZSTD_CLEVEL:-15}"
+export ZSTD_NBTHREADS="${ZSTD_NBTHREADS:-0}"
 
 # Create tar archive (suppress warnings for missing WAL/SHM files)
-if tar -czf "$BACKUP_FILE" "$DB_FILE" "$DB_WAL" "$DB_SHM" 2>/dev/null; then
+if tar --zstd -cf "$BACKUP_FILE" "$DB_FILE" "$DB_WAL" "$DB_SHM" 2>/dev/null; then
     echo "✓ All database files included"
-elif tar -czf "$BACKUP_FILE" "$DB_FILE" 2>/dev/null; then
+elif tar --zstd -cf "$BACKUP_FILE" "$DB_FILE" 2>/dev/null; then
     echo "⚠ Warning: WAL/SHM files not found, backed up main DB only"
 else
     echo "❌ Error: Failed to create backup archive"
@@ -98,7 +111,7 @@ echo "Step 2: Uploading to Cloudflare R2"
 echo "------------------------------------------------------------"
 
 echo "Remote: ${RCLONE_REMOTE}:${R2_PATH}/"
-echo "File: ${BACKUP_NAME}.tar.gz"
+echo "File: ${BACKUP_NAME}.tar.zst"
 
 # Upload to R2 using rclone
 rclone copy "$BACKUP_FILE" "${RCLONE_REMOTE}:${R2_PATH}/" \
@@ -123,7 +136,7 @@ echo "Step 3: Backup Summary"
 echo "------------------------------------------------------------"
 
 # Count local backups
-LOCAL_COUNT=$(find "$LOCAL_BACKUP_DIR" -name "*.tar.gz" | wc -l)
+LOCAL_COUNT=$(find "$LOCAL_BACKUP_DIR" -name "*.tar.zst" | wc -l)
 LOCAL_TOTAL_SIZE=$(du -sh "$LOCAL_BACKUP_DIR" | cut -f1)
 
 echo "Local backups: $LOCAL_COUNT files ($LOCAL_TOTAL_SIZE total)"
@@ -141,22 +154,21 @@ echo "✓ Backup Complete!"
 echo "============================================================"
 echo ""
 echo "Local:  $BACKUP_FILE"
-echo "Remote: ${RCLONE_REMOTE}:${R2_PATH}/${BACKUP_NAME}.tar.gz"
+echo "Remote: ${RCLONE_REMOTE}:${R2_PATH}/${BACKUP_NAME}.tar.zst"
 echo ""
 echo "To restore from this backup:"
 echo "  cd \$PROJECT_ROOT"
-echo "  tar -xzf $BACKUP_FILE"
+echo "  tar --zstd -xf $BACKUP_FILE"
 echo ""
 echo "To list all R2 backups:"
 echo "  rclone ls ${RCLONE_REMOTE}:${R2_PATH}/"
 echo ""
 echo "To download a backup:"
-echo "  rclone copy ${RCLONE_REMOTE}:${R2_PATH}/FILENAME.tar.gz db_backups/"
+echo "  rclone copy ${RCLONE_REMOTE}:${R2_PATH}/FILENAME.tar.zst db_backups/"
 echo ""
 
 # Optional: Clean up old local backups (disabled by default)
 # Uncomment the following lines to keep only the last 30 days of local backups
 # echo "Cleaning up old local backups (keeping last 30 days)..."
-# find "$LOCAL_BACKUP_DIR" -name "*.tar.gz" -mtime +30 -delete
+# find "$LOCAL_BACKUP_DIR" -name "*.tar.zst" -mtime +30 -delete
 # echo "✓ Cleanup complete"
-

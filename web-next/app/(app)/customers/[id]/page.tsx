@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 import { getStudentById } from "@/lib/repositories/students";
 import { getTransactionsByStudentId } from "@/lib/repositories/transactions";
 import { getCardsByStudentId } from "@/lib/repositories/cards";
@@ -14,6 +15,13 @@ import { CardsList } from "./cards-list";
 import { formatCurrency, LOW_BALANCE_THRESHOLD } from "@/lib/currency";
 
 export const dynamic = "force-dynamic";
+export const metadata: Metadata = {
+  title: "Customer Details",
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
 
 interface StudentDetailPageProps {
   params: Promise<{ id: string }>;
@@ -46,7 +54,7 @@ export default async function StudentDetailPage({
           <p className="text-muted-foreground mt-1">Customer ID: {student.id}</p>
         </div>
         <Button variant="outline" asChild>
-          <Link href="/students">Back to Customers</Link>
+          <Link href="/customers">Back to Customers</Link>
         </Button>
       </div>
 

@@ -36,7 +36,6 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
@@ -83,7 +82,7 @@ const navItems = [
   },
   {
     title: "Customers",
-    url: "/students",
+    url: "/customers",
     icon: Users,
   },
   {
@@ -398,7 +397,6 @@ export function AppSidebar({ user: initialUser, ...props }: AppSidebarProps) {
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {navItems.map((item) => (

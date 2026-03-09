@@ -1,9 +1,18 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 
 import { getTransactionsPage } from "@/lib/repositories/transactions";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "./data-table";
 import { columns } from "./columns";
+
+export const metadata: Metadata = {
+  title: "Transactions",
+  robots: {
+    index: false,
+    follow: false,
+  },
+};
 
 export const dynamic = "force-dynamic";
 

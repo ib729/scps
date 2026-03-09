@@ -52,8 +52,8 @@ export async function topupAction(data: unknown) {
 
     revalidatePath("/topup");
     revalidatePath("/transactions");
-    revalidatePath("/students");
-    revalidatePath(`/students/${validated.student_id}`);
+    revalidatePath("/customers");
+    revalidatePath(`/customers/${validated.student_id}`);
     revalidatePath("/dashboard");
 
     return { success: true, data: result };
@@ -103,8 +103,8 @@ export async function adjustBalanceManualAction(data: unknown) {
       };
     })();
 
-    revalidatePath("/students");
-    revalidatePath(`/students/${validated.student_id}`);
+    revalidatePath("/customers");
+    revalidatePath(`/customers/${validated.student_id}`);
     revalidatePath("/transactions");
     revalidatePath("/dashboard");
 

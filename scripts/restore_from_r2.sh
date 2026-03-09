@@ -1,15 +1,15 @@
 #!/bin/bash
 
 # Restore STUCO Database from Cloudflare R2 (using rclone)
-# Usage: ./restore_from_r2.sh <backup_filename.tar.gz>
+# Usage: ./restore_from_r2.sh <backup_filename.tar.zst>
 
 set -e
 
 # Check if backup filename is provided
 if [ -z "$1" ]; then
-    echo "Usage: $0 <backup_filename.tar.gz>"
+    echo "Usage: $0 <backup_filename.tar.zst>"
     echo ""
-    echo "Example: $0 stuco_backup_20241209_020000.tar.gz"
+    echo "Example: $0 stuco_backup_20241209_020000.tar.zst"
     echo ""
     echo "To list available backups in R2:"
     echo "  rclone ls \$RCLONE_REMOTE:\$R2_PATH/"
@@ -37,6 +37,16 @@ if ! command -v rclone &> /dev/null; then
     echo "Install with:"
     echo "  sudo apt install rclone"
     echo "or download from: https://rclone.org/downloads/"
+    exit 1
+fi
+
+if ! command -v zstd &> /dev/null; then
+    echo "❌ Error: zstd is not installed!"
+    echo ""
+    echo "Install with:"
+    echo "  sudo apt install zstd"
+    echo "or"
+    echo "  brew install zstd"
     exit 1
 fi
 
@@ -77,8 +87,10 @@ echo "Step 2: Backing up current database"
 echo "------------------------------------------------------------"
 
 if [ -f "stuco.db" ]; then
-    CURRENT_BACKUP="db_backups/pre_restore_backup_$(date +%Y%m%d_%H%M%S).tar.gz"
-    tar -czf "$CURRENT_BACKUP" stuco.db stuco.db-wal stuco.db-shm 2>/dev/null || tar -czf "$CURRENT_BACKUP" stuco.db 2>/dev/null
+    CURRENT_BACKUP="db_backups/pre_restore_backup_$(date +%Y%m%d_%H%M%S).tar.zst"
+    export ZSTD_CLEVEL="${ZSTD_CLEVEL:-15}"
+    export ZSTD_NBTHREADS="${ZSTD_NBTHREADS:-0}"
+    tar --zstd -cf "$CURRENT_BACKUP" stuco.db stuco.db-wal stuco.db-shm 2>/dev/null || tar --zstd -cf "$CURRENT_BACKUP" stuco.db 2>/dev/null
     echo "✓ Current database backed up to: $CURRENT_BACKUP"
 else
     echo "ℹ No existing database to backup"
@@ -97,7 +109,7 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 cd "$PROJECT_ROOT"
 
 # Extract
-tar -xzf "$LOCAL_PATH"
+tar --zstd -xf "$LOCAL_PATH"
 
 if [ $? -eq 0 ]; then
     echo "✓ Database restored successfully!"
@@ -117,4 +129,3 @@ echo "To verify the restore:"
 echo "  sqlite3 stuco.db '.tables'"
 echo "  sqlite3 stuco.db 'SELECT COUNT(*) FROM students;'"
 echo ""
-
