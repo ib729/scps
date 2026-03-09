@@ -26,8 +26,8 @@ const chartConfig = {
   amount: {
     label: "Top-up Amount",
     theme: {
-      light: "oklch(0.646 0.222 41.116)",
-      dark: "oklch(0.696 0.17 162.48)",
+      light: "oklch(0.24 0.01 260)",
+      dark: "oklch(0.94 0.01 260)",
     },
   },
 } satisfies ChartConfig
@@ -105,12 +105,12 @@ export function WeeklyTopupChart({ data }: WeeklyTopupChartProps) {
                   <stop
                     offset="5%"
                     stopColor="var(--color-amount)"
-                    stopOpacity={0.8}
+                    stopOpacity={0.42}
                   />
                   <stop
                     offset="95%"
                     stopColor="var(--color-amount)"
-                    stopOpacity={0.1}
+                    stopOpacity={0.04}
                   />
                 </linearGradient>
               </defs>
@@ -146,9 +146,9 @@ export function WeeklyTopupChart({ data }: WeeklyTopupChartProps) {
                 dataKey="amount"
                 type="natural"
                 fill="url(#fillAmount)"
-                fillOpacity={0.4}
+                fillOpacity={1}
                 stroke="var(--color-amount)"
-                strokeWidth={2}
+                strokeWidth={2.5}
               />
             </AreaChart>
           </ChartContainer>

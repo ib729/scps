@@ -21,16 +21,25 @@ const dev = process.env.NODE_ENV !== 'production';
 const hostname = process.env.HOSTNAME || 'localhost';
 const port = parseInt(process.env.PORT || '3000', 10);
 const TRUST_PROXY = process.env.TRUST_PROXY === 'true';
-const trustedOrigins = new Set(
-  (
-    process.env.BETTER_AUTH_TRUSTED_ORIGINS ||
-    process.env.TRUSTED_ORIGINS ||
-    process.env.NEXT_PUBLIC_APP_URL ||
-    'http://localhost:3000'
-  )
-    .split(',')
+const DEFAULT_TRUSTED_ORIGINS = [
+  'http://localhost:3000',
+  'http://192.168.50.195:3000',
+];
+function getTrustedOrigins() {
+  const configuredOrigins = [
+    process.env.BETTER_AUTH_TRUSTED_ORIGINS,
+    process.env.TRUSTED_ORIGINS,
+    process.env.NEXT_PUBLIC_APP_URL,
+  ]
+    .flatMap((value) => (value ? value.split(',') : []))
     .map((origin) => origin.trim())
-    .filter(Boolean)
+    .filter(Boolean);
+
+  return Array.from(new Set([...DEFAULT_TRUSTED_ORIGINS, ...configuredOrigins]));
+}
+
+const trustedOrigins = new Set(
+  getTrustedOrigins()
     .map((origin) => {
       try {
         return new URL(origin).origin;
