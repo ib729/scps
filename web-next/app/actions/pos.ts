@@ -12,16 +12,15 @@ import {
   upsertOverdraftWeek,
   getCurrentWeekStartUtc,
 } from "@/lib/repositories/overdraft";
-import { toDbValue } from "@/lib/currency";
+import { formatCurrency, toDbValue } from "@/lib/currency";
 import { requireAuthContext } from "@/lib/auth-session";
 
 const posCheckoutSchema = z
   .object({
     student_id: z.number().int().positive().optional(),
-  card_uid: z.string().optional(),
-  amount: z.number().positive(), // accepts decimals, will be converted to tenths
-  description: z.string().optional(),
-  staff: z.string().optional(),
+    card_uid: z.string().optional(),
+    amount: z.number().positive(),
+    description: z.string().optional(),
   })
   .refine((data) => data.student_id || data.card_uid, {
     message: "Either student_id or card_uid must be provided",
@@ -29,24 +28,20 @@ const posCheckoutSchema = z
 
 export async function posCheckoutAction(data: unknown) {
   try {
-    await requireAuthContext();
+    const { user } = await requireAuthContext();
 
     const validated = posCheckoutSchema.parse(data);
     const db = getDb();
 
-    // Convert display amount to database value (tenths)
-    const chargeAmountInTenths = toDbValue(validated.amount);
+    const chargeAmountInCents = toDbValue(validated.amount);
 
     const result = db.transaction(() => {
-      // Resolve student: either from student_id or by looking up card_uid
       let studentId: number;
       const cardUid: string | undefined = validated.card_uid;
 
       if (validated.student_id) {
-        // Direct student selection
         studentId = validated.student_id;
       } else if (validated.card_uid) {
-        // Card-based lookup
         const card = getCardByUid(validated.card_uid);
         if (!card) {
           throw new Error("Card not found");
@@ -59,19 +54,17 @@ export async function posCheckoutAction(data: unknown) {
         throw new Error("Either student_id or card_uid must be provided");
       }
 
-      // Get student with account
       const student = getStudentById(studentId);
       if (!student) {
-        throw new Error("Student not found");
+        throw new Error("Customer not found");
       }
 
       const currentBalance = student.balance;
-      const chargeAmount = chargeAmountInTenths;
+      const chargeAmount = chargeAmountInCents;
       const newBalance = currentBalance - chargeAmount;
 
       let overdraftUsed = 0;
 
-      // Check if overdraft is needed
       if (newBalance < 0) {
         overdraftUsed = Math.abs(newBalance);
         const weekStart = getCurrentWeekStartUtc();
@@ -81,15 +74,13 @@ export async function posCheckoutAction(data: unknown) {
 
         if (totalUsed > student.max_overdraft_week) {
           throw new Error(
-            `Insufficient funds. Overdraft limit (¥${student.max_overdraft_week}/week) would be exceeded.`
+            `Insufficient funds. Overdraft limit (¥${formatCurrency(student.max_overdraft_week)}/week) would be exceeded.`
           );
         }
 
-        // Update overdraft usage
         upsertOverdraftWeek(studentId, weekStart, totalUsed);
       }
 
-      // Create transaction
       const transaction = createTransaction({
         student_id: studentId,
         card_uid: cardUid,
@@ -97,10 +88,9 @@ export async function posCheckoutAction(data: unknown) {
         amount: -chargeAmount,
         overdraft_component: overdraftUsed,
         description: validated.description || undefined,
-        staff: validated.staff || undefined,
+        staff: user.name,
       });
 
-      // Update balance
       adjustBalance(studentId, -chargeAmount);
 
       return {

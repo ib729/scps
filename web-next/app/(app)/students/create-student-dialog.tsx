@@ -35,7 +35,7 @@ export function CreateStudentDialog() {
       setOpen(false);
       setName("");
     } else {
-      setError(result.error || "Failed to create student");
+      setError(result.error || "Failed to create customer");
     }
 
     setLoading(false);
@@ -44,14 +44,14 @@ export function CreateStudentDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>Add Student</Button>
+        <Button>Add Customer</Button>
       </DialogTrigger>
       <DialogContent>
         <form onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>Add New Student</DialogTitle>
+            <DialogTitle>Add New Customer</DialogTitle>
             <DialogDescription>
-              Create a new student account. An account with ¥0 balance will be
+              Create a new customer account. An account with ¥0.00 balance will be
               created automatically.
             </DialogDescription>
           </DialogHeader>
@@ -62,12 +62,12 @@ export function CreateStudentDialog() {
               </Alert>
             )}
             <div className="space-y-2">
-              <Label htmlFor="name">Student Name</Label>
+              <Label htmlFor="name">Customer Name</Label>
               <Input
                 id="name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Enter student name"
+                placeholder="Enter customer name"
                 required
               />
             </div>
@@ -81,7 +81,7 @@ export function CreateStudentDialog() {
               Cancel
             </Button>
             <Button type="submit" disabled={loading}>
-              {loading ? "Creating..." : "Create Student"}
+              {loading ? "Creating..." : "Create Customer"}
             </Button>
           </DialogFooter>
         </form>
@@ -89,4 +89,3 @@ export function CreateStudentDialog() {
     </Dialog>
   );
 }
-

@@ -7,8 +7,8 @@ export function PageHeader() {
   
   const getPageTitle = () => {
     if (pathname === "/" || pathname === "/dashboard") return "Dashboard"
-    if (pathname === "/students") return "Students"
-    if (pathname?.startsWith("/students/")) return "Student Details"
+    if (pathname === "/students") return "Customers"
+    if (pathname?.startsWith("/students/")) return "Customer Details"
     if (pathname === "/transactions") return "Transactions"
     if (pathname === "/pos") return "Point of Sale"
     if (pathname === "/topup") return "Top-up"
@@ -20,4 +20,3 @@ export function PageHeader() {
     <h1 className="text-lg font-semibold">{getPageTitle()}</h1>
   )
 }
-

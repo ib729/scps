@@ -123,7 +123,7 @@ export function WeeklyTopupChart({ data }: WeeklyTopupChartProps) {
                 tickLine={false}
                 axisLine={false}
                 tickMargin={8}
-                tickFormatter={(value) => `¥${toDisplayValue(value).toFixed(1)}`}
+                tickFormatter={(value) => `¥${toDisplayValue(value).toFixed(2)}`}
               />
               <ChartTooltip
                 content={
@@ -134,7 +134,7 @@ export function WeeklyTopupChart({ data }: WeeklyTopupChartProps) {
                       return `Week of ${value}`
                     }}
                     formatter={(value) => {
-                      return `¥${toDisplayValue(Number(value)).toFixed(1)}`
+                      return `¥${toDisplayValue(Number(value)).toFixed(2)}`
                     }}
                   />
                 }
@@ -154,4 +154,3 @@ export function WeeklyTopupChart({ data }: WeeklyTopupChartProps) {
     </Card>
   )
 }
-

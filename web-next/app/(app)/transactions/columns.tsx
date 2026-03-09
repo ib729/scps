@@ -48,7 +48,7 @@ function TransactionDetailsDialog({ tx }: { tx: TransactionWithStudent }) {
       </DialogTrigger>
       <DialogContent className="w-full flex flex-col sm:max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Full Description</DialogTitle>
+          <DialogTitle>Full Notes</DialogTitle>
           <DialogDescription>
             Transaction #{tx.id}
           </DialogDescription>
@@ -128,7 +128,7 @@ export const columns: ColumnDef<TransactionWithStudent>[] = [
           variant="ghost"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
         >
-          Student
+          Customer
           <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
       );
@@ -168,8 +168,20 @@ export const columns: ColumnDef<TransactionWithStudent>[] = [
     },
   },
   {
+    accessorKey: "payment_method",
+    header: "Payment Method",
+    cell: ({ row }) => {
+      const tx = row.original;
+      return (
+        <div className="text-sm text-muted-foreground">
+          {tx.payment_method || "-"}
+        </div>
+      );
+    },
+  },
+  {
     accessorKey: "description",
-    header: "Description",
+    header: "Notes",
     cell: ({ row }) => {
       const tx = row.original;
       const description = tx.description || "";
@@ -240,4 +252,3 @@ export const columns: ColumnDef<TransactionWithStudent>[] = [
     },
   },
 ];
-

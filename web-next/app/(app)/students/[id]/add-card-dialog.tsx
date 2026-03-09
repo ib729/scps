@@ -59,7 +59,7 @@ export function AddCardDialog({ studentId }: AddCardDialogProps) {
           <DialogHeader>
             <DialogTitle>Add New Card</DialogTitle>
             <DialogDescription>
-              Register a new card for this student
+              Register a new card for this customer
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -96,4 +96,3 @@ export function AddCardDialog({ studentId }: AddCardDialogProps) {
     </Dialog>
   );
 }
-

@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { StudentWithAccount } from "@/lib/models";
-import { formatCurrency } from "@/lib/currency";
+import { formatCurrency, LOW_BALANCE_THRESHOLD } from "@/lib/currency";
 import { DeleteStudentDialog } from "./delete-student-dialog";
 
 export type StudentTableData = StudentWithAccount & {
@@ -22,7 +22,7 @@ export const columns: ColumnDef<StudentTableData>[] = [
           variant="ghost"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
         >
-          Student Name
+          Customer Name
           <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
       );
@@ -65,7 +65,7 @@ export const columns: ColumnDef<StudentTableData>[] = [
             className={
               balance < 0
                 ? "text-red-600 font-bold"
-                : balance <= 50 && hasTransactions
+                : balance <= LOW_BALANCE_THRESHOLD && hasTransactions
                 ? "text-orange-600 font-bold"
                 : "font-bold"
             }
@@ -93,7 +93,7 @@ export const columns: ColumnDef<StudentTableData>[] = [
 
       if (balance < 0) {
         return <Badge variant="destructive">Overdraft</Badge>;
-      } else if (balance <= 50 && hasTransactions) {
+      } else if (balance <= LOW_BALANCE_THRESHOLD && hasTransactions) {
         return <Badge variant="secondary">Low Balance</Badge>;
       } else {
         return <Badge variant="default">Active</Badge>;
@@ -120,4 +120,3 @@ export const columns: ColumnDef<StudentTableData>[] = [
     },
   },
 ];
-

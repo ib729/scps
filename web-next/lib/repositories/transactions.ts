@@ -17,6 +17,7 @@ export function getAllTransactions(
       t.type,
       t.amount,
       t.overdraft_component,
+      t.payment_method,
       t.description,
       t.staff,
       t.created_at,
@@ -52,8 +53,8 @@ export function createTransaction(data: CreateTransaction): Transaction {
   const db = getDb();
   const stmt = db.prepare(`
     INSERT INTO transactions (
-      student_id, card_uid, type, amount, overdraft_component, description, staff, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
+      student_id, card_uid, type, amount, overdraft_component, payment_method, description, staff, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
   `);
 
   const info = stmt.run(
@@ -62,6 +63,7 @@ export function createTransaction(data: CreateTransaction): Transaction {
     data.type,
     data.amount,
     data.overdraft_component || 0,
+    data.payment_method || null,
     data.description || null,
     data.staff || null
   );
@@ -231,6 +233,7 @@ export function getTransactionsPage({
           t.type,
           t.amount,
           t.overdraft_component,
+          t.payment_method,
           t.description,
           t.staff,
           t.created_at,

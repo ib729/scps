@@ -13,12 +13,36 @@ CREATE TABLE transactions_backup (
   type TEXT NOT NULL CHECK (type IN ('TOPUP','DEBIT','ADJUST')),
   amount INTEGER NOT NULL,
   overdraft_component INTEGER NOT NULL DEFAULT 0,
+  payment_method TEXT,
   description TEXT,
   staff TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
-INSERT INTO transactions_backup SELECT * FROM transactions;
+INSERT INTO transactions_backup (
+  id,
+  student_id,
+  card_uid,
+  type,
+  amount,
+  overdraft_component,
+  payment_method,
+  description,
+  staff,
+  created_at
+)
+SELECT
+  id,
+  student_id,
+  card_uid,
+  type,
+  amount,
+  overdraft_component,
+  NULL,
+  description,
+  staff,
+  created_at
+FROM transactions;
 
 -- Drop old transactions table
 DROP TABLE transactions;
@@ -31,6 +55,7 @@ CREATE TABLE transactions (
   type TEXT NOT NULL CHECK (type IN ('TOPUP','DEBIT','ADJUST')),
   amount INTEGER NOT NULL,
   overdraft_component INTEGER NOT NULL DEFAULT 0,
+  payment_method TEXT,
   description TEXT,
   staff TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -38,7 +63,30 @@ CREATE TABLE transactions (
 );
 
 -- Restore data
-INSERT INTO transactions SELECT * FROM transactions_backup;
+INSERT INTO transactions (
+  id,
+  student_id,
+  card_uid,
+  type,
+  amount,
+  overdraft_component,
+  payment_method,
+  description,
+  staff,
+  created_at
+)
+SELECT
+  id,
+  student_id,
+  card_uid,
+  type,
+  amount,
+  overdraft_component,
+  payment_method,
+  description,
+  staff,
+  created_at
+FROM transactions_backup;
 
 -- Drop backup
 DROP TABLE transactions_backup;
@@ -80,4 +128,3 @@ PRAGMA foreign_keys = ON;
 
 -- Verify the changes
 SELECT 'Migration completed successfully!';
-

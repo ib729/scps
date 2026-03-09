@@ -1,5 +1,10 @@
 PRAGMA foreign_keys = ON;
 
+CREATE TABLE IF NOT EXISTS app_meta (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS students (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL UNIQUE,
@@ -16,8 +21,8 @@ CREATE TABLE IF NOT EXISTS cards (
 
 CREATE TABLE IF NOT EXISTS accounts (
   student_id INTEGER PRIMARY KEY,
-  balance INTEGER NOT NULL DEFAULT 0,            -- tenths of CNY, e.g., 55 = ¥5.5
-  max_overdraft_week INTEGER NOT NULL DEFAULT 0,-- tenths of CNY, e.g., 200 = ¥20.0/week
+  balance INTEGER NOT NULL DEFAULT 0,             -- cents of CNY, e.g., 550 = ¥5.50
+  max_overdraft_week INTEGER NOT NULL DEFAULT 0, -- cents of CNY, e.g., 2000 = ¥20.00/week
   FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE CASCADE
 );
 
@@ -26,8 +31,9 @@ CREATE TABLE IF NOT EXISTS transactions (
   student_id INTEGER NOT NULL,
   card_uid TEXT,
   type TEXT NOT NULL CHECK (type IN ('TOPUP','DEBIT','ADJUST')),
-  amount INTEGER NOT NULL,                       -- + for topup/adjust, - for debit; tenths of CNY, e.g., 55 = ¥5.5
-  overdraft_component INTEGER NOT NULL DEFAULT 0,-- part of a DEBIT taken from the weekly overpay; tenths of CNY
+  amount INTEGER NOT NULL,                        -- + for topup/adjust, - for debit; cents of CNY, e.g., 550 = ¥5.50
+  overdraft_component INTEGER NOT NULL DEFAULT 0, -- part of a DEBIT taken from the weekly overpay; cents of CNY
+  payment_method TEXT,
   description TEXT,
   staff TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),  -- UTC ISO-ish
@@ -38,10 +44,12 @@ CREATE TABLE IF NOT EXISTS transactions (
 CREATE TABLE IF NOT EXISTS overdraft_weeks (
   student_id INTEGER NOT NULL,
   week_start_utc TEXT NOT NULL,
-  used INTEGER NOT NULL DEFAULT 0,               -- tenths of CNY used this week, e.g., 55 = ¥5.5
+  used INTEGER NOT NULL DEFAULT 0,               -- cents of CNY used this week, e.g., 550 = ¥5.50
   PRIMARY KEY(student_id, week_start_utc),
   FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE RESTRICT
 );
+
+INSERT OR IGNORE INTO app_meta(key, value) VALUES ('currency_scale', '100');
 
 CREATE INDEX IF NOT EXISTS idx_tx_student_time
   ON transactions(student_id, created_at);

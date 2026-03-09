@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { searchStudentsAction } from "@/app/actions/students";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import type { StudentWithAccount } from "@/lib/models";
 import { formatCurrency } from "@/lib/currency";
 
@@ -61,10 +62,10 @@ export function StudentSearchField({
   }, [isOpen, query]);
 
   return (
-    <div className="space-y-2">
-      <label htmlFor={id} className="text-base font-medium">
+    <div className="space-y-3">
+      <Label htmlFor={id} className="block text-base font-medium leading-normal">
         {label}
-      </label>
+      </Label>
       <div className="relative">
         <Input
           id={id}
@@ -190,7 +191,7 @@ export function StudentSearchField({
                 ))}
               </div>
             ) : query.trim().length >= 1 ? (
-              <p className="px-3 py-2 text-sm text-muted-foreground">No students found</p>
+              <p className="px-3 py-2 text-sm text-muted-foreground">No customers found</p>
             ) : null}
           </div>
         ) : null}

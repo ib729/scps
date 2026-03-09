@@ -20,7 +20,7 @@ export async function getStudentsAction() {
     await requireAuthContext();
     return { success: true, data: getAllStudents() };
   } catch {
-    return { success: false, error: "Failed to fetch students" };
+    return { success: false, error: "Failed to fetch customers" };
   }
 }
 
@@ -29,11 +29,11 @@ export async function getStudentByIdAction(id: number) {
     await requireAuthContext();
     const student = getStudentById(id);
     if (!student) {
-      return { success: false, error: "Student not found" };
+      return { success: false, error: "Customer not found" };
     }
     return { success: true, data: student };
   } catch {
-    return { success: false, error: "Failed to fetch student" };
+    return { success: false, error: "Failed to fetch customer" };
   }
 }
 
@@ -45,7 +45,7 @@ export async function createStudentAction(data: unknown) {
     revalidatePath("/students");
     return { success: true, data: student };
   } catch {
-    return { success: false, error: "Failed to create student" };
+    return { success: false, error: "Failed to create customer" };
   }
 }
 
@@ -58,7 +58,7 @@ export async function updateStudentAction(id: number, data: unknown) {
     revalidatePath(`/students/${id}`);
     return { success: true };
   } catch {
-    return { success: false, error: "Failed to update student" };
+    return { success: false, error: "Failed to update customer" };
   }
 }
 
@@ -69,12 +69,12 @@ export async function deleteStudentAction(id: number) {
     if (hasTransactions(id)) {
       archiveStudent(id);
       revalidatePath("/students");
-      return { success: true, message: "Student archived due to existing transactions." };
+      return { success: true, message: "Customer archived due to existing transactions." };
     }
 
     deleteStudent(id);
     revalidatePath("/students");
-    return { success: true, message: "Student deleted successfully." };
+    return { success: true, message: "Customer deleted successfully." };
   } catch (error: unknown) {
     if (
       error &&
@@ -86,15 +86,15 @@ export async function deleteStudentAction(id: number) {
       try {
         archiveStudent(id);
         revalidatePath("/students");
-        return { success: true, message: "Student archived due to existing financial history." };
+        return { success: true, message: "Customer archived due to existing financial history." };
       } catch {
         return {
           success: false,
-          error: "Cannot delete or archive student with existing financial history.",
+          error: "Cannot delete or archive customer with existing financial history.",
         };
       }
     }
-    return { success: false, error: "Failed to delete student" };
+    return { success: false, error: "Failed to delete customer" };
   }
 }
 
@@ -103,7 +103,7 @@ export async function searchStudentsAction(query: string, limit: number = 10) {
     await requireAuthContext();
     return { success: true, data: searchStudents(query, limit) };
   } catch {
-    return { success: false, error: "Failed to search students" };
+    return { success: false, error: "Failed to search customers" };
   }
 }
 
@@ -116,6 +116,6 @@ export async function getStudentByNameAction(name: string) {
     }
     return { success: true, data: student };
   } catch {
-    return { success: false, error: "Failed to fetch student by name" };
+    return { success: false, error: "Failed to fetch customer by name" };
   }
 }

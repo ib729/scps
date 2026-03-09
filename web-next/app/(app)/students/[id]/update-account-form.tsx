@@ -15,7 +15,7 @@ interface UpdateAccountFormProps {
 }
 
 export function UpdateAccountForm({ student }: UpdateAccountFormProps) {
-  // Convert DB value (tenths) to display value for UI
+  // Convert DB value (cents) to display value for UI
   const [maxOverdraftWeek, setMaxOverdraftWeek] = useState(
     toDisplayValue(student.max_overdraft_week)
   );
@@ -28,7 +28,7 @@ export function UpdateAccountForm({ student }: UpdateAccountFormProps) {
     setError("");
     setLoading(true);
 
-    // Convert display value back to DB value (tenths) before submitting
+    // Convert display value back to DB value (cents) before submitting
     const result = await updateAccountAction(student.id, {
       max_overdraft_week: toDbValue(maxOverdraftWeek),
     });
@@ -55,7 +55,7 @@ export function UpdateAccountForm({ student }: UpdateAccountFormProps) {
           id="overdraft"
           type="number"
           min="0"
-          step="0.1"
+          step="0.01"
           value={maxOverdraftWeek}
           onChange={(e) => setMaxOverdraftWeek(parseFloat(e.target.value) || 0)}
           required
@@ -67,4 +67,3 @@ export function UpdateAccountForm({ student }: UpdateAccountFormProps) {
     </form>
   );
 }
-

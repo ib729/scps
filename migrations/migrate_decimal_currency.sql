@@ -1,6 +1,6 @@
--- Migration to support decimal currency (tenth-unit scaling)
+-- Migration to support cent-based currency
 -- This migration multiplies all balance/amount/overdraft values by 10
--- to store them as tenths of CNY (e.g., ¥5.5 becomes 55)
+-- to convert legacy tenth-unit values into cents.
 -- Run this with: sqlite3 stuco.db < migrate_decimal_currency.sql
 
 PRAGMA foreign_keys = OFF;
@@ -28,9 +28,8 @@ PRAGMA foreign_keys = ON;
 
 -- Verify the migration
 SELECT 'Migration completed successfully!';
-SELECT 'Sample balances (should be 10x original):';
+SELECT 'Sample balances (should be 10x original, now in cents):';
 SELECT s.name, a.balance, a.max_overdraft_week 
 FROM students s 
 JOIN accounts a ON s.id = a.student_id 
 LIMIT 5;
-

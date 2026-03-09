@@ -12,9 +12,17 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { formatCurrency } from "@/lib/currency";
+import { formatCurrency, LOW_BALANCE_THRESHOLD } from "@/lib/currency";
 import type { StudentWithAccount } from "@/lib/models";
+import { PAYMENT_METHOD_VALUES, type PaymentMethod } from "@/lib/payment-methods";
 
 interface TopupFormProps {
   studentIdsWithTransactions: number[];
@@ -23,6 +31,7 @@ interface TopupFormProps {
 
 export function TopupForm({ studentIdsWithTransactions, userName }: TopupFormProps) {
   const [amount, setAmount] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | "">("");
   const [description, setDescription] = useState("");
   const [staff, setStaff] = useState("");
   const [error, setError] = useState("");
@@ -103,8 +112,8 @@ export function TopupForm({ studentIdsWithTransactions, userName }: TopupFormPro
     const result = await topupAction({
       student_id: selectedStudent.id,
       amount: parseFloat(amount),
+      payment_method: paymentMethod as PaymentMethod,
       description: description || undefined,
-      staff: staff || undefined,
     });
 
     if (result.success && result.data) {
@@ -119,6 +128,7 @@ export function TopupForm({ studentIdsWithTransactions, userName }: TopupFormPro
         balance: result.data.newBalance,
       });
       setAmount("");
+      setPaymentMethod("");
       setDescription("");
     } else {
       setError(result.error || "Failed to process top-up");
@@ -142,7 +152,6 @@ export function TopupForm({ studentIdsWithTransactions, userName }: TopupFormPro
       student_id: selectedAdjustStudent.id,
       amount: parseFloat(adjustAmount),
       description: adjustDescription,
-      staff: adjustStaff || undefined,
     });
 
     if (result.success && result.data) {
@@ -169,7 +178,7 @@ export function TopupForm({ studentIdsWithTransactions, userName }: TopupFormPro
     <div className="w-full space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Top-up Account</CardTitle>
+          <CardTitle>Top-up Balance</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleTopup} className="space-y-6">
@@ -206,8 +215,8 @@ export function TopupForm({ studentIdsWithTransactions, userName }: TopupFormPro
 
             <StudentSearchField
               id="student"
-              label="Student"
-              placeholder="Search students by name"
+              label="Customer"
+              placeholder="Search customers by name"
               selectedStudent={selectedStudent}
               onSelect={setSelectedStudent}
             />
@@ -220,7 +229,7 @@ export function TopupForm({ studentIdsWithTransactions, userName }: TopupFormPro
                     className={`font-bold ${
                       selectedStudent.balance < 0
                         ? "text-red-600"
-                        : selectedStudent.balance <= 50 &&
+                        : selectedStudent.balance <= LOW_BALANCE_THRESHOLD &&
                             studentIdsWithTransactions.includes(selectedStudent.id)
                           ? "text-orange-600"
                           : ""
@@ -233,41 +242,75 @@ export function TopupForm({ studentIdsWithTransactions, userName }: TopupFormPro
             ) : null}
 
             <div className="space-y-2">
-              <Label htmlFor="amount">Amount (¥)</Label>
+              <Label htmlFor="amount" className="text-base font-medium">
+                Amount (¥)
+              </Label>
               <Input
                 id="amount"
                 type="number"
-                min="0.1"
-                step="0.1"
+                min="0.01"
+                step="0.01"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                placeholder="Enter amount (e.g., 5.5)"
+                placeholder="Enter amount (e.g., 5.50)"
+                className="h-12 text-base"
                 required
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="description">Description (Optional)</Label>
+              <Label htmlFor="payment-method" className="text-base font-medium">
+                Payment Method
+              </Label>
+              <Select
+                value={paymentMethod}
+                onValueChange={(value) => setPaymentMethod(value as PaymentMethod)}
+              >
+                <SelectTrigger id="payment-method" className="h-12 w-full text-base">
+                  <SelectValue placeholder="Select payment method" />
+                </SelectTrigger>
+                <SelectContent>
+                  {PAYMENT_METHOD_VALUES.map((method) => (
+                    <SelectItem key={method} value={method}>
+                      {method}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="description" className="text-base font-medium">
+                Notes (Optional)
+              </Label>
               <Textarea
                 id="description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Wechat Pay, Alipay, Bitcoin, Cash"
+                placeholder="Optional notes about the top-up"
+                className="min-h-[88px] text-base"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="staff">Staff Name</Label>
+              <Label htmlFor="staff" className="text-base font-medium">
+                Staff Name
+              </Label>
               <Input
                 id="staff"
                 value={staff}
                 onChange={(e) => setStaff(e.target.value)}
                 placeholder="Your name"
+                className="h-12 text-base"
                 disabled
               />
             </div>
 
-            <Button type="submit" disabled={loading || !selectedStudent} className="w-full">
+            <Button
+              type="submit"
+              disabled={loading || !selectedStudent || !paymentMethod}
+              className="w-full"
+            >
               {loading ? "Processing..." : `Add ¥${amount || "0"}`}
             </Button>
           </form>
@@ -319,8 +362,8 @@ export function TopupForm({ studentIdsWithTransactions, userName }: TopupFormPro
 
             <StudentSearchField
               id="adjust-student"
-              label="Student"
-              placeholder="Search students by name"
+              label="Customer"
+              placeholder="Search customers by name"
               selectedStudent={selectedAdjustStudent}
               onSelect={setSelectedAdjustStudent}
             />
@@ -333,7 +376,7 @@ export function TopupForm({ studentIdsWithTransactions, userName }: TopupFormPro
                     className={`font-bold ${
                       selectedAdjustStudent.balance < 0
                         ? "text-red-600"
-                        : selectedAdjustStudent.balance <= 50 &&
+                        : selectedAdjustStudent.balance <= LOW_BALANCE_THRESHOLD &&
                             studentIdsWithTransactions.includes(selectedAdjustStudent.id)
                           ? "text-orange-600"
                           : ""
@@ -346,14 +389,17 @@ export function TopupForm({ studentIdsWithTransactions, userName }: TopupFormPro
             ) : null}
 
             <div className="space-y-2">
-              <Label htmlFor="adjust-amount">Adjustment Amount (¥)</Label>
+              <Label htmlFor="adjust-amount" className="text-base font-medium">
+                Adjustment Amount (¥)
+              </Label>
               <Input
                 id="adjust-amount"
                 type="number"
-                step="0.1"
+                step="0.01"
                 value={adjustAmount}
                 onChange={(e) => setAdjustAmount(e.target.value)}
-                placeholder="e.g., 10.5 or -5.5"
+                placeholder="e.g., 10.50 or -5.25"
+                className="h-12 text-base"
                 required
               />
               <p className="text-xs text-muted-foreground">
@@ -362,23 +408,29 @@ export function TopupForm({ studentIdsWithTransactions, userName }: TopupFormPro
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="adjust-description">Reason (Required)</Label>
+              <Label htmlFor="adjust-description" className="text-base font-medium">
+                Reason (Required)
+              </Label>
               <Textarea
                 id="adjust-description"
                 value={adjustDescription}
                 onChange={(e) => setAdjustDescription(e.target.value)}
                 placeholder="Explain the reason for this adjustment"
+                className="min-h-[88px] text-base"
                 required
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="adjust-staff">Staff Name</Label>
+              <Label htmlFor="adjust-staff" className="text-base font-medium">
+                Staff Name
+              </Label>
               <Input
                 id="adjust-staff"
                 value={adjustStaff}
                 onChange={(e) => setAdjustStaff(e.target.value)}
                 placeholder="Your name"
+                className="h-12 text-base"
                 disabled
               />
             </div>

@@ -10,21 +10,21 @@ export const metadata: Metadata = {
     default: 'Student Council Payment System (SCPS)',
     template: '%s | SCPS'
   },
-  description: 'Secure NFC-enabled payment system for student snack bar purchases. Manage student accounts, cards, and transactions efficiently.',
-  keywords: ['student payment system', 'NFC payment', 'school snack bar', 'student accounts'],
+  description: 'Secure NFC-enabled payment system for school snack bar purchases. Manage customer accounts, cards, and transactions efficiently.',
+  keywords: ['school payment system', 'NFC payment', 'school snack bar', 'customer accounts'],
   authors: [{ name: 'Ivan Belousov' }],
   openGraph: {
     type: 'website',
     locale: 'en_US',
     url: 'https://scps.ivanbelousov.com',
     title: 'Student Council Payment System (SCPS)',
-    description: 'Secure NFC-enabled payment system for student snack bar purchases',
+    description: 'Secure NFC-enabled payment system for school snack bar purchases',
     siteName: 'SCPS',
   },
   twitter: {
     card: 'summary',
     title: 'Student Council Payment System (SCPS)',
-    description: 'Secure NFC-enabled payment system for student snack bar purchases',
+    description: 'Secure NFC-enabled payment system for school snack bar purchases',
   },
   robots: {
     index: false, // Don't index authenticated app pages by default

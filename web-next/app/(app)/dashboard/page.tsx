@@ -7,7 +7,7 @@ import { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: 'Dashboard',
-  description: 'View student payment statistics and recent transactions',
+  description: 'View customer payment statistics and recent transactions',
   robots: {
     index: false,
     follow: false,
@@ -27,14 +27,14 @@ export default async function DashboardPage() {
         <Card className="h-full flex flex-col">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              Total Students
+              Total Customers
             </CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent className="flex flex-1 flex-col justify-end gap-1">
             <div className="text-2xl font-bold">{dashboardStats.totalStudents}</div>
             <p className="text-xs text-muted-foreground">
-              Active accounts in system
+              Active customer accounts in system
             </p>
           </CardContent>
         </Card>
@@ -127,7 +127,9 @@ export default async function DashboardPage() {
                         {tx.student_name}
                       </p>
                       <p className="text-sm text-muted-foreground break-words">
-                        {tx.description || "-"}
+                        {tx.payment_method
+                          ? `${tx.payment_method}${tx.description ? ` • ${tx.description}` : ""}`
+                          : tx.description || "-"}
                       </p>
                     </div>
                   </div>

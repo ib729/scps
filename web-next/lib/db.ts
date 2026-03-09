@@ -34,7 +34,34 @@ function hasColumn(database: Database.Database, tableName: string, columnName: s
   return columns.some((column) => column.name === columnName);
 }
 
-function ensureSecuritySchema(database: Database.Database) {
+function getMeta(database: Database.Database, key: string): string | null {
+  const row = database
+    .prepare("SELECT value FROM app_meta WHERE key = ? LIMIT 1")
+    .get(key) as { value: string } | undefined;
+
+  return row?.value ?? null;
+}
+
+function setMeta(database: Database.Database, key: string, value: string) {
+  database
+    .prepare(
+      `
+        INSERT INTO app_meta(key, value)
+        VALUES (?, ?)
+        ON CONFLICT(key) DO UPDATE SET value = excluded.value
+      `,
+    )
+    .run(key, value);
+}
+
+function ensureApplicationSchema(database: Database.Database) {
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS app_meta (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
+  `);
+
   if (!hasColumn(database, "students", "archived")) {
     try {
       database.exec(`
@@ -67,10 +94,73 @@ function ensureSecuritySchema(database: Database.Database) {
     }
   }
 
+  if (!hasColumn(database, "transactions", "payment_method")) {
+    try {
+      database.exec(`
+        ALTER TABLE transactions
+        ADD COLUMN payment_method TEXT;
+      `);
+    } catch (error) {
+      if (
+        !(error instanceof Error) ||
+        !error.message.includes("duplicate column name: payment_method")
+      ) {
+        throw error;
+      }
+    }
+  }
+
+  if (!getMeta(database, "currency_scale")) {
+    const totals = database
+      .prepare(
+        `
+          SELECT
+            (SELECT COUNT(*) FROM accounts) AS accountCount,
+            (SELECT COUNT(*) FROM transactions) AS transactionCount,
+            (SELECT COUNT(*) FROM overdraft_weeks) AS overdraftCount
+        `,
+      )
+      .get() as {
+      accountCount: number;
+      transactionCount: number;
+      overdraftCount: number;
+    };
+
+    if (totals.accountCount > 0 || totals.transactionCount > 0 || totals.overdraftCount > 0) {
+      const migrateCurrencyScale = database.transaction(() => {
+        database.exec(`
+          UPDATE accounts SET balance = balance * 10;
+          UPDATE accounts SET max_overdraft_week = max_overdraft_week * 10;
+          UPDATE transactions SET amount = amount * 10;
+          UPDATE transactions SET overdraft_component = overdraft_component * 10;
+          UPDATE overdraft_weeks SET used = used * 10;
+        `);
+      });
+
+      migrateCurrencyScale();
+    }
+
+    setMeta(database, "currency_scale", "100");
+  }
+
   database.exec(`
     UPDATE user
     SET role = 'staff'
     WHERE role IS NULL OR role NOT IN ('admin', 'staff');
+
+    UPDATE transactions
+    SET payment_method = TRIM(description)
+    WHERE
+      type = 'TOPUP'
+      AND (payment_method IS NULL OR TRIM(payment_method) = '')
+      AND description IS NOT NULL
+      AND TRIM(description) <> '';
+
+    UPDATE transactions
+    SET payment_method = 'Unspecified'
+    WHERE
+      type = 'TOPUP'
+      AND (payment_method IS NULL OR TRIM(payment_method) = '');
   `);
 
   database.exec(`
@@ -114,7 +204,7 @@ export function getDb(): Database.Database {
       verbose: process.env.NODE_ENV === "development" ? console.log : undefined,
     });
     db.pragma("foreign_keys = ON");
-    ensureSecuritySchema(db);
+    ensureApplicationSchema(db);
   }
   return db;
 }
