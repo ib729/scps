@@ -801,10 +801,7 @@ export function AppSidebar({ user: initialUser, ...props }: AppSidebarProps) {
         <Dialog open={showSettingsDialog} onOpenChange={setShowSettingsDialog}>
           <DialogContent className="sm:max-w-[500px]">
             <DialogHeader>
-              <DialogTitle>Settings</DialogTitle>
-              <DialogDescription>
-                Configure your application preferences
-              </DialogDescription>
+              <DialogTitle className="text-2xl">Settings</DialogTitle>
             </DialogHeader>
 
             <div className="space-y-6 py-4">

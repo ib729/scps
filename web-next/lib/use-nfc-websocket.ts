@@ -114,6 +114,7 @@ export function useNFCWebSocket(
   const reconnectDelayRef = useRef(1000); // Start with 1 second
   const isManualDisconnectRef = useRef(false);
   const isAuthenticatedRef = useRef(false);
+  const isAuthRejectedRef = useRef(false);
 
   /**
    * Get WebSocket URL (convert http to ws)
@@ -136,11 +137,13 @@ export function useNFCWebSocket(
         switch (data.type) {
           case "auth_success":
             isAuthenticatedRef.current = true;
+            isAuthRejectedRef.current = false;
             console.log("[NFC WS] Authenticated successfully");
             break;
 
           case "auth_failed":
             console.error("[NFC WS] Authentication failed:", data.message);
+            isAuthRejectedRef.current = true;
             setStatusMessage(`Authentication failed: ${data.message || "Unknown error"}`);
             if (onError) {
               onError(new Error(`Authentication failed: ${data.message}`));
@@ -208,6 +211,7 @@ export function useNFCWebSocket(
 
     isManualDisconnectRef.current = false;
     isAuthenticatedRef.current = false;
+    isAuthRejectedRef.current = false;
 
     try {
       const wsUrl = getWebSocketUrl();
@@ -256,7 +260,7 @@ export function useNFCWebSocket(
         }
 
         // Attempt to reconnect if not a manual disconnect
-        if (!isManualDisconnectRef.current && autoConnect) {
+        if (!isManualDisconnectRef.current && !isAuthRejectedRef.current && autoConnect) {
           setStatusMessage(`Reconnecting in ${Math.round(reconnectDelayRef.current / 1000)}s...`);
           
           reconnectTimeoutRef.current = setTimeout(() => {
@@ -267,7 +271,9 @@ export function useNFCWebSocket(
           // Exponential backoff with max delay of 30 seconds
           reconnectDelayRef.current = Math.min(reconnectDelayRef.current * 2, 30000);
         } else {
-          setStatusMessage("Disconnected");
+          setStatusMessage(
+            isAuthRejectedRef.current ? "Authentication required" : "Disconnected"
+          );
         }
       };
     } catch (error) {
@@ -300,6 +306,7 @@ export function useNFCWebSocket(
 
     setIsConnected(false);
     isAuthenticatedRef.current = false;
+    isAuthRejectedRef.current = false;
     setStatusMessage("Disconnected");
   }, []);
 
@@ -359,4 +366,3 @@ export function useNFCWebSocket(
     reconnect,
   };
 }
-
