@@ -135,7 +135,6 @@ web-next/
 │   ├── ui/              # Radix UI components (via Shadcn)
 │   ├── animate-ui/      # Custom animations
 │   ├── app-sidebar.tsx  # Navigation sidebar
-│   ├── page-header.tsx
 │   ├── tap-alert.tsx    # Global NFC toast
 │   └── theme-provider.tsx
 ├── lib/

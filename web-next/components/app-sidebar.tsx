@@ -870,11 +870,11 @@ export function AppSidebar({ user: initialUser, ...props }: AppSidebarProps) {
       {mounted && (
         <Dialog open={showSettingsDialog} onOpenChange={setShowSettingsDialog}>
           <DialogContent className="sm:max-w-[500px]">
-            <DialogHeader className="space-y-1">
+            <DialogHeader className="space-y-0">
               <DialogTitle className="text-[1.75rem] leading-tight">Settings</DialogTitle>
             </DialogHeader>
 
-            <div className="space-y-6 pb-4 pt-2">
+            <div className="space-y-6 pb-4 pt-0">
               {/* NFC Reader Selection */}
               <div className="space-y-3">
                 <Label className="text-base font-semibold">

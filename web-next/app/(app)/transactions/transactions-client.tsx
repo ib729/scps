@@ -11,9 +11,6 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
@@ -543,18 +540,13 @@ export function TransactionsClient({
           }
         }}
       >
-        <DialogContent className="flex max-h-[85vh] w-full flex-col overflow-y-auto sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Full Notes</DialogTitle>
-            <DialogDescription>
-              {selectedDetailsTx ? `Transaction #${selectedDetailsTx.id}` : ""}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="mt-4">
-            <p className="whitespace-pre-wrap break-words rounded-md bg-muted p-4 text-sm">
-              {selectedDetailsTx?.description}
-            </p>
-          </div>
+        <DialogContent
+          showCloseButton={false}
+          className="w-full max-w-2xl p-4 sm:max-w-2xl"
+        >
+          <p className="whitespace-pre-wrap break-words rounded-md bg-muted p-4 text-sm">
+            {selectedDetailsTx?.description}
+          </p>
         </DialogContent>
       </Dialog>
     </div>

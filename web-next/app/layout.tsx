@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/theme-provider";
+import { THEME_BOOTSTRAP_SCRIPT } from "@/lib/theme-bootstrap";
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://scps.ivanbelousov.com'),
@@ -55,7 +56,7 @@ export default async function RootLayout({
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: `!function(){try{var t=localStorage.getItem('theme');if(t&&t!=='system'){document.documentElement.className=t;document.documentElement.style.colorScheme=t}}catch(e){}}()`,
+            __html: THEME_BOOTSTRAP_SCRIPT,
           }}
         />
       </head>

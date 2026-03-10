@@ -6,7 +6,7 @@
  */
 
 // Load environment variables from .env.local
-require('dotenv').config({ path: '.env.local' });
+require('dotenv').config({ path: '.env.local', quiet: true });
 
 const { createServer } = require('http');
 const { parse } = require('url');
