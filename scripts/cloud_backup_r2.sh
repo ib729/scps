@@ -15,9 +15,9 @@ TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 BACKUP_NAME="stuco_backup_${TIMESTAMP}"
 
 # Rclone Configuration
-# Set this to your rclone remote name (default: "r2")
-# Configure with: rclone config
+# Raw remote points at the bucket, crypt remote wraps it for encrypted uploads.
 RCLONE_REMOTE="${RCLONE_REMOTE:-r2}"
+RCLONE_CRYPT_REMOTE="${RCLONE_CRYPT_REMOTE:-r2-crypt}"
 R2_PATH="${R2_PATH:-stuco-db-backups}"
 
 echo "============================================================"
@@ -43,7 +43,7 @@ if ! command -v rclone &> /dev/null; then
     exit 1
 fi
 
-# Check if rclone remote is configured
+# Check if raw rclone remote is configured
 if ! rclone listremotes | grep -q "^${RCLONE_REMOTE}:$"; then
     echo "❌ Error: rclone remote '${RCLONE_REMOTE}' not configured!"
     echo ""
@@ -60,6 +60,17 @@ if ! rclone listremotes | grep -q "^${RCLONE_REMOTE}:$"; then
     echo ""
     echo "Alternatively, set RCLONE_REMOTE environment variable to your remote name:"
     echo "  export RCLONE_REMOTE=your-remote-name"
+    exit 1
+fi
+
+# Check if encrypted rclone remote is configured
+if ! rclone listremotes | grep -q "^${RCLONE_CRYPT_REMOTE}:$"; then
+    echo "❌ Error: encrypted rclone remote '${RCLONE_CRYPT_REMOTE}' not configured!"
+    echo ""
+    echo "Run the helper script:"
+    echo "  ./scripts/setup-r2-crypt.sh"
+    echo ""
+    echo "Or set RCLONE_CRYPT_REMOTE to your crypt remote name."
     exit 1
 fi
 
@@ -110,11 +121,11 @@ echo "------------------------------------------------------------"
 echo "Step 2: Uploading to Cloudflare R2"
 echo "------------------------------------------------------------"
 
-echo "Remote: ${RCLONE_REMOTE}:${R2_PATH}/"
+echo "Remote: ${RCLONE_CRYPT_REMOTE}:"
 echo "File: ${BACKUP_NAME}.tar.zst"
 
-# Upload to R2 using rclone
-rclone copy "$BACKUP_FILE" "${RCLONE_REMOTE}:${R2_PATH}/" \
+# Upload to encrypted R2 remote using rclone crypt
+rclone copy "$BACKUP_FILE" "${RCLONE_CRYPT_REMOTE}:" \
     --progress \
     --metadata-set "timestamp=${TIMESTAMP}" \
     --metadata-set "type=database" \
@@ -143,9 +154,9 @@ echo "Local backups: $LOCAL_COUNT files ($LOCAL_TOTAL_SIZE total)"
 echo "Latest backup: $BACKUP_FILE ($BACKUP_SIZE)"
 echo ""
 
-# List R2 backups
-echo "Checking R2 bucket contents..."
-R2_BACKUPS=$(rclone ls "${RCLONE_REMOTE}:${R2_PATH}/" 2>/dev/null | wc -l || echo "0")
+# List encrypted remote backups
+echo "Checking encrypted R2 bucket contents..."
+R2_BACKUPS=$(rclone ls "${RCLONE_CRYPT_REMOTE}:" 2>/dev/null | wc -l || echo "0")
 echo "R2 backups: $R2_BACKUPS files"
 echo ""
 
@@ -154,17 +165,17 @@ echo "✓ Backup Complete!"
 echo "============================================================"
 echo ""
 echo "Local:  $BACKUP_FILE"
-echo "Remote: ${RCLONE_REMOTE}:${R2_PATH}/${BACKUP_NAME}.tar.zst"
+echo "Remote: ${RCLONE_CRYPT_REMOTE}:${BACKUP_NAME}.tar.zst"
 echo ""
 echo "To restore from this backup:"
 echo "  cd \$PROJECT_ROOT"
 echo "  tar --zstd -xf $BACKUP_FILE"
 echo ""
 echo "To list all R2 backups:"
-echo "  rclone ls ${RCLONE_REMOTE}:${R2_PATH}/"
+echo "  rclone ls ${RCLONE_CRYPT_REMOTE}:"
 echo ""
 echo "To download a backup:"
-echo "  rclone copy ${RCLONE_REMOTE}:${R2_PATH}/FILENAME.tar.zst db_backups/"
+echo "  rclone copy ${RCLONE_CRYPT_REMOTE}:FILENAME.tar.zst db_backups/"
 echo ""
 
 # Optional: Clean up old local backups (disabled by default)

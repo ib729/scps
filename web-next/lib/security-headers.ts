@@ -1,4 +1,3 @@
-import { THEME_BOOTSTRAP_SHA256 } from "./theme-bootstrap";
 import { getTrustedOrigins } from "./trusted-origins";
 
 function toWebSocketOrigin(origin: string) {
@@ -14,6 +13,11 @@ function toWebSocketOrigin(origin: string) {
 }
 
 export function getContentSecurityPolicy() {
+  const scriptSources = ["'self'", "'unsafe-inline'"];
+  if (process.env.NODE_ENV !== "production") {
+    scriptSources.push("'unsafe-eval'");
+  }
+
   const connectSources = Array.from(
     new Set([
       "'self'",
@@ -24,7 +28,7 @@ export function getContentSecurityPolicy() {
 
   return [
     "default-src 'self'",
-    `script-src 'self' 'sha256-${THEME_BOOTSTRAP_SHA256}'`,
+    `script-src ${scriptSources.join(" ")}`,
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob:",
     "font-src 'self' data:",

@@ -12,7 +12,7 @@ if [ -z "$1" ]; then
     echo "Example: $0 stuco_backup_20241209_020000.tar.zst"
     echo ""
     echo "To list available backups in R2:"
-    echo "  rclone ls \$RCLONE_REMOTE:\$R2_PATH/"
+    echo "  rclone ls \$RCLONE_CRYPT_REMOTE:"
     exit 1
 fi
 
@@ -22,6 +22,7 @@ LOCAL_PATH="${LOCAL_BACKUP_DIR}/${BACKUP_FILE}"
 
 # Rclone Configuration
 RCLONE_REMOTE="${RCLONE_REMOTE:-r2}"
+RCLONE_CRYPT_REMOTE="${RCLONE_CRYPT_REMOTE:-r2-crypt}"
 R2_PATH="${R2_PATH:-stuco-db-backups}"
 
 echo "============================================================"
@@ -62,6 +63,14 @@ if ! rclone listremotes | grep -q "^${RCLONE_REMOTE}:$"; then
     exit 1
 fi
 
+if ! rclone listremotes | grep -q "^${RCLONE_CRYPT_REMOTE}:$"; then
+    echo "❌ Error: encrypted rclone remote '${RCLONE_CRYPT_REMOTE}' not configured!"
+    echo ""
+    echo "Run the helper script:"
+    echo "  ./scripts/setup-r2-crypt.sh"
+    exit 1
+fi
+
 # Create local backup directory
 mkdir -p "$LOCAL_BACKUP_DIR"
 
@@ -70,7 +79,7 @@ echo "------------------------------------------------------------"
 echo "Step 1: Downloading from Cloudflare R2"
 echo "------------------------------------------------------------"
 
-rclone copy "${RCLONE_REMOTE}:${R2_PATH}/${BACKUP_FILE}" "$LOCAL_BACKUP_DIR/" --progress
+rclone copy "${RCLONE_CRYPT_REMOTE}:${BACKUP_FILE}" "$LOCAL_BACKUP_DIR/" --progress
 
 if [ $? -eq 0 ]; then
     echo "✓ Download complete: $LOCAL_PATH"

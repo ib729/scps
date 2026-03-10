@@ -66,7 +66,7 @@ export default function LoginPage() {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleLogin} className="grid gap-4" method="post" action="/api/auth/signin">
+        <form onSubmit={handleLogin} className="grid gap-4">
           <div className="grid gap-2">
             <Label htmlFor="email">Email</Label>
             <Input
@@ -149,4 +149,3 @@ export default function LoginPage() {
     </Card>
   );
 }
-
