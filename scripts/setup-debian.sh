@@ -8,6 +8,7 @@ WEB_NEXT_DIR="$REPO_ROOT/web-next"
 SERVICE_TEMPLATE="$REPO_ROOT/systemd/stuco-web.service"
 ENV_TEMPLATE="$WEB_NEXT_DIR/.env.local.example"
 ENV_FILE="$WEB_NEXT_DIR/.env.local"
+DEFAULT_DB_PATH="$REPO_ROOT/stuco.db"
 
 if [[ ! -f /etc/os-release ]]; then
   echo "This script only supports Debian-based Linux hosts."
@@ -32,6 +33,54 @@ run_as_user() {
   sudo -u "$APP_USER" "$@"
 }
 
+ensure_env_value() {
+  local key="$1"
+  local value="$2"
+
+  if grep -q "^${key}=" "$ENV_FILE"; then
+    python3 - "$ENV_FILE" "$key" "$value" <<'PY'
+from pathlib import Path
+import sys
+
+env_path = Path(sys.argv[1])
+key = sys.argv[2]
+value = sys.argv[3]
+lines = env_path.read_text(encoding="utf-8").splitlines()
+
+for index, line in enumerate(lines):
+    if line.startswith(f"{key}="):
+        lines[index] = f"{key}={value}"
+        break
+
+env_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+PY
+  else
+    printf '%s=%s\n' "$key" "$value" | run_as_user tee -a "$ENV_FILE" >/dev/null
+  fi
+}
+
+read_env_value() {
+  local key="$1"
+  python3 - "$ENV_FILE" "$key" <<'PY'
+from pathlib import Path
+import sys
+
+env_path = Path(sys.argv[1])
+key = sys.argv[2]
+
+if not env_path.exists():
+    print("")
+    raise SystemExit(0)
+
+for line in env_path.read_text(encoding="utf-8").splitlines():
+    if line.startswith(f"{key}="):
+        print(line.split("=", 1)[1].strip())
+        break
+else:
+    print("")
+PY
+}
+
 ensure_package() {
   sudo apt-get update
   sudo apt-get install -y "$@"
@@ -49,7 +98,7 @@ node_major_version() {
 echo "Preparing SCPS on Debian for user: $APP_USER"
 echo "Repository root: $REPO_ROOT"
 
-ensure_package git curl sqlite3 zstd rclone python3 python3-venv python3-pip build-essential ca-certificates gnupg
+ensure_package git curl sqlite3 zstd rclone python3 python3-venv python3-pip build-essential ca-certificates gnupg openssl
 
 if (( "$(node_major_version)" < 20 )); then
   echo "Installing Node.js 20 from NodeSource..."
@@ -77,6 +126,46 @@ if [[ ! -f "$ENV_FILE" ]]; then
   echo "Created $ENV_FILE from template."
 fi
 
+current_database_path="$(read_env_value "DATABASE_PATH")"
+if [[ -z "$current_database_path" || "$current_database_path" == "/absolute/path/to/stuco.db" ]]; then
+  ensure_env_value "DATABASE_PATH" "$DEFAULT_DB_PATH"
+  echo "Configured DATABASE_PATH=$DEFAULT_DB_PATH"
+fi
+
+current_auth_secret="$(read_env_value "BETTER_AUTH_SECRET")"
+if [[ -z "$current_auth_secret" || "$current_auth_secret" == "replace-with-a-random-secret" ]]; then
+  generated_auth_secret="$(openssl rand -base64 32 | tr -d '\n')"
+  ensure_env_value "BETTER_AUTH_SECRET" "$generated_auth_secret"
+  echo "Generated BETTER_AUTH_SECRET"
+fi
+
+current_signup_code="$(read_env_value "SIGNUP_CODE")"
+if [[ -z "$current_signup_code" || "$current_signup_code" == "12345678" ]]; then
+  generated_signup_code="$(python3 - <<'PY'
+import secrets
+print(f"{secrets.randbelow(10**8):08d}")
+PY
+)"
+  ensure_env_value "SIGNUP_CODE" "$generated_signup_code"
+  echo "Generated SIGNUP_CODE=$generated_signup_code"
+fi
+
+current_app_url="$(read_env_value "NEXT_PUBLIC_APP_URL")"
+if [[ -z "$current_app_url" || "$current_app_url" == "http://localhost:3000" ]]; then
+  ensure_env_value "NEXT_PUBLIC_APP_URL" "http://localhost:3000"
+fi
+
+current_trusted_origins="$(read_env_value "TRUSTED_ORIGINS")"
+if [[ -z "$current_trusted_origins" || "$current_trusted_origins" == "http://localhost:3000" ]]; then
+  ensure_env_value "TRUSTED_ORIGINS" "$(read_env_value "NEXT_PUBLIC_APP_URL")"
+fi
+
+resolved_database_path="$(read_env_value "DATABASE_PATH")"
+if [[ ! -f "$resolved_database_path" ]]; then
+  echo "Initializing SQLite database at $resolved_database_path"
+  run_as_user bash -lc "cd '$REPO_ROOT' && python3 init_db.py"
+fi
+
 run_as_user pnpm --dir "$WEB_NEXT_DIR" build
 
 SERVICE_FILE="/etc/systemd/system/stuco-web.service"
@@ -96,11 +185,8 @@ echo
 echo "Next steps:"
 echo "1. Edit $ENV_FILE"
 echo "   Required values:"
-echo "   - DATABASE_PATH"
-echo "   - BETTER_AUTH_SECRET"
-echo "   - NEXT_PUBLIC_APP_URL"
-echo "   - TRUSTED_ORIGINS"
-echo "   - SIGNUP_CODE"
+echo "   - NEXT_PUBLIC_APP_URL (replace localhost with your VPS URL)"
+echo "   - TRUSTED_ORIGINS (match your VPS URL/origin)"
 echo "2. Restart the service after editing env:"
 echo "   sudo systemctl restart stuco-web"
 echo "3. Configure encrypted R2 backups:"
