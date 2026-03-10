@@ -95,7 +95,62 @@ This verifies all tools and provides installation instructions if missing.
 
 ## Web UI Setup
 
-### Automated Setup (Recommended)
+### Local Development (Mac/Linux)
+
+For normal development on your Mac:
+
+1. Install dependencies:
+
+   ```bash
+   ./scripts/web-next-setup.sh
+   ```
+
+2. Create `web-next/.env.local` from the sample:
+
+   ```bash
+   cp web-next/.env.local.example web-next/.env.local
+   ```
+
+3. Start the app:
+
+   ```bash
+   cd web-next
+   pnpm dev
+   ```
+
+This local flow stays separate from the VPS. You develop on your Mac, push to GitHub, then deploy on the VPS with `./scripts/deploy-vps.sh`.
+
+### Automated Setup (Debian VPS Recommended)
+
+For a Debian web server or VPS:
+
+```bash
+./scripts/setup-debian.sh
+```
+
+This script:
+- installs system packages and Node.js 20 if needed
+- creates the root Python venv
+- installs `pnpm` dependencies in `web-next`
+- creates `web-next/.env.local` from the sample if missing
+- builds the production app
+- installs and starts `stuco-web.service`
+
+After the script finishes:
+
+1. Edit `web-next/.env.local`
+2. Restart the web service:
+
+   ```bash
+   sudo systemctl restart stuco-web
+   ```
+
+3. Configure encrypted R2 backups:
+
+   ```bash
+   ./scripts/setup-r2-crypt.sh
+   ```
+### Manual / Existing Setup
 
 1. **Navigate to Web UI**:
 

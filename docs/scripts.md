@@ -70,6 +70,67 @@ The Student Council Payment System includes various scripts for:
 
 **Note**: Modern `pnpm install` includes automatic postinstall, so this is rarely needed.
 
+### setup-debian.sh
+
+**Location**: `scripts/setup-debian.sh`
+
+**Purpose**: Bootstrap a Debian VPS for the SCPS web app with systemd.
+
+**Usage:**
+```bash
+./scripts/setup-debian.sh
+```
+
+**What it does:**
+1. Verifies a Debian-based host with `sudo`
+2. Installs OS packages, Node.js 20, `pnpm`, `rclone`, `sqlite3`, `zstd`, and Python tooling
+3. Creates `.venv` and installs root Python dependencies
+4. Installs `web-next` dependencies and builds the app
+5. Creates `web-next/.env.local` from `web-next/.env.local.example` if missing
+6. Renders and installs `stuco-web.service`
+7. Enables and starts the production web service
+
+**When to Use:**
+- First-time VPS setup
+- Reprovisioning a Debian host
+- Standardizing production installs
+
+### deploy-vps.sh
+
+**Location**: `scripts/deploy-vps.sh`
+
+**Purpose**: Pull the latest code on the VPS and restart the production web service.
+
+**Usage:**
+```bash
+./scripts/deploy-vps.sh
+./scripts/deploy-vps.sh main
+```
+
+**What it does:**
+1. Fails if the VPS repo is dirty
+2. Fetches from `origin`
+3. Fast-forward pulls the selected branch
+4. Runs `pnpm install --frozen-lockfile`
+5. Runs `pnpm build`
+6. Restarts `stuco-web`
+
+### deploy-remote.sh
+
+**Location**: `scripts/deploy-remote.sh`
+
+**Purpose**: Convenience wrapper for running the VPS deploy script over SSH from your Mac.
+
+**Usage:**
+```bash
+./scripts/deploy-remote.sh user@your-vps
+./scripts/deploy-remote.sh user@your-vps main
+```
+
+**Notes:**
+- Defaults the remote repo path to `$HOME/scps`
+- Override with `SCPS_REMOTE_PATH=/custom/path`
+
 ## Database Scripts
 
 ### init_db.py
@@ -257,21 +318,20 @@ If you encounter any issues, restore the backup with:
 
 **Environment Variables:**
 ```bash
-export RCLONE_REMOTE="r2"  # Your rclone remote name (default: r2)
+export RCLONE_REMOTE="r2"  # Raw R2 remote name (default: r2)
+export RCLONE_CRYPT_REMOTE="r2-crypt"  # Encrypted remote used by scripts
 export R2_PATH="stuco-db-backups"  # Path within bucket for backups (default: stuco-db-backups)
 ```
 
 **Setup:**
 ```bash
-# Configure rclone for R2
-rclone config
-# Choose: s3, Provider: Cloudflare, Enter credentials
+./scripts/setup-r2-crypt.sh
 ```
 
 **Steps:**
-1. Creates compressed `.tar.gz` backup of `stuco.db`, `stuco.db-wal`, `stuco.db-shm`
+1. Creates compressed `.tar.zst` backup of `stuco.db`, `stuco.db-wal`, `stuco.db-shm`
 2. Stores backup locally in `db_backups/` with timestamp
-3. Uploads to Cloudflare R2 bucket using rclone
+3. Uploads to the encrypted `rclone crypt` remote
 4. Displays backup summary and statistics
 5. Keeps local backup (does not auto-delete)
 
@@ -286,20 +346,20 @@ Timestamp: 20251110_005702
 Step 1: Creating compressed backup
 ------------------------------------------------------------
 ✓ All database files included
-✓ Local backup created: db_backups/stuco_backup_20251110_005702.tar.gz (45K)
+✓ Local backup created: db_backups/stuco_backup_20251110_005702.tar.zst (45K)
 
 ------------------------------------------------------------
 Step 2: Uploading to Cloudflare R2
 ------------------------------------------------------------
-Remote: r2:stuco-db-backups/
-File: stuco_backup_20251110_005702.tar.gz
+Remote: r2-crypt:
+File: stuco_backup_20251110_005702.tar.zst
 ✓ Upload successful!
 
 ------------------------------------------------------------
 Step 3: Backup Summary
 ------------------------------------------------------------
 Local backups: 5 files (225K total)
-Latest backup: db_backups/stuco_backup_20251110_005702.tar.gz (45K)
+Latest backup: db_backups/stuco_backup_20251110_005702.tar.zst (45K)
 
 Checking R2 bucket contents...
 R2 backups: 12 files
@@ -308,8 +368,8 @@ R2 backups: 12 files
 ✓ Backup Complete!
 ============================================================
 
-Local:  db_backups/stuco_backup_20251110_005702.tar.gz
-Remote: r2:stuco-db-backups/stuco_backup_20251110_005702.tar.gz
+Local:  db_backups/stuco_backup_20251110_005702.tar.zst
+Remote: r2-crypt:stuco_backup_20251110_005702.tar.zst
 ```
 
 **When to Use:**
@@ -324,7 +384,18 @@ Remote: r2:stuco-db-backups/stuco_backup_20251110_005702.tar.gz
 0 2 * * * cd $PROJECT_ROOT && ./scripts/cloud_backup_r2.sh >> logs/r2_backup.log 2>&1
 
 # With custom remote/path
-0 2 * * * cd $PROJECT_ROOT && RCLONE_REMOTE=my-r2 R2_PATH=my-backups ./scripts/cloud_backup_r2.sh >> logs/r2_backup.log 2>&1
+0 2 * * * cd $PROJECT_ROOT && RCLONE_REMOTE=my-r2 RCLONE_CRYPT_REMOTE=my-r2-crypt R2_PATH=my-backups ./scripts/cloud_backup_r2.sh >> logs/r2_backup.log 2>&1
+```
+
+### setup-r2-crypt.sh
+
+**Location**: `scripts/setup-r2-crypt.sh`
+
+**Purpose**: Configure both the raw Cloudflare R2 remote and the encrypted `rclone crypt` remote used by the backup scripts.
+
+**Usage:**
+```bash
+./scripts/setup-r2-crypt.sh
 ```
 
 ### restore_from_r2.sh
@@ -335,16 +406,16 @@ Remote: r2:stuco-db-backups/stuco_backup_20251110_005702.tar.gz
 
 **Usage:**
 ```bash
-./scripts/restore_from_r2.sh <backup_filename.tar.gz>
+./scripts/restore_from_r2.sh <backup_filename.tar.zst>
 ```
 
 **Example:**
 ```bash
 # List available backups first
-rclone ls r2:stuco-db-backups/
+rclone ls r2-crypt:
 
 # Restore specific backup
-./scripts/restore_from_r2.sh stuco_backup_20251110_005702.tar.gz
+./scripts/restore_from_r2.sh stuco_backup_20251110_005702.tar.zst
 ```
 
 **Steps:**
@@ -980,4 +1051,3 @@ chown stuco:stuco stuco.db*
 - [Deployment Guide](deployment.md) - Production deployment
 
 **Last updated: November 22, 2025**
-

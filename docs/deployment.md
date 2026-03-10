@@ -9,9 +9,37 @@ This guide covers production deployment options for the Student Council Payment 
 - Node.js 20+, Python 3.9+, pnpm installed
 - Build tools installed (see [Getting Started](getting-started.md))
 
+## Recommended VPS Flow
+
+For your current setup, the recommended production path is:
+
+1. Develop locally on your Mac
+2. Push changes to GitHub
+3. SSH into the VPS and run:
+
+   ```bash
+   ./scripts/deploy-vps.sh
+   ```
+
+For first-time VPS setup on Debian:
+
+```bash
+./scripts/setup-debian.sh
+```
+
+This installs packages, builds the app, renders the `stuco-web.service` unit, and starts the production web service. The VPS plan here is web-only; NFC broadcaster services stay out of scope unless you later deploy SCPS onto hardware that has the readers attached.
+
+Optional Mac shortcut:
+
+```bash
+./scripts/deploy-remote.sh user@your-vps
+```
+
+That SSHes into the server and runs the same `deploy-vps.sh` flow remotely.
+
 ## Deployment Options
 
-### Option 1: Docker Deployment (Recommended)
+### Option 1: Docker Deployment
 
 Docker provides isolated, reproducible deployments with easy scaling.
 
@@ -86,56 +114,18 @@ Run with:
 docker-compose up -d
 ```
 
-### Option 2: Systemd Services (Native)
+### Option 2: Systemd Services (Native, Recommended for this VPS flow)
 
 Run directly on the host system using systemd for process management.
 
 #### Web UI Service
+On Debian, use the bootstrap script instead of hand-writing the service:
 
-Create `/etc/systemd/system/stuco-web.service`:
-
-```ini
-[Unit]
-Description=Stuco Web UI
-After=network.target
-
-[Service]
-Type=simple
-User=stuco
-Group=stuco
-WorkingDirectory=/home/stuco/stuco/web-next
-Environment="NODE_ENV=production"
-Environment="DATABASE_PATH=/home/stuco/stuco/stuco.db"
-Environment="NFC_TAP_SECRET=your-production-secret"
-Environment="PORT=3000"
-ExecStart=/usr/bin/pnpm start
-Restart=always
-RestartSec=10
-
-# Security
-NoNewPrivileges=true
-PrivateTmp=true
-
-[Install]
-WantedBy=multi-user.target
-```
-
-**Setup:**
 ```bash
-# Create dedicated user
-sudo useradd -r -s /bin/bash -d /home/stuco stuco
-sudo mkdir -p /home/stuco/stuco
-sudo chown -R stuco:stuco /home/stuco/stuco
-
-# Build application
-cd /home/stuco/stuco/web-next
-sudo -u stuco pnpm build
-
-# Install and enable service
-sudo systemctl daemon-reload
-sudo systemctl enable stuco-web
-sudo systemctl start stuco-web
+./scripts/setup-debian.sh
 ```
+
+That renders `systemd/stuco-web.service` into `/etc/systemd/system/stuco-web.service` with your actual username and repo path, then enables and starts it.
 
 #### NFC Tap Broadcaster Service
 
@@ -182,15 +172,10 @@ sudo systemctl start tap-broadcaster
 ```bash
 # Check status
 sudo systemctl status stuco-web
-sudo systemctl status tap-broadcaster
-
-# View logs
 journalctl -u stuco-web -f
-journalctl -u tap-broadcaster -f
 
 # Restart services
 sudo systemctl restart stuco-web
-sudo systemctl restart tap-broadcaster
 
 # Stop services
 sudo systemctl stop stuco-web
@@ -704,4 +689,3 @@ sudo systemctl restart stuco-web
 - Test disaster recovery procedures
 
 **Last updated: November 17, 2025**
-

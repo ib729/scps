@@ -240,12 +240,12 @@ Add to crontab for daily backups:
 crontab -e
 
 # Add daily backup at 2 AM
-0 2 * * * cd /path/to/stuco && tar -czf db_backups/auto_$(date +\%Y\%m\%d).tar.gz stuco.db*
+0 2 * * * cd /path/to/stuco && tar --zstd -cf db_backups/auto_$(date +\%Y\%m\%d).tar.zst stuco.db*
 ```
 
 ### Cloud Backups with Cloudflare R2
 
-For off-site backups to Cloudflare R2 (S3-compatible storage with generous free tier) using rclone:
+For off-site backups to Cloudflare R2 using `rclone crypt`, so the uploaded backup objects are encrypted before they leave the host:
 
 #### Setup
 
@@ -264,27 +264,20 @@ For off-site backups to Cloudflare R2 (S3-compatible storage with generous free 
    curl https://rclone.org/install.sh | sudo bash
    ```
 
-3. **Configure rclone for Cloudflare R2**:
+3. **Configure encrypted R2 remotes**:
    ```bash
-   rclone config
+   ./scripts/setup-r2-crypt.sh
    ```
-   
-   Follow the interactive prompts:
-   - **Name**: `r2` (or your preferred name)
-   - **Storage**: Choose `s3` (S3 Compliant Storage Providers)
-   - **Provider**: Choose `Cloudflare` (Cloudflare R2)
-   - **Access Key ID**: Enter your R2 Access Key ID
-   - **Secret Access Key**: Enter your R2 Secret Access Key
-   - **Region**: `auto`
-   - **Endpoint**: `https://<your-account-id>.r2.cloudflarestorage.com`
-   - **Location constraint**: Leave blank
-   - **ACL**: Leave blank or choose `private`
-   - Complete the configuration
+
+   The helper configures:
+   - raw remote: `r2`
+   - encrypted remote: `r2-crypt`
 
 4. **Optional: Set Environment Variables**:
    ```bash
    # Add to ~/.bashrc for convenience
    export RCLONE_REMOTE="r2"  # Your rclone remote name
+   export RCLONE_CRYPT_REMOTE="r2-crypt"  # Encrypted remote used by backup scripts
    export R2_PATH="stuco-db-backups"  # Path within bucket for backups
    ```
 
@@ -318,8 +311,8 @@ crontab -e
 If you need to specify a custom rclone remote name or path:
 
 ```bash
-# With custom remote and path
-0 2 * * * cd $PROJECT_ROOT && RCLONE_REMOTE=my-r2 R2_PATH=my-backups ./scripts/cloud_backup_r2.sh >> logs/r2_backup.log 2>&1
+# With custom remote/path
+0 2 * * * cd $PROJECT_ROOT && RCLONE_REMOTE=my-r2 RCLONE_CRYPT_REMOTE=my-r2-crypt R2_PATH=my-backups ./scripts/cloud_backup_r2.sh >> logs/r2_backup.log 2>&1
 ```
 
 #### Restore from R2
@@ -328,10 +321,10 @@ To restore a database from R2:
 
 ```bash
 # List available backups
-rclone ls r2:stuco-db-backups/
+rclone ls r2-crypt:
 
 # Restore specific backup
-./scripts/restore_from_r2.sh stuco_backup_20251110_005702.tar.gz
+./scripts/restore_from_r2.sh stuco_backup_20251110_005702.tar.zst
 ```
 
 The restore script will:
@@ -343,22 +336,22 @@ The restore script will:
 
 ```bash
 # List all backups with sizes
-rclone ls r2:stuco-db-backups/
+rclone ls r2-crypt:
 
 # List with more details
-rclone lsl r2:stuco-db-backups/
+rclone lsl r2-crypt:
 
 # Download a backup without restoring
-rclone copy r2:stuco-db-backups/stuco_backup_20251110_005702.tar.gz db_backups/
+rclone copy r2-crypt:stuco_backup_20251110_005702.tar.zst db_backups/
 
 # Check total space used
-rclone size r2:stuco-db-backups/
+rclone size r2-crypt:
 
 # Delete old backups (optional)
-rclone delete r2:stuco-db-backups/stuco_backup_20251110_005702.tar.gz
+rclone delete r2-crypt:stuco_backup_20251110_005702.tar.zst
 
 # Delete backups older than 90 days
-rclone delete r2:stuco-db-backups/ --min-age 90d
+rclone delete r2-crypt: --min-age 90d
 ```
 
 
