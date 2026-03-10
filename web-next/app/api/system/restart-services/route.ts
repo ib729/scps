@@ -10,12 +10,14 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
 import { getAuthErrorDetails, requireRole } from "@/lib/auth-session";
+import { requireTrustedRequestOrigin } from "@/lib/origin-guard";
 import { getFixReadersScriptPath } from "@/lib/server-paths";
 
 const execFileAsync = promisify(execFile);
 
-export async function POST() {
+export async function POST(request: Request) {
   try {
+    requireTrustedRequestOrigin(request);
     const session = await requireRole("admin");
 
     console.log(`[System] Restarting NFC services - Requested by: ${session.user.email}`);
@@ -40,8 +42,9 @@ export async function POST() {
   }
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    requireTrustedRequestOrigin(request);
     await requireRole("admin");
     return NextResponse.json({
       service: "system-services-manager",

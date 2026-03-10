@@ -7,12 +7,14 @@ import { promisify } from "node:util";
 import { readFile, unlink } from "node:fs/promises";
 
 import { getAuthErrorDetails, requireRole } from "@/lib/auth-session";
+import { requireTrustedRequestOrigin } from "@/lib/origin-guard";
 import { getBackupScriptPath, getProjectRoot } from "@/lib/server-paths";
 
 const execFileAsync = promisify(execFile);
 
-export async function GET() {
+export async function GET(request: Request) {
     try {
+        requireTrustedRequestOrigin(request);
         await requireRole("admin");
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
     const filename = `stuco_backup_${timestamp}.tar.zst`;

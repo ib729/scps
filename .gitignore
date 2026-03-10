@@ -207,6 +207,9 @@ marimo/_lsp/
 __marimo__/
 
 # STUCO - Database files
+*.db
+*.db-wal
+*.db-shm
 stuco.db
 stuco.db-wal
 stuco.db-shm
@@ -218,6 +221,12 @@ raspinfo.txt
 # STUCO - Logs and temporary files
 logs/
 *.log
+
+# STUCO - Local-only artifacts
+.DS_Store
+.pnpm-store/
+IMPORTTHIS/
+sudoers_temp
 tmp
 
 # STUCO - Environment files
