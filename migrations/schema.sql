@@ -54,6 +54,18 @@ INSERT OR IGNORE INTO app_meta(key, value) VALUES ('currency_scale', '100');
 CREATE INDEX IF NOT EXISTS idx_tx_student_time
   ON transactions(student_id, created_at);
 
+CREATE INDEX IF NOT EXISTS idx_transactions_created_at
+  ON transactions(created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_transactions_created_at_id
+  ON transactions(created_at DESC, id DESC);
+
+CREATE INDEX IF NOT EXISTS idx_transactions_type_created_at
+  ON transactions(type, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_transactions_student_id_created_at
+  ON transactions(student_id, created_at DESC);
+
 -- Staff user accounts
 CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,

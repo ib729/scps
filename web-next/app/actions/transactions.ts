@@ -114,10 +114,15 @@ export async function getTransactionsPageAction(page: number, pageSize: number) 
   }
 }
 
-export async function getTransactionsBatchAction(offset: number, limit: number) {
+export async function getTransactionsBatchAction(params: {
+  offset: number;
+  limit: number;
+  search?: string;
+  type?: string | null;
+}) {
   try {
     await requireAuthContext();
-    return { success: true, data: getTransactionsBatch({ offset, limit }) };
+    return { success: true, data: getTransactionsBatch(params) };
   } catch {
     return { success: false, error: "Failed to fetch transactions" };
   }

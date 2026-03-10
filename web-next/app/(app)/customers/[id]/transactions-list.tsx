@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Copy, Check } from "lucide-react";
+import { Copy, Check } from "@/lib/icons";
 import type { Transaction } from "@/lib/models";
 import { formatCurrency } from "@/lib/currency";
 

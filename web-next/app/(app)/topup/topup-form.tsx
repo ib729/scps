@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Copy, Check } from "lucide-react";
+import { Copy, Check } from "@/lib/icons";
 
 import { getStudentByIdAction } from "@/app/actions/students";
 import { topupAction, adjustBalanceManualAction } from "@/app/actions/topup";

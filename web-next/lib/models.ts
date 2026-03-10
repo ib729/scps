@@ -92,6 +92,11 @@ export type TransactionWithStudent = Transaction & {
   student_name: string;
 };
 
+export type TransactionListCursor = {
+  createdAt: string;
+  id: number;
+};
+
 export type CardWithStudent = Card & {
   student_name: string;
 };
