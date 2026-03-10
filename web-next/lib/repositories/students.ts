@@ -88,6 +88,7 @@ export function hasTransactions(id: number): boolean {
 
 export function searchStudents(query: string, limit: number = 10): StudentWithAccount[] {
   const db = getDb();
+  const normalizedQuery = query.trim().toLowerCase();
   const stmt = db.prepare(`
     SELECT 
       s.id, 
@@ -96,9 +97,24 @@ export function searchStudents(query: string, limit: number = 10): StudentWithAc
       COALESCE(a.max_overdraft_week, 0) as max_overdraft_week
     FROM students s
     LEFT JOIN accounts a ON s.id = a.student_id
-    WHERE s.name LIKE ? AND s.archived = 0
-    ORDER BY s.name ASC
+    WHERE lower(s.name) LIKE ? AND s.archived = 0
+    ORDER BY
+      CASE
+        WHEN lower(s.name) = ? THEN 0
+        WHEN lower(s.name) LIKE ? THEN 1
+        WHEN lower(s.name) LIKE ? THEN 2
+        ELSE 3
+      END,
+      instr(lower(s.name), ?),
+      s.name ASC
     LIMIT ?
   `);
-  return stmt.all(`%${query}%`, limit) as StudentWithAccount[];
+  return stmt.all(
+    `%${normalizedQuery}%`,
+    normalizedQuery,
+    `${normalizedQuery}%`,
+    `% ${normalizedQuery}%`,
+    normalizedQuery,
+    limit,
+  ) as StudentWithAccount[];
 }
