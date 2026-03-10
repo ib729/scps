@@ -8,10 +8,7 @@ import type { TransactionListCursor, TransactionWithStudent } from "@/lib/models
 import { formatCurrency } from "@/lib/currency";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -20,13 +17,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
-const BATCH_SIZE = 100;
+const BATCH_SIZE = 150;
 const ROW_HEIGHT = 84;
 const OVERSCAN_ROWS = 8;
-const LOAD_MORE_THRESHOLD = 320;
-const TABLE_COLUMNS = 8;
+const PREFETCH_RATIO = 0.65;
+const GRID_TEMPLATE =
+  "120px 170px minmax(180px,1.5fr) 110px 150px minmax(220px,1.9fr) 120px 140px";
 
 type TransactionTypeFilter = "all" | "TOPUP" | "DEBIT" | "ADJUST";
 
@@ -46,7 +43,7 @@ type TransactionsResponse = {
   };
 };
 
-type AnimationRequestState = "idle" | "initial" | "more";
+type FetchTarget = "replace" | "prefetch" | "append";
 
 function CopyButton({ txId }: { txId: number }) {
   const [copied, setCopied] = React.useState(false);
@@ -95,24 +92,34 @@ function buildTransactionsUrl(params: {
   return `/api/transactions?${query.toString()}`;
 }
 
-function dedupeTransactions(items: TransactionWithStudent[]) {
-  const seenIds = new Set<number>();
+function mergeTransactions(
+  existing: TransactionWithStudent[],
+  incoming: TransactionWithStudent[],
+) {
+  const seenIds = new Set(existing.map((item) => item.id));
+  const merged = [...existing];
 
-  return items.filter((item) => {
-    if (seenIds.has(item.id)) {
-      return false;
+  for (const item of incoming) {
+    if (!seenIds.has(item.id)) {
+      seenIds.add(item.id);
+      merged.push(item);
     }
+  }
 
-    seenIds.add(item.id);
-    return true;
-  });
+  return merged;
 }
 
-function TransactionRow({
+const rowBaseClass =
+  "grid items-center gap-3 border-b px-2 py-2 text-sm transition-colors hover:bg-muted/50";
+const mutedCellClass = "truncate text-sm text-muted-foreground";
+
+const TransactionRow = React.memo(function TransactionRow({
   tx,
+  top,
   onOpenNotes,
 }: {
   tx: TransactionWithStudent;
+  top: number;
   onOpenNotes: (tx: TransactionWithStudent) => void;
 }) {
   const description = tx.description || "";
@@ -120,34 +127,38 @@ function TransactionRow({
   const sign = tx.amount > 0 ? "+" : tx.amount < 0 ? "-" : "";
 
   return (
-    <TableRow style={{ height: `${ROW_HEIGHT}px` }}>
-      <TableCell>
-        <div className="flex items-center gap-1 px-2">
-          <span className="font-mono text-xs">{tx.id}</span>
-          <CopyButton txId={tx.id} />
-        </div>
-      </TableCell>
-      <TableCell>
-        <div className="px-2 text-sm">
-          {new Date(`${tx.created_at}Z`).toLocaleString("en-US", {
-            year: "numeric",
-            month: "2-digit",
-            day: "2-digit",
-            hour: "2-digit",
-            minute: "2-digit",
-            hour12: false,
-            timeZone: "Asia/Singapore",
-          })}
-        </div>
-      </TableCell>
-      <TableCell>
-        <div className="px-2">
-          <Link href={`/customers/${tx.student_id}`} className="font-medium hover:underline">
-            {tx.student_name}
-          </Link>
-        </div>
-      </TableCell>
-      <TableCell>
+    <div
+      className={`${rowBaseClass} absolute left-0 right-0`}
+      style={{
+        top: `${top}px`,
+        height: `${ROW_HEIGHT}px`,
+        gridTemplateColumns: GRID_TEMPLATE,
+      }}
+    >
+      <div className="flex items-center gap-1 px-2">
+        <span className="font-mono text-xs">{tx.id}</span>
+        <CopyButton txId={tx.id} />
+      </div>
+
+      <div className="truncate px-2 text-sm">
+        {new Date(`${tx.created_at}Z`).toLocaleString("en-US", {
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
+          timeZone: "Asia/Singapore",
+        })}
+      </div>
+
+      <div className="truncate px-2">
+        <Link href={`/customers/${tx.student_id}`} className="font-medium hover:underline">
+          {tx.student_name}
+        </Link>
+      </div>
+
+      <div>
         <Badge
           variant={
             tx.type === "TOPUP"
@@ -159,104 +170,118 @@ function TransactionRow({
         >
           {tx.type}
         </Badge>
-      </TableCell>
-      <TableCell>
-        <div className="text-sm text-muted-foreground">{tx.payment_method || "-"}</div>
-      </TableCell>
-      <TableCell>
-        <div className="max-w-[150px] overflow-hidden sm:max-w-[200px] md:max-w-xs">
-          {description ? (
-            <>
-              <p className="truncate break-words text-sm">
-                {isTruncated ? `${description.slice(0, 50)}...` : description}
-              </p>
-              {isTruncated ? (
-                <Button
-                  type="button"
-                  variant="link"
-                  className="h-auto p-0 font-medium text-blue-500 hover:text-blue-700"
-                  onClick={() => onOpenNotes(tx)}
-                >
-                  Read more
-                </Button>
-              ) : null}
-            </>
-          ) : (
-            <span className="text-muted-foreground">-</span>
-          )}
-          {tx.overdraft_component > 0 ? (
-            <p className="mt-1 truncate text-xs text-orange-600">
-              Overdraft: ¥{formatCurrency(tx.overdraft_component)}
+      </div>
+
+      <div className={mutedCellClass}>{tx.payment_method || "-"}</div>
+
+      <div className="max-w-full overflow-hidden">
+        {description ? (
+          <>
+            <p className="truncate break-words text-sm">
+              {isTruncated ? `${description.slice(0, 50)}...` : description}
             </p>
-          ) : null}
-        </div>
-      </TableCell>
-      <TableCell>
-        <div className="min-w-[100px] px-2">
-          <span
-            className={`whitespace-nowrap font-bold ${
-              tx.amount >= 0 ? "text-green-600" : "text-red-600"
-            }`}
-          >
-            {sign}¥{formatCurrency(Math.abs(tx.amount))}
-          </span>
-        </div>
-      </TableCell>
-      <TableCell>
-        <div className="text-sm text-muted-foreground">{tx.staff || "-"}</div>
-      </TableCell>
-    </TableRow>
+            {isTruncated ? (
+              <Button
+                type="button"
+                variant="link"
+                className="h-auto p-0 font-medium text-blue-500 hover:text-blue-700"
+                onClick={() => onOpenNotes(tx)}
+              >
+                Read more
+              </Button>
+            ) : null}
+          </>
+        ) : (
+          <span className="text-muted-foreground">-</span>
+        )}
+        {tx.overdraft_component > 0 ? (
+          <p className="mt-1 truncate text-xs text-orange-600">
+            Overdraft: ¥{formatCurrency(tx.overdraft_component)}
+          </p>
+        ) : null}
+      </div>
+
+      <div className="min-w-[100px] px-2">
+        <span
+          className={`whitespace-nowrap font-bold ${
+            tx.amount >= 0 ? "text-green-600" : "text-red-600"
+          }`}
+        >
+          {sign}¥{formatCurrency(Math.abs(tx.amount))}
+        </span>
+      </div>
+
+      <div className={mutedCellClass}>{tx.staff || "-"}</div>
+    </div>
   );
-}
+});
 
 export function TransactionsClient({
   initialData,
   initialCursor,
   initialHasMore,
 }: TransactionsClientProps) {
-  const [data, setData] = React.useState(initialData);
+  const [visibleItems, setVisibleItems] = React.useState(initialData);
+  const [prefetchedItems, setPrefetchedItems] = React.useState<TransactionWithStudent[]>([]);
   const [searchInput, setSearchInput] = React.useState("");
   const deferredSearch = React.useDeferredValue(searchInput.trim());
   const [typeFilter, setTypeFilter] = React.useState<TransactionTypeFilter>("all");
   const [nextCursor, setNextCursor] = React.useState<TransactionListCursor | null>(initialCursor);
   const [hasMore, setHasMore] = React.useState(initialHasMore);
-  const [loadingState, setLoadingState] = React.useState<AnimationRequestState>("idle");
+  const [loadingInitial, setLoadingInitial] = React.useState(false);
+  const [loadingMoreVisible, setLoadingMoreVisible] = React.useState(false);
+  const [prefetchInFlight, setPrefetchInFlight] = React.useState(false);
   const [loadError, setLoadError] = React.useState("");
   const [selectedDetailsTx, setSelectedDetailsTx] = React.useState<TransactionWithStudent | null>(null);
   const [scrollTop, setScrollTop] = React.useState(0);
   const [viewportHeight, setViewportHeight] = React.useState(0);
 
   const scrollContainerRef = React.useRef<HTMLDivElement | null>(null);
-  const requestVersionRef = React.useRef(0);
   const activeAbortRef = React.useRef<AbortController | null>(null);
+  const requestVersionRef = React.useRef(0);
+  const scrollFrameRef = React.useRef<number | null>(null);
+  const hasInitializedFiltersRef = React.useRef(false);
   const activeQueryRef = React.useRef({
     search: "",
     type: "all" as TransactionTypeFilter,
   });
-  const isFetchingMoreRef = React.useRef(false);
-  const hasInitializedFiltersRef = React.useRef(false);
+  const scrollMetricsRef = React.useRef({
+    top: 0,
+    viewport: 0,
+  });
+  const visibleItemsRef = React.useRef(initialData);
+  const prefetchedItemsRef = React.useRef<TransactionWithStudent[]>([]);
+  const nextCursorRef = React.useRef(initialCursor);
+  const hasMoreRef = React.useRef(initialHasMore);
+  const prefetchInFlightRef = React.useRef(false);
+  const loadingMoreVisibleRef = React.useRef(false);
 
   const fetchBatch = React.useCallback(
     async ({
       cursor,
-      replace,
+      target,
       version,
-      mode,
     }: {
       cursor: TransactionListCursor | null;
-      replace: boolean;
+      target: FetchTarget;
       version: number;
-      mode: AnimationRequestState;
     }) => {
       const controller = new AbortController();
 
-      if (replace) {
+      if (target === "replace") {
         activeAbortRef.current?.abort();
         activeAbortRef.current = controller;
+        setLoadingInitial(true);
+        setLoadError("");
+        setLoadingMoreVisible(false);
+        loadingMoreVisibleRef.current = false;
+      } else if (target === "prefetch") {
+        setPrefetchInFlight(true);
+        prefetchInFlightRef.current = true;
+      } else {
+        setLoadingMoreVisible(true);
+        loadingMoreVisibleRef.current = true;
       }
-
-      setLoadingState(mode);
-      setLoadError("");
 
       try {
         const response = await fetch(
@@ -288,21 +313,45 @@ export function TransactionsClient({
         const responseData = payload.data;
 
         React.startTransition(() => {
-          setData((current) =>
-            dedupeTransactions(
-              replace
-                ? responseData.items
-                : [...current, ...responseData.items],
-            ),
-          );
-          setNextCursor(responseData.nextCursor);
-          setHasMore(responseData.hasMore);
+          if (target === "replace") {
+            visibleItemsRef.current = responseData.items;
+            prefetchedItemsRef.current = [];
+            nextCursorRef.current = responseData.nextCursor;
+            hasMoreRef.current = responseData.hasMore;
+
+            setVisibleItems(responseData.items);
+            setPrefetchedItems([]);
+            setNextCursor(responseData.nextCursor);
+            setHasMore(responseData.hasMore);
+          } else if (target === "prefetch") {
+            const dedupedBuffer = mergeTransactions(
+              visibleItemsRef.current,
+              responseData.items,
+            ).slice(visibleItemsRef.current.length);
+
+            prefetchedItemsRef.current = dedupedBuffer;
+            nextCursorRef.current = responseData.nextCursor;
+            hasMoreRef.current = responseData.hasMore;
+
+            setPrefetchedItems(dedupedBuffer);
+            setNextCursor(responseData.nextCursor);
+            setHasMore(responseData.hasMore);
+          } else {
+            const merged = mergeTransactions(visibleItemsRef.current, responseData.items);
+
+            visibleItemsRef.current = merged;
+            prefetchedItemsRef.current = [];
+            nextCursorRef.current = responseData.nextCursor;
+            hasMoreRef.current = responseData.hasMore;
+
+            setVisibleItems(merged);
+            setPrefetchedItems([]);
+            setNextCursor(responseData.nextCursor);
+            setHasMore(responseData.hasMore);
+          }
         });
       } catch (error) {
-        if (
-          error instanceof DOMException &&
-          error.name === "AbortError"
-        ) {
+        if (error instanceof DOMException && error.name === "AbortError") {
           return;
         }
 
@@ -312,36 +361,120 @@ export function TransactionsClient({
           );
         }
       } finally {
-        if (requestVersionRef.current === version) {
-          setLoadingState("idle");
-        }
+        if (target === "replace") {
+          if (requestVersionRef.current === version) {
+            setLoadingInitial(false);
+          }
 
-        if (!replace) {
-          isFetchingMoreRef.current = false;
-        }
-
-        if (activeAbortRef.current === controller) {
-          activeAbortRef.current = null;
+          if (activeAbortRef.current === controller) {
+            activeAbortRef.current = null;
+          }
+        } else if (target === "prefetch") {
+          if (requestVersionRef.current === version) {
+            setPrefetchInFlight(false);
+          }
+          prefetchInFlightRef.current = false;
+        } else {
+          if (requestVersionRef.current === version) {
+            setLoadingMoreVisible(false);
+          }
+          loadingMoreVisibleRef.current = false;
         }
       }
     },
     [],
   );
 
-  const loadMore = React.useCallback(() => {
-    if (!hasMore || !nextCursor || isFetchingMoreRef.current || loadingState === "initial") {
+  const appendPrefetched = React.useCallback(() => {
+    if (prefetchedItemsRef.current.length === 0) {
+      return false;
+    }
+
+    const merged = mergeTransactions(visibleItemsRef.current, prefetchedItemsRef.current);
+    visibleItemsRef.current = merged;
+    prefetchedItemsRef.current = [];
+
+    React.startTransition(() => {
+      setVisibleItems(merged);
+      setPrefetchedItems([]);
+      setLoadingMoreVisible(false);
+    });
+
+    loadingMoreVisibleRef.current = false;
+    return true;
+  }, []);
+
+  const maybeLoadAhead = React.useCallback(() => {
+    const viewport = scrollMetricsRef.current.viewport;
+    const scrollBottom = scrollMetricsRef.current.top + viewport;
+    const loadedHeight = visibleItemsRef.current.length * ROW_HEIGHT;
+    const visibleLoadThreshold = Math.max(viewport * 1.1, ROW_HEIGHT * 6);
+    const appendThreshold = Math.max(viewport * 1.4, ROW_HEIGHT * 8);
+
+    if (prefetchedItemsRef.current.length > 0) {
+      const shouldAppend =
+        scrollBottom >= loadedHeight - appendThreshold ||
+        loadedHeight <= viewport * 1.4;
+
+      if (shouldAppend) {
+        const appended = appendPrefetched();
+        if (appended) {
+          return;
+        }
+      }
+    }
+
+    if (
+      hasMoreRef.current &&
+      nextCursorRef.current &&
+      prefetchedItemsRef.current.length === 0 &&
+      !prefetchInFlightRef.current &&
+      !loadingMoreVisibleRef.current
+    ) {
+      const shouldPrefetch =
+        loadedHeight <= viewport * 1.8 ||
+        scrollBottom >= loadedHeight * PREFETCH_RATIO;
+
+      if (shouldPrefetch) {
+        void fetchBatch({
+          cursor: nextCursorRef.current,
+          target: "prefetch",
+          version: requestVersionRef.current,
+        });
+        return;
+      }
+    }
+
+    if (
+      hasMoreRef.current &&
+      nextCursorRef.current &&
+      prefetchedItemsRef.current.length === 0 &&
+      !prefetchInFlightRef.current &&
+      !loadingMoreVisibleRef.current &&
+      scrollBottom >= loadedHeight - visibleLoadThreshold
+    ) {
+      void fetchBatch({
+        cursor: nextCursorRef.current,
+        target: "append",
+        version: requestVersionRef.current,
+      });
+    }
+  }, [appendPrefetched, fetchBatch]);
+
+  const syncScrollState = React.useCallback(() => {
+    if (scrollFrameRef.current !== null) {
       return;
     }
 
-    isFetchingMoreRef.current = true;
-    const version = requestVersionRef.current;
-    void fetchBatch({
-      cursor: nextCursor,
-      replace: false,
-      version,
-      mode: "more",
+    scrollFrameRef.current = window.requestAnimationFrame(() => {
+      scrollFrameRef.current = null;
+      const nextTop = scrollMetricsRef.current.top;
+      const nextViewport = scrollMetricsRef.current.viewport;
+      setScrollTop(nextTop);
+      setViewportHeight(nextViewport);
+      maybeLoadAhead();
     });
-  }, [fetchBatch, hasMore, loadingState, nextCursor]);
+  }, [maybeLoadAhead]);
 
   const handleScroll = React.useCallback(() => {
     const container = scrollContainerRef.current;
@@ -349,16 +482,10 @@ export function TransactionsClient({
       return;
     }
 
-    const nextScrollTop = container.scrollTop;
-    setScrollTop(nextScrollTop);
-
-    if (
-      container.scrollHeight - (nextScrollTop + container.clientHeight) <=
-      LOAD_MORE_THRESHOLD
-    ) {
-      loadMore();
-    }
-  }, [loadMore]);
+    scrollMetricsRef.current.top = container.scrollTop;
+    scrollMetricsRef.current.viewport = container.clientHeight;
+    syncScrollState();
+  }, [syncScrollState]);
 
   React.useEffect(() => {
     const container = scrollContainerRef.current;
@@ -366,31 +493,28 @@ export function TransactionsClient({
       return;
     }
 
+    scrollMetricsRef.current.viewport = container.clientHeight;
     setViewportHeight(container.clientHeight);
+    maybeLoadAhead();
 
     const resizeObserver = new ResizeObserver(() => {
-      setViewportHeight(container.clientHeight);
+      scrollMetricsRef.current.viewport = container.clientHeight;
+      syncScrollState();
     });
 
     resizeObserver.observe(container);
 
-    return () => resizeObserver.disconnect();
-  }, []);
+    return () => {
+      resizeObserver.disconnect();
+      if (scrollFrameRef.current !== null) {
+        window.cancelAnimationFrame(scrollFrameRef.current);
+      }
+    };
+  }, [maybeLoadAhead, syncScrollState]);
 
   React.useEffect(() => {
-    const container = scrollContainerRef.current;
-    if (!container) {
-      return;
-    }
-
-    if (
-      container.scrollHeight <= container.clientHeight + LOAD_MORE_THRESHOLD &&
-      hasMore &&
-      loadingState === "idle"
-    ) {
-      loadMore();
-    }
-  }, [data.length, hasMore, loadMore, loadingState]);
+    maybeLoadAhead();
+  }, [visibleItems.length, prefetchedItems.length, hasMore, maybeLoadAhead]);
 
   React.useEffect(() => {
     if (!hasInitializedFiltersRef.current) {
@@ -404,22 +528,34 @@ export function TransactionsClient({
       search: deferredSearch,
       type: typeFilter,
     };
-    setData([]);
-    setHasMore(true);
+
+    visibleItemsRef.current = [];
+    prefetchedItemsRef.current = [];
+    nextCursorRef.current = null;
+    hasMoreRef.current = true;
+    prefetchInFlightRef.current = false;
+    loadingMoreVisibleRef.current = false;
+    setVisibleItems([]);
+    setPrefetchedItems([]);
     setNextCursor(null);
+    setHasMore(true);
+    setPrefetchInFlight(false);
+    setLoadingMoreVisible(false);
     setSelectedDetailsTx(null);
     setScrollTop(0);
+    setLoadError("");
 
     const container = scrollContainerRef.current;
     if (container) {
       container.scrollTop = 0;
+      scrollMetricsRef.current.top = 0;
+      scrollMetricsRef.current.viewport = container.clientHeight;
     }
 
     void fetchBatch({
       cursor: null,
-      replace: true,
+      target: "replace",
       version,
-      mode: "initial",
     });
   }, [deferredSearch, fetchBatch, typeFilter]);
 
@@ -431,6 +567,9 @@ export function TransactionsClient({
 
     return () => {
       activeAbortRef.current?.abort();
+      if (scrollFrameRef.current !== null) {
+        window.cancelAnimationFrame(scrollFrameRef.current);
+      }
     };
   }, []);
 
@@ -442,10 +581,16 @@ export function TransactionsClient({
     1,
     Math.ceil(viewportHeight / ROW_HEIGHT) + OVERSCAN_ROWS * 2,
   );
-  const visibleEndIndex = Math.min(data.length, visibleStartIndex + visibleRowCount);
-  const visibleRows = data.slice(visibleStartIndex, visibleEndIndex);
-  const topSpacerHeight = visibleStartIndex * ROW_HEIGHT;
-  const bottomSpacerHeight = Math.max(0, (data.length - visibleEndIndex) * ROW_HEIGHT);
+  const visibleEndIndex = Math.min(
+    visibleItems.length,
+    visibleStartIndex + visibleRowCount,
+  );
+  const renderedRows = visibleItems.slice(visibleStartIndex, visibleEndIndex);
+  const totalHeight = visibleItems.length * ROW_HEIGHT;
+  const shouldShowVisibleLoader =
+    loadingMoreVisible ||
+    (prefetchInFlight &&
+      scrollTop + viewportHeight >= totalHeight - Math.max(viewportHeight, ROW_HEIGHT * 6));
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -477,59 +622,54 @@ export function TransactionsClient({
         className="relative min-h-0 flex-1 overflow-auto rounded-md border custom-scrollbar"
         onScroll={handleScroll}
       >
-        <table className="w-full caption-bottom text-sm">
-          <TableHeader className="sticky top-0 z-10 bg-background">
-            <TableRow>
-              <TableHead>ID</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead>Customer</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Payment Method</TableHead>
-              <TableHead>Notes</TableHead>
-              <TableHead>Amount</TableHead>
-              <TableHead>Staff</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {topSpacerHeight > 0 ? (
-              <TableRow aria-hidden="true">
-                <TableCell colSpan={TABLE_COLUMNS} className="p-0" style={{ height: `${topSpacerHeight}px` }} />
-              </TableRow>
-            ) : null}
+        <div className="min-w-[1220px]">
+          <div className="sticky top-0 z-10 border-b bg-background">
+            <div
+              className="grid h-10 items-center gap-3 px-2 text-left text-sm font-medium text-muted-foreground"
+              style={{ gridTemplateColumns: GRID_TEMPLATE }}
+            >
+              <div>ID</div>
+              <div>Date</div>
+              <div>Customer</div>
+              <div>Type</div>
+              <div>Payment Method</div>
+              <div>Notes</div>
+              <div>Amount</div>
+              <div>Staff</div>
+            </div>
+          </div>
 
-            {visibleRows.length > 0 ? (
-              visibleRows.map((tx) => (
+          {loadingInitial && visibleItems.length === 0 ? (
+            <div className="flex h-24 items-center justify-center text-sm text-muted-foreground">
+              Loading transactions...
+            </div>
+          ) : loadError && visibleItems.length === 0 ? (
+            <div className="flex h-24 items-center justify-center text-sm text-muted-foreground">
+              {loadError}
+            </div>
+          ) : visibleItems.length === 0 ? (
+            <div className="flex h-24 items-center justify-center text-sm text-muted-foreground">
+              No transactions found
+            </div>
+          ) : (
+            <div className="relative" style={{ height: `${totalHeight}px` }}>
+              {renderedRows.map((tx, index) => (
                 <TransactionRow
                   key={tx.id}
                   tx={tx}
+                  top={(visibleStartIndex + index) * ROW_HEIGHT}
                   onOpenNotes={setSelectedDetailsTx}
                 />
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={TABLE_COLUMNS} className="h-24 text-center text-muted-foreground">
-                  {loadingState === "initial"
-                    ? "Loading transactions..."
-                    : loadError || "No transactions found"}
-                </TableCell>
-              </TableRow>
-            )}
+              ))}
+            </div>
+          )}
 
-            {bottomSpacerHeight > 0 ? (
-              <TableRow aria-hidden="true">
-                <TableCell colSpan={TABLE_COLUMNS} className="p-0" style={{ height: `${bottomSpacerHeight}px` }} />
-              </TableRow>
-            ) : null}
-
-            {loadingState === "more" ? (
-              <TableRow>
-                <TableCell colSpan={TABLE_COLUMNS} className="h-12 text-center text-muted-foreground">
-                  Loading more transactions...
-                </TableCell>
-              </TableRow>
-            ) : null}
-          </TableBody>
-        </table>
+          {shouldShowVisibleLoader ? (
+            <div className="border-t px-4 py-3 text-center text-sm text-muted-foreground">
+              Loading more transactions...
+            </div>
+          ) : null}
+        </div>
       </div>
 
       <Dialog
