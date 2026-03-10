@@ -155,13 +155,53 @@ function parseCookieHeader(cookieHeader) {
   }, {});
 }
 
+function unsignCookieValue(value, secret) {
+  if (!value || !secret) {
+    return null;
+  }
+
+  const signatureStart = value.lastIndexOf('.');
+  if (signatureStart < 1) {
+    return value;
+  }
+
+  const signedValue = value.slice(0, signatureStart);
+  const signature = value.slice(signatureStart + 1);
+
+  if (signature.length !== 44 || !signature.endsWith('=')) {
+    return value;
+  }
+
+  const expectedSignature = crypto
+    .createHmac('sha256', secret)
+    .update(signedValue)
+    .digest('base64');
+
+  const expectedBuffer = Buffer.from(expectedSignature, 'utf8');
+  const providedBuffer = Buffer.from(signature, 'utf8');
+
+  if (expectedBuffer.length !== providedBuffer.length) {
+    return null;
+  }
+
+  return crypto.timingSafeEqual(expectedBuffer, providedBuffer)
+    ? signedValue
+    : null;
+}
+
 function getSessionToken(request) {
   const cookies = parseCookieHeader(request.headers.cookie);
-  return (
+  const rawToken = (
     cookies['__Secure-better-auth.session_token'] ||
     cookies['better-auth.session_token'] ||
     null
   );
+
+  if (!rawToken) {
+    return null;
+  }
+
+  return unsignCookieValue(rawToken, process.env.BETTER_AUTH_SECRET);
 }
 
 function validateBrowserSession(request) {

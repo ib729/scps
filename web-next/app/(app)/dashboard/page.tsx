@@ -1,6 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getDashboardStats, getRecentTransactions, getWeeklyTopupData } from "@/lib/repositories/transactions";
-import { Users, ShoppingCart, ArrowUpRight, ArrowDownRight, Minus, Landmark, HandCoins } from "lucide-react";
+import { Users, ShoppingCart, ArrowUpRight, ArrowDownRight, Minus, Landmark, HandCoins } from "@/lib/icons";
 import { WeeklyTopupChart } from "@/components/weekly-topup-chart";
 import { formatCurrency } from "@/lib/currency";
 import { Metadata } from 'next';

@@ -167,6 +167,9 @@ function ensureApplicationSchema(database: Database.Database) {
     CREATE INDEX IF NOT EXISTS idx_transactions_created_at
     ON transactions(created_at DESC);
 
+    CREATE INDEX IF NOT EXISTS idx_transactions_created_at_id
+    ON transactions(created_at DESC, id DESC);
+
     CREATE INDEX IF NOT EXISTS idx_transactions_type_created_at
     ON transactions(type, created_at DESC);
 

@@ -1,9 +1,45 @@
 import { getDb } from "../db";
 import type {
   Transaction,
+  TransactionListCursor,
   CreateTransaction,
   TransactionWithStudent,
 } from "../models";
+
+type TransactionTypeFilter = Transaction["type"];
+
+function normalizeTransactionType(type?: string | null): TransactionTypeFilter | null {
+  if (type === "TOPUP" || type === "DEBIT" || type === "ADJUST") {
+    return type;
+  }
+
+  return null;
+}
+
+function buildTransactionFilters(filters?: {
+  search?: string;
+  type?: string | null;
+}) {
+  const clauses: string[] = [];
+  const params: Array<string | number> = [];
+  const search = filters?.search?.trim().toLowerCase();
+  const type = normalizeTransactionType(filters?.type);
+
+  if (search) {
+    clauses.push("lower(s.name) LIKE ?");
+    params.push(`%${search}%`);
+  }
+
+  if (type) {
+    clauses.push("t.type = ?");
+    params.push(type);
+  }
+
+  return {
+    whereClause: clauses.length > 0 ? `WHERE ${clauses.join(" AND ")}` : "",
+    params,
+  };
+}
 
 export function getAllTransactions(
   limit?: number
@@ -258,18 +294,32 @@ export function getTransactionsPage({
 export function getTransactionsBatch({
   offset,
   limit,
+  search,
+  type,
 }: {
   offset: number;
   limit: number;
+  search?: string;
+  type?: string | null;
 }) {
   const normalizedOffset = Math.max(0, offset);
   const normalizedLimit = Math.min(Math.max(limit, 20), 200);
   const db = getDb();
+  const { whereClause, params } = buildTransactionFilters({ search, type });
 
   const total = (
-    db.prepare("SELECT COUNT(*) AS count FROM transactions").get() as {
-      count: number;
-    }
+    db
+      .prepare(
+        `
+          SELECT COUNT(*) AS count
+          FROM transactions t
+          JOIN students s ON t.student_id = s.id
+          ${whereClause}
+        `,
+      )
+      .get(...params) as {
+        count: number;
+      }
   ).count;
 
   const items = db
@@ -289,11 +339,12 @@ export function getTransactionsBatch({
           s.name as student_name
         FROM transactions t
         JOIN students s ON t.student_id = s.id
+        ${whereClause}
         ORDER BY t.created_at DESC, t.id DESC
         LIMIT ? OFFSET ?
       `,
     )
-    .all(normalizedLimit, normalizedOffset) as TransactionWithStudent[];
+    .all(...params, normalizedLimit, normalizedOffset) as TransactionWithStudent[];
 
   const nextOffset = normalizedOffset + items.length;
 
@@ -304,5 +355,67 @@ export function getTransactionsBatch({
     limit: normalizedLimit,
     nextOffset,
     hasMore: nextOffset < total,
+  };
+}
+
+export function getTransactionsCursorBatch({
+  limit,
+  search,
+  type,
+  cursor,
+}: {
+  limit: number;
+  search?: string;
+  type?: string | null;
+  cursor?: TransactionListCursor | null;
+}) {
+  const normalizedLimit = Math.min(Math.max(limit, 20), 200);
+  const db = getDb();
+  const { whereClause, params } = buildTransactionFilters({ search, type });
+  const cursorClause = cursor
+    ? `${whereClause ? " AND" : " WHERE"} (t.created_at < ? OR (t.created_at = ? AND t.id < ?))`
+    : "";
+  const queryParams = cursor
+    ? [...params, cursor.createdAt, cursor.createdAt, cursor.id]
+    : params;
+
+  const rows = db
+    .prepare(
+      `
+        SELECT
+          t.id,
+          t.student_id,
+          t.card_uid,
+          t.type,
+          t.amount,
+          t.overdraft_component,
+          t.payment_method,
+          t.description,
+          t.staff,
+          t.created_at,
+          s.name as student_name
+        FROM transactions t
+        JOIN students s ON t.student_id = s.id
+        ${whereClause}
+        ${cursorClause}
+        ORDER BY t.created_at DESC, t.id DESC
+        LIMIT ?
+      `,
+    )
+    .all(...queryParams, normalizedLimit + 1) as TransactionWithStudent[];
+
+  const hasMore = rows.length > normalizedLimit;
+  const items = hasMore ? rows.slice(0, normalizedLimit) : rows;
+  const lastItem = items.at(-1);
+
+  return {
+    items,
+    hasMore,
+    nextCursor: hasMore && lastItem
+      ? {
+          createdAt: lastItem.created_at,
+          id: lastItem.id,
+        }
+      : null,
   };
 }

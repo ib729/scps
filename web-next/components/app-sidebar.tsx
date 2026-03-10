@@ -6,6 +6,7 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { authClient } from "@/lib/auth-client"
 import {
+  AnimatedIconHandle,
   LayoutDashboard,
   Users,
   Receipt,
@@ -21,7 +22,7 @@ import {
   EyeOff,
   RotateCw,
   DatabaseBackup,
-} from "lucide-react"
+} from "@/lib/icons"
 import { useTheme } from "next-themes"
 import { useNFCReader } from "@/lib/nfc-reader-context"
 import {
@@ -122,6 +123,75 @@ interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
     role: "admin" | "staff"
   }
 }
+
+type SidebarNavItem = {
+  title: string
+  url: string
+  icon: React.ComponentType<{
+    ref?: React.Ref<AnimatedIconHandle>
+    className?: string
+  }>
+}
+
+type SidebarNavLinkProps = Omit<React.ComponentPropsWithoutRef<typeof Link>, "href"> & {
+  item: SidebarNavItem
+  isActive: boolean
+}
+
+const SidebarNavLink = React.forwardRef<HTMLAnchorElement, SidebarNavLinkProps>(function SidebarNavLink({
+  item,
+  isActive,
+  className,
+  onMouseEnter,
+  onMouseLeave,
+  onFocus,
+  onBlur,
+  ...props
+}, ref) {
+  const iconRef = React.useRef<AnimatedIconHandle | null>(null)
+  const Icon = item.icon
+
+  const syncAnimation = React.useCallback(() => {
+    if (isActive) {
+      iconRef.current?.startAnimation?.()
+      return
+    }
+
+    iconRef.current?.stopAnimation?.()
+  }, [isActive])
+
+  React.useEffect(() => {
+    syncAnimation()
+  }, [syncAnimation])
+
+  return (
+    <Link
+      href={item.url}
+      ref={ref}
+      className={className}
+      onMouseEnter={(event) => {
+        iconRef.current?.startAnimation?.()
+        onMouseEnter?.(event)
+      }}
+      onMouseLeave={(event) => {
+        syncAnimation()
+        onMouseLeave?.(event)
+      }}
+      onFocus={(event) => {
+        iconRef.current?.startAnimation?.()
+        onFocus?.(event)
+      }}
+      onBlur={(event) => {
+        syncAnimation()
+        onBlur?.(event)
+      }}
+      {...props}
+    >
+      <Icon ref={iconRef} />
+      <span>{item.title}</span>
+    </Link>
+  )
+})
 
 export function AppSidebar({ user: initialUser, ...props }: AppSidebarProps) {
   const pathname = usePathname()
@@ -443,10 +513,10 @@ export function AppSidebar({ user: initialUser, ...props }: AppSidebarProps) {
                         : undefined
                     }
                   >
-                    <Link href={item.url}>
-                      <item.icon />
-                      <span>{item.title}</span>
-                    </Link>
+                    <SidebarNavLink
+                      item={item}
+                      isActive={isNavItemActive(item.url)}
+                    />
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
@@ -800,11 +870,11 @@ export function AppSidebar({ user: initialUser, ...props }: AppSidebarProps) {
       {mounted && (
         <Dialog open={showSettingsDialog} onOpenChange={setShowSettingsDialog}>
           <DialogContent className="sm:max-w-[500px]">
-            <DialogHeader>
-              <DialogTitle className="text-2xl">Settings</DialogTitle>
+            <DialogHeader className="space-y-1">
+              <DialogTitle className="text-[1.75rem] leading-tight">Settings</DialogTitle>
             </DialogHeader>
 
-            <div className="space-y-6 py-4">
+            <div className="space-y-6 pb-4 pt-2">
               {/* NFC Reader Selection */}
               <div className="space-y-3">
                 <Label className="text-base font-semibold">

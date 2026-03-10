@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Copy, Check } from "lucide-react";
+import { Copy, Check } from "@/lib/icons";
 import type { StudentWithAccount } from "@/lib/models";
 import { posCheckoutAction } from "@/app/actions/pos";
 import { getCardByUidAction, createCardAction } from "@/app/actions/cards";

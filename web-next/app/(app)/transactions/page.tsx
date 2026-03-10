@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 
-import { getTransactionsBatch } from "@/lib/repositories/transactions";
-import { DataTable } from "./data-table";
-import { columns } from "./columns";
+import { getTransactionsCursorBatch } from "@/lib/repositories/transactions";
+import { TransactionsClient } from "./transactions-client";
 
 export const metadata: Metadata = {
   title: "Transactions",
@@ -15,19 +14,17 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function TransactionsPage() {
-  const initialBatch = getTransactionsBatch({
-    offset: 0,
+  const initialBatch = getTransactionsCursorBatch({
     limit: 100,
+    cursor: null,
   });
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <DataTable
-        columns={columns}
+      <TransactionsClient
         initialData={initialBatch.items}
-        initialOffset={initialBatch.nextOffset}
+        initialCursor={initialBatch.nextCursor}
         initialHasMore={initialBatch.hasMore}
-        totalCount={initialBatch.total}
       />
     </div>
   );
