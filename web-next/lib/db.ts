@@ -157,7 +157,7 @@ function ensureApplicationSchema(database: Database.Database) {
       AND TRIM(description) <> '';
 
     UPDATE transactions
-    SET payment_method = 'Unspecified'
+    SET payment_method = 'WeChat'
     WHERE
       type = 'TOPUP'
       AND (payment_method IS NULL OR TRIM(payment_method) = '');
