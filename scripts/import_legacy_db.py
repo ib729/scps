@@ -29,7 +29,7 @@ BACKUP_DIR = REPO_ROOT / "db_backups"
 SCHEMA_FILE = REPO_ROOT / "migrations" / "schema.sql"
 BETTER_AUTH_SCHEMA_FILE = REPO_ROOT / "web-next" / "migrations" / "better_auth_schema.sql"
 
-TOPUP_PAYMENT_METHOD_FALLBACK = "Unspecified"
+TOPUP_PAYMENT_METHOD_FALLBACK = "WeChat"
 
 
 def sqlite_connect(path: Path, *, readonly: bool = False) -> sqlite3.Connection:
@@ -541,7 +541,7 @@ def main() -> None:
         f"Cash={tx_summary['Cash']}, "
         f"Alipay={tx_summary['Alipay']}, "
         f"Bitcoin={tx_summary['Bitcoin']}, "
-        f"Unspecified={tx_summary[TOPUP_PAYMENT_METHOD_FALLBACK]}"
+        f"{TOPUP_PAYMENT_METHOD_FALLBACK}={tx_summary[TOPUP_PAYMENT_METHOD_FALLBACK]}"
     )
 
 
