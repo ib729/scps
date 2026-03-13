@@ -40,6 +40,16 @@ CREATE TABLE IF NOT EXISTS transactions (
   FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE RESTRICT
 );
 
+CREATE TABLE IF NOT EXISTS transaction_note_history (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  transaction_id INTEGER NOT NULL,
+  previous_description TEXT,
+  new_description TEXT,
+  edited_by TEXT,
+  edited_at TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY(transaction_id) REFERENCES transactions(id) ON DELETE CASCADE
+);
+
 -- Track weekly overpay usage per student, keyed by the Monday 00:00 (Asia/Shanghai) converted to UTC
 CREATE TABLE IF NOT EXISTS overdraft_weeks (
   student_id INTEGER NOT NULL,
@@ -65,6 +75,9 @@ CREATE INDEX IF NOT EXISTS idx_transactions_type_created_at
 
 CREATE INDEX IF NOT EXISTS idx_transactions_student_id_created_at
   ON transactions(student_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_transaction_note_history_transaction_id_edited_at
+  ON transaction_note_history(transaction_id, edited_at DESC, id DESC);
 
 -- Staff user accounts
 CREATE TABLE IF NOT EXISTS users (

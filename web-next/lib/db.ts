@@ -60,6 +60,16 @@ function ensureApplicationSchema(database: Database.Database) {
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS transaction_note_history (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      transaction_id INTEGER NOT NULL,
+      previous_description TEXT,
+      new_description TEXT,
+      edited_by TEXT,
+      edited_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY(transaction_id) REFERENCES transactions(id) ON DELETE CASCADE
+    );
   `);
 
   if (!hasColumn(database, "students", "archived")) {
@@ -175,6 +185,9 @@ function ensureApplicationSchema(database: Database.Database) {
 
     CREATE INDEX IF NOT EXISTS idx_transactions_student_id_created_at
     ON transactions(student_id, created_at DESC);
+
+    CREATE INDEX IF NOT EXISTS idx_transaction_note_history_transaction_id_edited_at
+    ON transaction_note_history(transaction_id, edited_at DESC, id DESC);
   `);
 
   const adminCount = database

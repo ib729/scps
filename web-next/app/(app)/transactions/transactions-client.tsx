@@ -3,12 +3,22 @@
 import * as React from "react";
 import Link from "next/link";
 
-import { Check, Copy } from "@/lib/icons";
-import type { TransactionListCursor, TransactionWithStudent } from "@/lib/models";
+import { Check, Copy, MoreHorizontal } from "@/lib/icons";
+import type {
+  TransactionListCursor,
+  TransactionNoteHistory,
+  TransactionWithStudent,
+} from "@/lib/models";
 import { formatCurrency } from "@/lib/currency";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -17,13 +27,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 
 const BATCH_SIZE = 150;
 const ROW_HEIGHT = 84;
 const OVERSCAN_ROWS = 8;
 const PREFETCH_RATIO = 0.65;
 const GRID_TEMPLATE =
-  "120px 170px minmax(180px,1.5fr) 110px 150px minmax(220px,1.9fr) 120px 140px";
+  "128px 170px minmax(180px,1.5fr) 110px 150px minmax(220px,1.9fr) 120px 140px 56px";
 
 type TransactionTypeFilter = "all" | "TOPUP" | "DEBIT" | "ADJUST";
 
@@ -40,6 +51,15 @@ type TransactionsResponse = {
     items: TransactionWithStudent[];
     nextCursor: TransactionListCursor | null;
     hasMore: boolean;
+  };
+};
+
+type TransactionNotesResponse = {
+  success: boolean;
+  error?: string;
+  data?: {
+    transaction: TransactionWithStudent;
+    history: TransactionNoteHistory[];
   };
 };
 
@@ -117,10 +137,12 @@ const TransactionRow = React.memo(function TransactionRow({
   tx,
   top,
   onOpenNotes,
+  onEditNotes,
 }: {
   tx: TransactionWithStudent;
   top: number;
   onOpenNotes: (tx: TransactionWithStudent) => void;
+  onEditNotes: (tx: TransactionWithStudent) => void;
 }) {
   const description = tx.description || "";
   const isTruncated = description.length > 50;
@@ -135,7 +157,7 @@ const TransactionRow = React.memo(function TransactionRow({
         gridTemplateColumns: GRID_TEMPLATE,
       }}
     >
-      <div className="flex items-center gap-1 px-2">
+      <div className="flex items-center gap-1 pl-2">
         <span className="font-mono text-xs">{tx.id}</span>
         <CopyButton txId={tx.id} />
       </div>
@@ -212,6 +234,22 @@ const TransactionRow = React.memo(function TransactionRow({
       </div>
 
       <div className={mutedCellClass}>{tx.staff || "-"}</div>
+
+      <div className="flex justify-end pr-1">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+              <MoreHorizontal className="h-4 w-4" />
+              <span className="sr-only">Open transaction actions</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => onEditNotes(tx)}>
+              Edit notes
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
     </div>
   );
 });
@@ -233,6 +271,12 @@ export function TransactionsClient({
   const [prefetchInFlight, setPrefetchInFlight] = React.useState(false);
   const [loadError, setLoadError] = React.useState("");
   const [selectedDetailsTx, setSelectedDetailsTx] = React.useState<TransactionWithStudent | null>(null);
+  const [editingNotesTx, setEditingNotesTx] = React.useState<TransactionWithStudent | null>(null);
+  const [noteDraft, setNoteDraft] = React.useState("");
+  const [noteHistory, setNoteHistory] = React.useState<TransactionNoteHistory[]>([]);
+  const [noteHistoryLoading, setNoteHistoryLoading] = React.useState(false);
+  const [noteSaving, setNoteSaving] = React.useState(false);
+  const [noteError, setNoteError] = React.useState("");
   const [scrollTop, setScrollTop] = React.useState(0);
   const [viewportHeight, setViewportHeight] = React.useState(0);
 
@@ -255,6 +299,87 @@ export function TransactionsClient({
   const hasMoreRef = React.useRef(initialHasMore);
   const prefetchInFlightRef = React.useRef(false);
   const loadingMoreVisibleRef = React.useRef(false);
+
+  const applyTransactionUpdate = React.useCallback((updated: TransactionWithStudent) => {
+    const apply = (items: TransactionWithStudent[]) =>
+      items.map((item) => (item.id === updated.id ? updated : item));
+
+    visibleItemsRef.current = apply(visibleItemsRef.current);
+    prefetchedItemsRef.current = apply(prefetchedItemsRef.current);
+
+    React.startTransition(() => {
+      setVisibleItems((current) => apply(current));
+      setPrefetchedItems((current) => apply(current));
+      setSelectedDetailsTx((current) => (current?.id === updated.id ? updated : current));
+      setEditingNotesTx((current) => (current?.id === updated.id ? updated : current));
+    });
+  }, []);
+
+  const loadNoteHistory = React.useCallback(async (transactionId: number) => {
+    setNoteHistoryLoading(true);
+    setNoteError("");
+
+    try {
+      const response = await fetch(`/api/transactions/${transactionId}`, {
+        cache: "no-store",
+      });
+      const payload = (await response.json()) as TransactionNotesResponse;
+
+      if (!response.ok || !payload.success || !payload.data) {
+        throw new Error(payload.error || "Failed to load note history");
+      }
+
+      setNoteHistory(payload.data.history);
+      setNoteDraft(payload.data.transaction.description ?? "");
+      applyTransactionUpdate(payload.data.transaction);
+    } catch (error) {
+      setNoteError(error instanceof Error ? error.message : "Failed to load note history");
+      setNoteHistory([]);
+    } finally {
+      setNoteHistoryLoading(false);
+    }
+  }, [applyTransactionUpdate]);
+
+  const openNoteEditor = React.useCallback((transaction: TransactionWithStudent) => {
+    setEditingNotesTx(transaction);
+    setNoteDraft(transaction.description ?? "");
+    setNoteHistory([]);
+    void loadNoteHistory(transaction.id);
+  }, [loadNoteHistory]);
+
+  const handleSaveNotes = React.useCallback(async () => {
+    if (!editingNotesTx || noteSaving) {
+      return;
+    }
+
+    setNoteSaving(true);
+    setNoteError("");
+
+    try {
+      const response = await fetch(`/api/transactions/${editingNotesTx.id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          description: noteDraft.trim() || null,
+        }),
+      });
+      const payload = (await response.json()) as TransactionNotesResponse;
+
+      if (!response.ok || !payload.success || !payload.data) {
+        throw new Error(payload.error || "Failed to save notes");
+      }
+
+      applyTransactionUpdate(payload.data.transaction);
+      setNoteHistory(payload.data.history);
+      setNoteDraft(payload.data.transaction.description ?? "");
+    } catch (error) {
+      setNoteError(error instanceof Error ? error.message : "Failed to save notes");
+    } finally {
+      setNoteSaving(false);
+    }
+  }, [applyTransactionUpdate, editingNotesTx, noteDraft, noteSaving]);
 
   const fetchBatch = React.useCallback(
     async ({
@@ -542,6 +667,7 @@ export function TransactionsClient({
     setPrefetchInFlight(false);
     setLoadingMoreVisible(false);
     setSelectedDetailsTx(null);
+    setEditingNotesTx(null);
     setScrollTop(0);
     setLoadError("");
 
@@ -596,7 +722,7 @@ export function TransactionsClient({
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <div className="sticky top-0 z-20 flex gap-4 bg-background/95 pb-4 backdrop-blur supports-[backdrop-filter]:bg-background/80">
         <Input
-          placeholder="Search by customer name..."
+          placeholder="Search by customer or transaction ID..."
           value={searchInput}
           onChange={(event) => setSearchInput(event.target.value)}
           className="flex-1"
@@ -622,13 +748,13 @@ export function TransactionsClient({
         className="relative min-h-0 flex-1 overflow-auto rounded-md border custom-scrollbar"
         onScroll={handleScroll}
       >
-        <div className="min-w-[1220px]">
+        <div className="min-w-[1280px]">
           <div className="sticky top-0 z-10 border-b bg-background">
             <div
               className="grid h-10 items-center gap-3 px-2 text-left text-sm font-medium text-muted-foreground"
               style={{ gridTemplateColumns: GRID_TEMPLATE }}
             >
-              <div>ID</div>
+              <div className="pl-2">ID</div>
               <div>Date</div>
               <div>Customer</div>
               <div>Type</div>
@@ -636,6 +762,7 @@ export function TransactionsClient({
               <div>Notes</div>
               <div>Amount</div>
               <div>Staff</div>
+              <div className="sr-only">Actions</div>
             </div>
           </div>
 
@@ -659,6 +786,7 @@ export function TransactionsClient({
                   tx={tx}
                   top={(visibleStartIndex + index) * ROW_HEIGHT}
                   onOpenNotes={setSelectedDetailsTx}
+                  onEditNotes={openNoteEditor}
                 />
               ))}
             </div>
@@ -687,6 +815,95 @@ export function TransactionsClient({
           <p className="whitespace-pre-wrap break-words rounded-md bg-muted p-4 text-sm">
             {selectedDetailsTx?.description}
           </p>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={editingNotesTx !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditingNotesTx(null);
+            setNoteDraft("");
+            setNoteHistory([]);
+            setNoteError("");
+          }
+        }}
+      >
+        <DialogContent showCloseButton={false} className="w-full max-w-2xl p-5 sm:max-w-2xl">
+          <div className="space-y-4">
+            <div className="space-y-1">
+              <h3 className="text-lg font-semibold">
+                Edit notes for transaction #{editingNotesTx?.id}
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                {editingNotesTx?.student_name} • {editingNotesTx?.type}
+              </p>
+            </div>
+
+            <Textarea
+              value={noteDraft}
+              onChange={(event) => setNoteDraft(event.target.value)}
+              placeholder="Add or update notes"
+              className="min-h-[120px]"
+            />
+
+            {noteError ? (
+              <div className="rounded-md border border-red-200 bg-red-50/70 px-3 py-2 text-sm text-red-700 dark:border-red-950 dark:bg-red-950/20 dark:text-red-300">
+                {noteError}
+              </div>
+            ) : null}
+
+            <div className="space-y-2">
+              <div className="text-sm font-medium">Version history</div>
+              <div className="max-h-56 space-y-2 overflow-y-auto rounded-md border p-3">
+                {noteHistoryLoading ? (
+                  <p className="text-sm text-muted-foreground">Loading history...</p>
+                ) : noteHistory.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No note edits yet.</p>
+                ) : (
+                  noteHistory.map((entry) => (
+                    <div key={entry.id} className="space-y-1 rounded-md border bg-muted/40 p-3">
+                      <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
+                        <span>{entry.edited_by || "Unknown staff"}</span>
+                        <span>
+                          {new Date(`${entry.edited_at}Z`).toLocaleString("en-US", {
+                            year: "numeric",
+                            month: "2-digit",
+                            day: "2-digit",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            hour12: false,
+                            timeZone: "Asia/Singapore",
+                          })}
+                        </span>
+                      </div>
+                      <p className="text-sm">
+                        <span className="font-medium text-muted-foreground">Previous:</span>{" "}
+                        {entry.previous_description || "—"}
+                      </p>
+                      <p className="text-sm">
+                        <span className="font-medium text-muted-foreground">Updated:</span>{" "}
+                        {entry.new_description || "—"}
+                      </p>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setEditingNotesTx(null)}
+              >
+                Close
+              </Button>
+              <Button type="button" onClick={() => void handleSaveNotes()} disabled={noteSaving}>
+                {noteSaving ? "Saving..." : "Save notes"}
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
