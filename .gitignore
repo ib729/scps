@@ -241,3 +241,10 @@ CLAUDE.md
 
 # Kilocode
 .kilocode/
+
+# Agents / skills
+.agents/
+**/.agents/
+AGENTS.md
+**/AGENTS.md
+**/SKILL.md
