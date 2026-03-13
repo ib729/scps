@@ -746,7 +746,6 @@ export function TransactionsClient({
 
       <div
         ref={scrollContainerRef}
-        data-lenis-prevent
         className="relative min-h-0 flex-1 overflow-auto rounded-md border custom-scrollbar"
         onScroll={handleScroll}
       >
