@@ -90,7 +90,10 @@ export function DataTable({
           {addButton}
         </div>
       </div>
-      <div className="relative min-h-0 flex-1 overflow-auto rounded-md border custom-scrollbar">
+      <div
+        data-lenis-prevent
+        className="relative min-h-0 flex-1 overflow-auto rounded-md border custom-scrollbar"
+      >
         <table className="w-full caption-bottom text-sm">
           <TableHeader className="sticky top-0 z-10 bg-background">
             <TableRow>

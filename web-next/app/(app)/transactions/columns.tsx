@@ -154,12 +154,11 @@ export const columns: ColumnDef<TransactionWithStudent>[] = [
       const tx = row.original;
       return (
         <Badge
-          variant={
-            tx.type === "TOPUP"
-              ? "default"
-              : tx.type === "DEBIT"
-              ? "destructive"
-              : "secondary"
+          variant={tx.type === "TOPUP" ? "default" : "secondary"}
+          className={
+            tx.type === "DEBIT"
+              ? "border-red-200 bg-red-50 text-red-600 dark:border-red-950 dark:bg-red-950/30 dark:text-red-400"
+              : undefined
           }
         >
           {tx.type}

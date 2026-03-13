@@ -163,7 +163,7 @@ export function StudentSearchField({
             {isSearching ? (
               <p className="px-3 py-2 text-sm text-muted-foreground">Searching...</p>
             ) : results.length > 0 ? (
-              <div className="max-h-64 overflow-y-auto py-1">
+              <div data-lenis-prevent className="max-h-64 overflow-y-auto py-1">
                 {results.map((student, index) => (
                   <button
                     key={student.id}
