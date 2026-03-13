@@ -1,7 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { getDashboardStats, getRecentTransactions, getWeeklyTopupData } from "@/lib/repositories/transactions";
+import { getDashboardChartData, getDashboardStats, getRecentTransactions } from "@/lib/repositories/transactions";
 import { Users, ShoppingCart, ArrowUpRight, ArrowDownRight, Minus, Landmark, HandCoins } from "@/lib/icons";
-import { WeeklyTopupChart } from "@/components/weekly-topup-chart";
+import { DashboardActivityChart } from "@/components/dashboard-activity-chart";
 import { formatCurrency } from "@/lib/currency";
 import { Metadata } from 'next';
 
@@ -19,7 +19,7 @@ export const dynamic = "force-dynamic";
 export default async function DashboardPage() {
   const dashboardStats = getDashboardStats();
   const recentTransactions = getRecentTransactions(10);
-  const weeklyTopupData = getWeeklyTopupData(12);
+  const chartData = getDashboardChartData(90);
 
   return (
     <div className="w-full space-y-8">
@@ -85,7 +85,7 @@ export default async function DashboardPage() {
         </Card>
       </div>
 
-      <WeeklyTopupChart data={weeklyTopupData} />
+      <DashboardActivityChart data={chartData} />
 
       <Card>
         <CardHeader>
