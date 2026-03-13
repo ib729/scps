@@ -172,9 +172,11 @@ export const columns: ColumnDef<TransactionWithStudent>[] = [
     header: "Payment Method",
     cell: ({ row }) => {
       const tx = row.original;
+      const paymentMethodLabel =
+        tx.type === "DEBIT" ? "Balance" : tx.payment_method || "-";
       return (
         <div className="text-sm text-muted-foreground">
-          {tx.payment_method || "-"}
+          {paymentMethodLabel}
         </div>
       );
     },

@@ -147,6 +147,8 @@ const TransactionRow = React.memo(function TransactionRow({
   const description = tx.description || "";
   const isTruncated = description.length > 50;
   const sign = tx.amount > 0 ? "+" : tx.amount < 0 ? "-" : "";
+  const paymentMethodLabel =
+    tx.type === "DEBIT" ? "Balance" : tx.payment_method || "-";
 
   return (
     <div
@@ -194,7 +196,7 @@ const TransactionRow = React.memo(function TransactionRow({
         </Badge>
       </div>
 
-      <div className={mutedCellClass}>{tx.payment_method || "-"}</div>
+      <div className={mutedCellClass}>{paymentMethodLabel}</div>
 
       <div className="max-w-full overflow-hidden">
         {description ? (
