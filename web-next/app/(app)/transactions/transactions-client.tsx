@@ -300,6 +300,7 @@ export function TransactionsClient({
   const hasMoreRef = React.useRef(initialHasMore);
   const prefetchInFlightRef = React.useRef(false);
   const loadingMoreVisibleRef = React.useRef(false);
+  const initialPrefetchQueuedRef = React.useRef(false);
 
   const applyTransactionUpdate = React.useCallback((updated: TransactionWithStudent) => {
     const apply = (items: TransactionWithStudent[]) =>
@@ -643,6 +644,25 @@ export function TransactionsClient({
   }, [visibleItems.length, prefetchedItems.length, hasMore, maybeLoadAhead]);
 
   React.useEffect(() => {
+    if (
+      initialPrefetchQueuedRef.current ||
+      !hasMoreRef.current ||
+      !nextCursorRef.current ||
+      prefetchInFlightRef.current ||
+      prefetchedItemsRef.current.length > 0
+    ) {
+      return;
+    }
+
+    initialPrefetchQueuedRef.current = true;
+    void fetchBatch({
+      cursor: nextCursorRef.current,
+      target: "prefetch",
+      version: requestVersionRef.current,
+    });
+  }, [fetchBatch]);
+
+  React.useEffect(() => {
     if (!hasInitializedFiltersRef.current) {
       hasInitializedFiltersRef.current = true;
       return;
@@ -671,6 +691,7 @@ export function TransactionsClient({
     setEditingNotesTx(null);
     setScrollTop(0);
     setLoadError("");
+    initialPrefetchQueuedRef.current = false;
 
     const container = scrollContainerRef.current;
     if (container) {
@@ -746,6 +767,7 @@ export function TransactionsClient({
 
       <div
         ref={scrollContainerRef}
+        data-native-scroll
         className="relative min-h-0 flex-1 overflow-auto rounded-md border custom-scrollbar"
         onScroll={handleScroll}
       >
@@ -857,7 +879,7 @@ export function TransactionsClient({
             <div className="space-y-2">
               <div className="text-sm font-medium">Version history</div>
               <div
-                data-lenis-prevent
+                data-native-scroll
                 className="max-h-56 space-y-2 overflow-y-auto rounded-md border p-3"
               >
                 {noteHistoryLoading ? (

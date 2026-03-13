@@ -13,8 +13,14 @@ export function LenisProvider({
       autoRaf: true,
       anchors: true,
       smoothWheel: true,
-      allowNestedScroll: true,
       lerp: 0.08,
+      prevent: (node) => {
+        if (!(node instanceof HTMLElement)) {
+          return false;
+        }
+
+        return node.closest("[data-native-scroll]") !== null;
+      },
     });
 
     return () => {
