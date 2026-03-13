@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import Database from "better-sqlite3";
+import { DEFAULT_NFC_READER, DEFAULT_POS_MODE } from "./pos-preferences";
 
 const envDbPath = process.env.DATABASE_PATH?.trim();
 const fallbackDbLocations = [
@@ -69,6 +70,14 @@ function ensureApplicationSchema(database: Database.Database) {
       edited_by TEXT,
       edited_at TEXT NOT NULL DEFAULT (datetime('now')),
       FOREIGN KEY(transaction_id) REFERENCES transactions(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS user_preferences (
+      user_id TEXT PRIMARY KEY,
+      selected_reader TEXT NOT NULL DEFAULT '${DEFAULT_NFC_READER}' CHECK(selected_reader IN ('reader-1', 'reader-2')),
+      pos_default_mode TEXT NOT NULL DEFAULT '${DEFAULT_POS_MODE}' CHECK(pos_default_mode IN ('tap-first', 'manual')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY(user_id) REFERENCES user(id) ON DELETE CASCADE
     );
   `);
 

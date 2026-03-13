@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { NFCReader, PosDefaultMode } from "./pos-preferences";
 
 // Student schemas
 export const studentSchema = z.object({
@@ -108,6 +109,13 @@ export type TransactionListCursor = {
 
 export type CardWithStudent = Card & {
   student_name: string;
+};
+
+export type UserPreferences = {
+  user_id: string;
+  selected_reader: NFCReader;
+  pos_default_mode: PosDefaultMode;
+  updated_at: string;
 };
 
 // User schemas
