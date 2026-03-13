@@ -82,7 +82,10 @@ export function DataTable<TData, TValue>({
     }
 
     setLoadingMore(true);
-    const result = await getTransactionsBatchAction(nextOffset, 100);
+    const result = await getTransactionsBatchAction({
+      offset: nextOffset,
+      limit: 100,
+    });
 
     if (result.success && result.data) {
       setData((currentData) => [
