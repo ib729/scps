@@ -107,10 +107,7 @@ export const columns: ColumnDef<StudentTableData>[] = [
       const student = row.original;
 
       return (
-        <div className="flex justify-end gap-2">
-          <Button variant="ghost" size="sm" asChild>
-            <Link href={`/customers/${student.id}`}>View</Link>
-          </Button>
+        <div className="flex justify-end">
           <DeleteStudentDialog
             studentId={student.id}
             studentName={student.name}

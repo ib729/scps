@@ -4,6 +4,7 @@ import type {
   TransactionListCursor,
   CreateTransaction,
   TransactionWithStudent,
+  TransactionNoteHistory,
 } from "../models";
 
 type TransactionTypeFilter = Transaction["type"];
@@ -26,8 +27,14 @@ function buildTransactionFilters(filters?: {
   const type = normalizeTransactionType(filters?.type);
 
   if (search) {
-    clauses.push("lower(s.name) LIKE ?");
-    params.push(`%${search}%`);
+    const numericId = Number.parseInt(search, 10);
+    if (Number.isInteger(numericId) && numericId.toString() === search) {
+      clauses.push("(lower(s.name) LIKE ? OR t.id = ?)");
+      params.push(`%${search}%`, numericId);
+    } else {
+      clauses.push("lower(s.name) LIKE ?");
+      params.push(`%${search}%`);
+    }
   }
 
   if (type) {
@@ -83,6 +90,86 @@ export function getTransactionById(id: number): Transaction | undefined {
   const db = getDb();
   const stmt = db.prepare("SELECT * FROM transactions WHERE id = ?");
   return stmt.get(id) as Transaction | undefined;
+}
+
+export function getTransactionWithStudentById(id: number): TransactionWithStudent | undefined {
+  const db = getDb();
+  const stmt = db.prepare(`
+    SELECT
+      t.id,
+      t.student_id,
+      t.card_uid,
+      t.type,
+      t.amount,
+      t.overdraft_component,
+      t.payment_method,
+      t.description,
+      t.staff,
+      t.created_at,
+      s.name as student_name
+    FROM transactions t
+    JOIN students s ON t.student_id = s.id
+    WHERE t.id = ?
+    LIMIT 1
+  `);
+  return stmt.get(id) as TransactionWithStudent | undefined;
+}
+
+export function getTransactionNoteHistory(transactionId: number): TransactionNoteHistory[] {
+  const db = getDb();
+  const stmt = db.prepare(`
+    SELECT id, transaction_id, previous_description, new_description, edited_by, edited_at
+    FROM transaction_note_history
+    WHERE transaction_id = ?
+    ORDER BY edited_at DESC, id DESC
+  `);
+  return stmt.all(transactionId) as TransactionNoteHistory[];
+}
+
+export function updateTransactionDescription({
+  id,
+  description,
+  editedBy,
+}: {
+  id: number;
+  description: string | null;
+  editedBy: string | null;
+}): TransactionWithStudent | undefined {
+  const db = getDb();
+  const normalizedDescription = description?.trim() ? description.trim() : null;
+
+  return db.transaction(() => {
+    const existing = db
+      .prepare("SELECT id, description FROM transactions WHERE id = ? LIMIT 1")
+      .get(id) as { id: number; description: string | null } | undefined;
+
+    if (!existing) {
+      return undefined;
+    }
+
+    if ((existing.description ?? null) === normalizedDescription) {
+      return getTransactionWithStudentById(id);
+    }
+
+    db.prepare(
+      `
+        INSERT INTO transaction_note_history (
+          transaction_id,
+          previous_description,
+          new_description,
+          edited_by
+        )
+        VALUES (?, ?, ?, ?)
+      `,
+    ).run(id, existing.description ?? null, normalizedDescription, editedBy);
+
+    db.prepare("UPDATE transactions SET description = ? WHERE id = ?").run(
+      normalizedDescription,
+      id,
+    );
+
+    return getTransactionWithStudentById(id);
+  })();
 }
 
 export function createTransaction(data: CreateTransaction): Transaction {

@@ -92,6 +92,15 @@ export type TransactionWithStudent = Transaction & {
   student_name: string;
 };
 
+export type TransactionNoteHistory = {
+  id: number;
+  transaction_id: number;
+  previous_description: string | null;
+  new_description: string | null;
+  edited_by: string | null;
+  edited_at: string;
+};
+
 export type TransactionListCursor = {
   createdAt: string;
   id: number;
