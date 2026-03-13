@@ -184,12 +184,11 @@ const TransactionRow = React.memo(function TransactionRow({
 
       <div>
         <Badge
-          variant={
-            tx.type === "TOPUP"
-              ? "default"
-              : tx.type === "DEBIT"
-                ? "destructive"
-                : "secondary"
+          variant={tx.type === "TOPUP" ? "default" : "secondary"}
+          className={
+            tx.type === "DEBIT"
+              ? "border-red-200 bg-red-50 text-red-600 dark:border-red-950 dark:bg-red-950/30 dark:text-red-400"
+              : undefined
           }
         >
           {tx.type}
@@ -747,6 +746,7 @@ export function TransactionsClient({
 
       <div
         ref={scrollContainerRef}
+        data-lenis-prevent
         className="relative min-h-0 flex-1 overflow-auto rounded-md border custom-scrollbar"
         onScroll={handleScroll}
       >
@@ -857,7 +857,10 @@ export function TransactionsClient({
 
             <div className="space-y-2">
               <div className="text-sm font-medium">Version history</div>
-              <div className="max-h-56 space-y-2 overflow-y-auto rounded-md border p-3">
+              <div
+                data-lenis-prevent
+                className="max-h-56 space-y-2 overflow-y-auto rounded-md border p-3"
+              >
                 {noteHistoryLoading ? (
                   <p className="text-sm text-muted-foreground">Loading history...</p>
                 ) : noteHistory.length === 0 ? (
