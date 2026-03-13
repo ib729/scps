@@ -47,27 +47,30 @@ export function DeleteStudentDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="destructive" size="sm">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-red-600 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/20"
+        >
           Delete
         </Button>
       </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
+      <DialogContent showCloseButton={false} className="sm:max-w-[460px]">
+        <DialogHeader className="gap-3">
           <DialogTitle>Delete Customer</DialogTitle>
           <DialogDescription>
-            Are you sure you want to delete <strong>{studentName}</strong>?
-            <br /><br />
-            If the customer has no transactions, they will be permanently deleted.
-            <br />
-            If the customer has transactions, they will be <strong>archived</strong> instead to preserve financial history.
+            Delete <strong>{studentName}</strong> from the active customer list.
           </DialogDescription>
         </DialogHeader>
+        <div className="rounded-md border border-red-200 bg-red-50/70 p-3 text-sm text-red-700 dark:border-red-950 dark:bg-red-950/20 dark:text-red-300">
+          Customers with transaction history will be archived instead of permanently removed.
+        </div>
         {error && (
           <Alert variant="destructive">
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
-        <DialogFooter>
+        <DialogFooter className="pt-2">
           <Button
             type="button"
             variant="outline"
