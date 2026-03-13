@@ -109,7 +109,7 @@ export function DataTable({
               <TableHead>Overdraft Limit</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>
-                <div className="text-right">Actions</div>
+                <div className="pr-2 text-right">Actions</div>
               </TableHead>
             </TableRow>
           </TableHeader>
@@ -155,10 +155,7 @@ export function DataTable({
                     )}
                   </TableCell>
                   <TableCell>
-                    <div className="flex justify-end gap-2">
-                      <Button variant="ghost" size="sm" asChild>
-                        <Link href={`/customers/${student.id}`}>View</Link>
-                      </Button>
+                    <div className="flex justify-end pr-2">
                       <DeleteStudentDialog
                         studentId={student.id}
                         studentName={student.name}
