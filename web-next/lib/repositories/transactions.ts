@@ -263,6 +263,56 @@ export function getStudentIdsWithTransactions(): number[] {
   return rows.map((row) => row.student_id);
 }
 
+export interface DashboardChartDataPoint {
+  date: string;
+  topups: number;
+  revenue: number;
+}
+
+export function getDashboardChartData(days: number = 90): DashboardChartDataPoint[] {
+  const db = getDb();
+  const stmt = db.prepare(`
+    SELECT 
+      date(created_at) as day,
+      COALESCE(SUM(CASE WHEN type = 'TOPUP' THEN amount ELSE 0 END), 0) as topups,
+      COALESCE(ABS(SUM(CASE WHEN type = 'DEBIT' THEN amount ELSE 0 END)), 0) as revenue
+    FROM transactions
+    WHERE 
+      created_at >= date('now', '-${days - 1} days')
+    GROUP BY day
+    ORDER BY day ASC
+  `);
+
+  const results = stmt.all() as {
+    day: string;
+    topups: number;
+    revenue: number;
+  }[];
+
+  const byDate = new Map(results.map((row) => [row.day, row]));
+  const chartData: DashboardChartDataPoint[] = [];
+  const endDate = new Date();
+  endDate.setHours(0, 0, 0, 0);
+
+  for (let offset = days - 1; offset >= 0; offset -= 1) {
+    const current = new Date(endDate);
+    current.setDate(endDate.getDate() - offset);
+    const year = current.getFullYear();
+    const month = `${current.getMonth() + 1}`.padStart(2, "0");
+    const day = `${current.getDate()}`.padStart(2, "0");
+    const key = `${year}-${month}-${day}`;
+    const existing = byDate.get(key);
+
+    chartData.push({
+      date: key,
+      topups: existing?.topups ?? 0,
+      revenue: existing?.revenue ?? 0,
+    });
+  }
+
+  return chartData;
+}
+
 export interface WeeklyTopupData {
   week: string;
   amount: number;
@@ -270,38 +320,35 @@ export interface WeeklyTopupData {
 }
 
 export function getWeeklyTopupData(weeks: number = 12): WeeklyTopupData[] {
-  const db = getDb();
+  const weeklyData = getDashboardChartData(weeks * 7);
+  const buckets = new Map<string, number>();
 
-  // Get top-up transactions from the last N weeks, grouped by week
-  // SQLite doesn't support 'weeks' modifier, so we convert to days
-  const days = weeks * 7;
-  const stmt = db.prepare(`
-    SELECT 
-      date(created_at, 'weekday 0', '-6 days') as week_start,
-      SUM(amount) as total_amount
-    FROM transactions
-    WHERE 
-      type = 'TOPUP' 
-      AND created_at >= date('now', '-${days} days')
-    GROUP BY week_start
-    ORDER BY week_start ASC
-  `);
+  for (const row of weeklyData) {
+    const date = new Date(`${row.date}T00:00:00`);
+    const dayOfWeek = (date.getDay() + 6) % 7;
+    const weekStart = new Date(date);
+    weekStart.setDate(date.getDate() - dayOfWeek);
 
-  const results = stmt.all() as { week_start: string; total_amount: number }[];
+    const year = weekStart.getFullYear();
+    const month = `${weekStart.getMonth() + 1}`.padStart(2, "0");
+    const day = `${weekStart.getDate()}`.padStart(2, "0");
+    const key = `${year}-${month}-${day}`;
 
-  // Format the data for the chart
-  return results.map((row) => {
-    const date = new Date(row.week_start);
-    const weekLabel = date.toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-    });
+    buckets.set(key, (buckets.get(key) ?? 0) + row.topups);
+  }
 
-    return {
-      week: weekLabel,
-      amount: row.total_amount || 0,
-      weekStart: row.week_start,
-    };
+  return Array.from(buckets.entries())
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([weekStart, amount]) => {
+      const date = new Date(`${weekStart}T00:00:00`);
+      return {
+        week: date.toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+        }),
+        amount,
+        weekStart,
+      };
   });
 }
 

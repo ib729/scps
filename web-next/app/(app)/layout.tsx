@@ -4,6 +4,7 @@ import { TapAlert } from "@/components/tap-alert";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { NFCReaderProvider } from "@/lib/nfc-reader-context";
 import { getAuthContext } from "@/lib/auth-session";
+import { getUserPreferencesByUserId } from "@/lib/repositories/user-preferences";
 
 export default async function AppLayout({
   children,
@@ -16,10 +17,12 @@ export default async function AppLayout({
     redirect("/login");
   }
 
+  const preferences = getUserPreferencesByUserId(session.user.id);
+
   return (
-    <NFCReaderProvider>
+    <NFCReaderProvider initialSelectedReader={preferences.selected_reader}>
       <SidebarProvider>
-        <AppSidebar user={session.user} />
+        <AppSidebar user={session.user} initialPreferences={preferences} />
         <SidebarInset className="min-h-svh overflow-hidden">
           <header className="flex h-14 shrink-0 items-center px-4 md:hidden">
             <SidebarTrigger className="-ml-1" />

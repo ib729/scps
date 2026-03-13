@@ -5,6 +5,7 @@ import * as React from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { authClient } from "@/lib/auth-client"
+import { updateCurrentUserPreferencesAction } from "@/app/actions/user-preferences"
 import {
   AnimatedIconHandle,
   LayoutDashboard,
@@ -26,11 +27,10 @@ import {
 import { useTheme } from "next-themes"
 import { useNFCReader } from "@/lib/nfc-reader-context"
 import {
-  DEFAULT_POS_MODE,
-  POS_DEFAULT_MODE_STORAGE_KEY,
-  parsePosDefaultMode,
   type PosDefaultMode,
+  type NFCReader,
 } from "@/lib/pos-preferences"
+import type { UserPreferences } from "@/lib/models"
 
 import {
   Sidebar,
@@ -122,6 +122,7 @@ interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
     updatedAt: Date
     role: "admin" | "staff"
   }
+  initialPreferences: UserPreferences
 }
 
 type SidebarNavItem = {
@@ -193,7 +194,7 @@ const SidebarNavLink = React.forwardRef<HTMLAnchorElement, SidebarNavLinkProps>(
   )
 })
 
-export function AppSidebar({ user: initialUser, ...props }: AppSidebarProps) {
+export function AppSidebar({ user: initialUser, initialPreferences, ...props }: AppSidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const [brandLogoIndex, setBrandLogoIndex] = React.useState(0)
@@ -204,10 +205,12 @@ export function AppSidebar({ user: initialUser, ...props }: AppSidebarProps) {
   const [showDeleteDialog, setShowDeleteDialog] = React.useState(false)
   const [showSettingsDialog, setShowSettingsDialog] = React.useState(false)
   const [loading, setLoading] = React.useState(false)
+  const [savingSettings, setSavingSettings] = React.useState(false)
   const [deletePassword, setDeletePassword] = React.useState("")
-  const [localSelectedReader, setLocalSelectedReader] = React.useState(selectedReader)
+  const [localSelectedReader, setLocalSelectedReader] =
+    React.useState<NFCReader>(initialPreferences.selected_reader)
   const [localDefaultPosMode, setLocalDefaultPosMode] =
-    React.useState<PosDefaultMode>(DEFAULT_POS_MODE)
+    React.useState<PosDefaultMode>(initialPreferences.pos_default_mode)
   const [restartingServices, setRestartingServices] = React.useState(false)
   const [downloadingBackup, setDownloadingBackup] = React.useState(false)
 
@@ -242,18 +245,35 @@ export function AppSidebar({ user: initialUser, ...props }: AppSidebarProps) {
   }, [selectedReader])
 
   React.useEffect(() => {
-    if (!mounted) return
-    setLocalDefaultPosMode(
-      parsePosDefaultMode(localStorage.getItem(POS_DEFAULT_MODE_STORAGE_KEY))
-    )
-  }, [mounted, showSettingsDialog])
+    setLocalSelectedReader(initialPreferences.selected_reader)
+    setLocalDefaultPosMode(initialPreferences.pos_default_mode)
+  }, [initialPreferences.pos_default_mode, initialPreferences.selected_reader])
 
   // Handle saving settings
-  const handleSaveSettings = () => {
-    setSelectedReader(localSelectedReader)
-    localStorage.setItem(POS_DEFAULT_MODE_STORAGE_KEY, localDefaultPosMode)
-    setShowSettingsDialog(false)
-    toast.success("Settings saved successfully")
+  const handleSaveSettings = async () => {
+    setSavingSettings(true)
+    try {
+      const result = await updateCurrentUserPreferencesAction({
+        selectedReader: localSelectedReader,
+        posDefaultMode: localDefaultPosMode,
+      })
+
+      if (!result.success || !result.data) {
+        toast.error(result.error || "Failed to save settings")
+        return
+      }
+
+      setSelectedReader(result.data.selected_reader)
+      setLocalSelectedReader(result.data.selected_reader)
+      setLocalDefaultPosMode(result.data.pos_default_mode)
+      setShowSettingsDialog(false)
+      router.refresh()
+      toast.success("Settings saved successfully")
+    } catch (error) {
+      toast.error("Failed to save settings")
+    } finally {
+      setSavingSettings(false)
+    }
   }
 
   // Handle restarting NFC services
@@ -1034,19 +1054,15 @@ export function AppSidebar({ user: initialUser, ...props }: AppSidebarProps) {
               <Button
                 variant="outline"
                 onClick={() => {
-                  setLocalSelectedReader(selectedReader)
-                  setLocalDefaultPosMode(
-                    mounted
-                      ? parsePosDefaultMode(localStorage.getItem(POS_DEFAULT_MODE_STORAGE_KEY))
-                      : DEFAULT_POS_MODE
-                  )
+                  setLocalSelectedReader(initialPreferences.selected_reader)
+                  setLocalDefaultPosMode(initialPreferences.pos_default_mode)
                   setShowSettingsDialog(false)
                 }}
               >
                 Cancel
               </Button>
-              <Button onClick={handleSaveSettings}>
-                Save Settings
+              <Button onClick={handleSaveSettings} disabled={savingSettings}>
+                {savingSettings ? "Saving..." : "Save Settings"}
               </Button>
             </div>
           </DialogContent>

@@ -112,7 +112,9 @@ export function DataTable({
               <TableHead>Overdraft Limit</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>
-                <div className="pr-2 text-right">Actions</div>
+                <div className="flex justify-end pr-2">
+                  <span>Actions</span>
+                </div>
               </TableHead>
             </TableRow>
           </TableHeader>
