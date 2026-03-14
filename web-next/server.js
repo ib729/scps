@@ -9,7 +9,6 @@
 require('dotenv').config({ path: '.env.local', quiet: true });
 
 const { createServer } = require('http');
-const { parse } = require('url');
 const next = require('next');
 const { WebSocketServer } = require('ws');
 const crypto = require('crypto');
@@ -337,7 +336,14 @@ app.prepare().then(() => {
   
   const server = createServer(async (req, res) => {
     try {
-      const parsedUrl = parse(req.url, true);
+      const requestUrl = new URL(
+        req.url,
+        `http://${req.headers.host || `${hostname}:${port}`}`
+      );
+      const parsedUrl = {
+        pathname: requestUrl.pathname,
+        query: Object.fromEntries(requestUrl.searchParams.entries()),
+      };
       await handle(req, res, parsedUrl);
     } catch (err) {
       console.error('Error occurred handling', req.url, err);
@@ -351,7 +357,11 @@ app.prepare().then(() => {
 
   // Handle WebSocket upgrade
   server.on('upgrade', (request, socket, head) => {
-    const { pathname } = parse(request.url);
+    const requestUrl = new URL(
+      request.url,
+      `http://${request.headers.host || `${hostname}:${port}`}`
+    );
+    const { pathname } = requestUrl;
 
     if (pathname === '/api/nfc/ws') {
       const origin = request.headers.origin;
