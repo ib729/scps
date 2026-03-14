@@ -1,7 +1,7 @@
 -- Better Auth Schema Migration
 -- Run this with: sqlite3 ../stuco.db < migrations/better_auth_schema.sql
 
--- User table (extends existing users table if needed)
+-- Better Auth user table
 CREATE TABLE IF NOT EXISTS user (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
