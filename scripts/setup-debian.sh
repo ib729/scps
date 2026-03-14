@@ -100,9 +100,9 @@ echo "Repository root: $REPO_ROOT"
 
 ensure_package git curl sqlite3 zstd rclone python3 python3-venv python3-pip build-essential ca-certificates gnupg openssl
 
-if (( "$(node_major_version)" < 20 )); then
-  echo "Installing Node.js 20 from NodeSource..."
-  curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+if (( "$(node_major_version)" < 22 )); then
+  echo "Installing Node.js 22 from NodeSource..."
+  curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
   ensure_package nodejs
 fi
 
