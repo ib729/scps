@@ -180,7 +180,41 @@ function ensureApplicationSchema(database: Database.Database) {
     WHERE
       type = 'TOPUP'
       AND (payment_method IS NULL OR TRIM(payment_method) = '');
+
+    UPDATE transactions
+    SET payment_method = 'Balance'
+    WHERE
+      type = 'DEBIT'
+      AND (payment_method IS NULL OR TRIM(payment_method) = '');
   `);
+
+  try {
+    const legacyUsersTableExists = database
+      .prepare(
+        `
+          SELECT 1
+          FROM sqlite_master
+          WHERE type = 'table' AND name = 'users'
+          LIMIT 1
+        `,
+      )
+      .get();
+
+    if (legacyUsersTableExists) {
+      const legacyUsersCount = database
+        .prepare("SELECT COUNT(*) AS count FROM users")
+        .get() as { count: number };
+
+      if (legacyUsersCount.count === 0) {
+        database.exec(`
+          DROP TABLE users;
+          DELETE FROM sqlite_sequence WHERE name = 'users';
+        `);
+      }
+    }
+  } catch (error) {
+    console.warn("Skipping legacy users table cleanup:", error);
+  }
 
   database.exec(`
     CREATE INDEX IF NOT EXISTS idx_transactions_created_at
