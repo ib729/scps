@@ -6,7 +6,7 @@ The legacy database is treated as the source of truth. This script:
 - snapshots the legacy SQLite database (including WAL-backed state)
 - backs up the current target database
 - builds a fresh target database on the current schema
-- imports legacy auth tables and operational data
+- imports Better Auth tables and operational data
 - migrates tenths-of-CNY values to cents
 - extracts payment_method from legacy TOPUP descriptions where possible
 """
@@ -170,34 +170,6 @@ def infer_topup_payment_method(description: str | None) -> tuple[str, str | None
         return payment_method, raw_description
 
     return payment_method, cleaned
-
-
-def copy_legacy_users_table(source_conn: sqlite3.Connection, target_conn: sqlite3.Connection) -> int:
-    if not table_exists(source_conn, "users") or not table_exists(target_conn, "users"):
-        return 0
-
-    rows = source_conn.execute(
-        "SELECT id, name, email, password_hash, avatar, created_at, updated_at FROM users ORDER BY id"
-    ).fetchall()
-    target_conn.executemany(
-        """
-        INSERT INTO users (id, name, email, password_hash, avatar, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-        """,
-        [
-            (
-                row["id"],
-                row["name"],
-                row["email"],
-                row["password_hash"],
-                row["avatar"],
-                row["created_at"],
-                row["updated_at"],
-            )
-            for row in rows
-        ],
-    )
-    return len(rows)
 
 
 def copy_auth_tables(source_conn: sqlite3.Connection, target_conn: sqlite3.Connection) -> dict[str, int]:
@@ -416,15 +388,13 @@ def import_transactions(source_conn: sqlite3.Connection, target_conn: sqlite3.Co
 def set_sequences(conn: sqlite3.Connection) -> None:
     max_student_id = conn.execute("SELECT COALESCE(MAX(id), 0) AS value FROM students").fetchone()["value"]
     max_transaction_id = conn.execute("SELECT COALESCE(MAX(id), 0) AS value FROM transactions").fetchone()["value"]
-    max_legacy_user_id = conn.execute("SELECT COALESCE(MAX(id), 0) AS value FROM users").fetchone()["value"]
 
-    conn.execute("DELETE FROM sqlite_sequence WHERE name IN ('students', 'transactions', 'users')")
+    conn.execute("DELETE FROM sqlite_sequence WHERE name IN ('students', 'transactions')")
     conn.executemany(
         "INSERT INTO sqlite_sequence(name, seq) VALUES (?, ?)",
         [
             ("students", max_student_id),
             ("transactions", max_transaction_id),
-            ("users", max_legacy_user_id),
         ],
     )
 
@@ -480,7 +450,6 @@ def run_import(source_path: Path, target_path: Path) -> dict[str, object]:
 
             with target_conn:
                 auth_counts = copy_auth_tables(source_conn, target_conn)
-                legacy_users_count = copy_legacy_users_table(source_conn, target_conn)
                 students_count = import_students(source_conn, target_conn)
                 accounts_count = import_accounts(source_conn, target_conn)
                 cards_count = import_cards(source_conn, target_conn)
@@ -494,7 +463,6 @@ def run_import(source_path: Path, target_path: Path) -> dict[str, object]:
         return {
             "backup_path": str(backup_path) if target_path.exists() else None,
             "auth": auth_counts,
-            "legacy_users": legacy_users_count,
             "students": students_count,
             "accounts": accounts_count,
             "cards": cards_count,
@@ -528,7 +496,6 @@ def main() -> None:
         f"session={result['auth']['session']}, "
         f"verification={result['auth']['verification']}"
     )
-    print(f"Legacy users imported: {result['legacy_users']}")
     print(f"Students imported: {result['students']}")
     print(f"Accounts imported: {result['accounts']}")
     print(f"Cards imported: {result['cards']}")

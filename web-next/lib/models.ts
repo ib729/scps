@@ -117,31 +117,3 @@ export type UserPreferences = {
   pos_default_mode: PosDefaultMode;
   updated_at: string;
 };
-
-// User schemas
-export const userSchema = z.object({
-  id: z.number().int().positive(),
-  name: z.string().min(1),
-  email: z.string().email(),
-  password_hash: z.string(),
-  avatar: z.string().nullable(),
-  created_at: z.string(),
-  updated_at: z.string(),
-});
-
-export const createUserSchema = z.object({
-  name: z.string().min(1).max(255),
-  email: z.string().email(),
-  password: z.string().min(6),
-  avatar: z.string().optional(),
-});
-
-export const updateUserProfileSchema = z.object({
-  name: z.string().min(1).max(255).optional(),
-  email: z.string().email().optional(),
-  avatar: z.string().optional(),
-});
-
-export type User = z.infer<typeof userSchema>;
-export type CreateUser = z.infer<typeof createUserSchema>;
-export type UpdateUserProfile = z.infer<typeof updateUserProfileSchema>;
