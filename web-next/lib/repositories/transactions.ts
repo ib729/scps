@@ -174,6 +174,8 @@ export function updateTransactionDescription({
 
 export function createTransaction(data: CreateTransaction): Transaction {
   const db = getDb();
+  const paymentMethod =
+    data.type === "DEBIT" ? "Balance" : data.payment_method || null;
   const stmt = db.prepare(`
     INSERT INTO transactions (
       student_id, card_uid, type, amount, overdraft_component, payment_method, description, staff, created_at
@@ -186,7 +188,7 @@ export function createTransaction(data: CreateTransaction): Transaction {
     data.type,
     data.amount,
     data.overdraft_component || 0,
-    data.payment_method || null,
+    paymentMethod,
     data.description || null,
     data.staff || null
   );

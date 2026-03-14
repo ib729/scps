@@ -78,14 +78,3 @@ CREATE INDEX IF NOT EXISTS idx_transactions_student_id_created_at
 
 CREATE INDEX IF NOT EXISTS idx_transaction_note_history_transaction_id_edited_at
   ON transaction_note_history(transaction_id, edited_at DESC, id DESC);
-
--- Staff user accounts
-CREATE TABLE IF NOT EXISTS users (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  name TEXT NOT NULL,
-  email TEXT NOT NULL UNIQUE,
-  password_hash TEXT NOT NULL,
-  avatar TEXT,
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
