@@ -498,12 +498,12 @@ export function PosForm({ studentIdsWithTransactions, userName, initialMode }: P
         {/* Mode selector - more prominent */}
         <Card className="border-2">
           <CardContent className="pt-6">
-            <div className="flex gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <Button
                 type="button"
                 variant={mode === "tap-first" ? "default" : "outline"}
                 onClick={() => setMode("tap-first")}
-                className="flex-1 h-14 text-lg font-semibold"
+                className="h-14 w-full text-lg font-semibold"
               >
                 Tap Card
               </Button>
@@ -511,16 +511,11 @@ export function PosForm({ studentIdsWithTransactions, userName, initialMode }: P
                 type="button"
                 variant={mode === "manual" ? "default" : "outline"}
                 onClick={() => setMode("manual")}
-                className="flex-1 h-14 text-lg font-semibold"
+                className="h-14 w-full text-lg font-semibold"
               >
                 Manual
               </Button>
             </div>
-            <p className="text-sm text-muted-foreground mt-3 text-center">
-              {mode === "tap-first"
-                ? "Fast checkout with NFC card tap"
-                : "Select a customer manually from the list"}
-            </p>
           </CardContent>
         </Card>
 
@@ -568,11 +563,6 @@ export function PosForm({ studentIdsWithTransactions, userName, initialMode }: P
                   <span className="text-xs text-muted-foreground">
                     Listening on: {readerLabel}
                   </span>
-                  {isWebSocketConnected && !isReaderConnected ? (
-                    <span className="text-xs text-muted-foreground">
-                      Browser is connected to the app, but the selected reader is not available.
-                    </span>
-                  ) : null}
                 </div>
                 <Badge variant={isConnected ? "default" : "secondary"} className="text-sm px-3 py-1 shrink-0">
                   {isConnected ? "NFC Connected" : "NFC Disconnected"}
