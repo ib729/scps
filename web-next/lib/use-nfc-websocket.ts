@@ -54,6 +54,16 @@ interface UseNFCWebSocketReturn {
    * Whether the WebSocket is connected
    */
   isConnected: boolean;
+
+  /**
+   * Whether the browser is connected to the WebSocket endpoint
+   */
+  isWebSocketConnected: boolean;
+
+  /**
+   * Whether the selected physical NFC reader appears connected
+   */
+  isReaderConnected: boolean;
   
   /**
    * The last tap event received
@@ -64,6 +74,11 @@ interface UseNFCWebSocketReturn {
    * Connection status message
    */
   statusMessage: string;
+
+  /**
+   * Physical reader status message
+   */
+  readerStatusMessage: string;
   
   /**
    * Manually connect to WebSocket
@@ -105,9 +120,13 @@ export function useNFCWebSocket(
 
   const [hasConnectedOnce, setHasConnectedOnce] = useState(false);
 
-  const [isConnected, setIsConnected] = useState(false);
+  const [isWebSocketConnected, setIsWebSocketConnected] = useState(false);
+  const [isReaderConnected, setIsReaderConnected] = useState(false);
   const [lastTap, setLastTap] = useState<TapEvent | null>(null);
   const [statusMessage, setStatusMessage] = useState("Disconnected");
+  const [readerStatusMessage, setReaderStatusMessage] = useState(
+    "Checking reader...",
+  );
 
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -115,6 +134,42 @@ export function useNFCWebSocket(
   const isManualDisconnectRef = useRef(false);
   const isAuthenticatedRef = useRef(false);
   const isAuthRejectedRef = useRef(false);
+
+  const checkReaderStatus = useCallback(async () => {
+    try {
+      const params = new URLSearchParams();
+      if (lane) {
+        params.set("reader", lane);
+      }
+
+      const response = await fetch(`/api/nfc/status?${params.toString()}`, {
+        cache: "no-store",
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to load reader status (${response.status})`);
+      }
+
+      const payload = (await response.json()) as {
+        success: boolean;
+        data?: {
+          connected: boolean;
+          message: string;
+        };
+      };
+
+      if (!payload.success || !payload.data) {
+        throw new Error("Failed to load reader status");
+      }
+
+      setIsReaderConnected(payload.data.connected);
+      setReaderStatusMessage(payload.data.message);
+    } catch (error) {
+      console.error("[NFC WS] Reader status check failed:", error);
+      setIsReaderConnected(false);
+      setReaderStatusMessage("Reader status unavailable");
+    }
+  }, [lane]);
 
   /**
    * Get WebSocket URL (convert http to ws)
@@ -223,7 +278,7 @@ export function useNFCWebSocket(
 
       ws.onopen = () => {
         console.log("[NFC WS] Connection opened");
-        setIsConnected(true);
+        setIsWebSocketConnected(true);
         setStatusMessage("Connected");
         reconnectDelayRef.current = 1000; // Reset reconnect delay
 
@@ -251,7 +306,7 @@ export function useNFCWebSocket(
 
       ws.onclose = (event) => {
         console.log("[NFC WS] Connection closed:", event.code, event.reason);
-        setIsConnected(false);
+        setIsWebSocketConnected(false);
         isAuthenticatedRef.current = false;
         wsRef.current = null;
 
@@ -304,7 +359,7 @@ export function useNFCWebSocket(
       wsRef.current = null;
     }
 
-    setIsConnected(false);
+    setIsWebSocketConnected(false);
     isAuthenticatedRef.current = false;
     isAuthRejectedRef.current = false;
     setStatusMessage("Disconnected");
@@ -354,13 +409,34 @@ export function useNFCWebSocket(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    if (!autoConnect) {
+      setIsReaderConnected(false);
+      setReaderStatusMessage("Reader checks paused");
+      return;
+    }
+
+    void checkReaderStatus();
+
+    const interval = window.setInterval(() => {
+      void checkReaderStatus();
+    }, 5000);
+
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [autoConnect, checkReaderStatus]);
+
   // Lane changes don't require reconnection since we removed lane from URL
   // Components will filter taps based on their selectedReader
 
   return {
-    isConnected,
+    isConnected: isWebSocketConnected && isReaderConnected,
+    isWebSocketConnected,
+    isReaderConnected,
     lastTap,
     statusMessage,
+    readerStatusMessage,
     connect,
     disconnect,
     reconnect,
