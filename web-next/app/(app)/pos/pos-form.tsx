@@ -128,7 +128,13 @@ export function PosForm({ studentIdsWithTransactions, userName, initialMode }: P
   };
 
   // WebSocket connection for tap events (only in tap-first mode)
-  const { isConnected, statusMessage: tapStatus } = useNFCWebSocket({
+  const {
+    isConnected,
+    isWebSocketConnected,
+    isReaderConnected,
+    statusMessage: tapStatus,
+    readerStatusMessage,
+  } = useNFCWebSocket({
     lane: selectedReader,
     autoConnect: mode === "tap-first",
     onTap: (event) => {
@@ -165,6 +171,10 @@ export function PosForm({ studentIdsWithTransactions, userName, initialMode }: P
 
     return () => clearInterval(interval);
   }, [mode]);
+
+  const nfcStatusMessage = !isWebSocketConnected
+    ? tapStatus || "Connecting..."
+    : readerStatusMessage || tapStatus || "Checking reader...";
 
   const copyTransactionId = async (txId: number) => {
     await navigator.clipboard.writeText(txId.toString());
@@ -554,10 +564,15 @@ export function PosForm({ studentIdsWithTransactions, userName, initialMode }: P
             <Alert variant={isConnected ? "default" : "destructive"} className="border-2">
               <AlertDescription className="flex flex-row items-start justify-between gap-3">
                 <div className="flex flex-col min-w-0 flex-1">
-                  <span className="font-medium">{tapStatus || "Connecting..."}</span>
+                  <span className="font-medium">{nfcStatusMessage}</span>
                   <span className="text-xs text-muted-foreground">
                     Listening on: {readerLabel}
                   </span>
+                  {isWebSocketConnected && !isReaderConnected ? (
+                    <span className="text-xs text-muted-foreground">
+                      Browser is connected to the app, but the selected reader is not available.
+                    </span>
+                  ) : null}
                 </div>
                 <Badge variant={isConnected ? "default" : "secondary"} className="text-sm px-3 py-1 shrink-0">
                   {isConnected ? "NFC Connected" : "NFC Disconnected"}
