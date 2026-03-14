@@ -374,7 +374,7 @@ app.prepare().then(() => {
     handleWebSocketConnection(ws, request);
   });
 
-  server.listen(port, (err) => {
+  server.listen(port, hostname, (err) => {
     if (err) throw err;
     console.log(`> Ready on http://${hostname}:${port}`);
     console.log(`> WebSocket server ready on ws://${hostname}:${port}/api/nfc/ws`);
