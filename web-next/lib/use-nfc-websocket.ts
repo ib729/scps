@@ -18,8 +18,12 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { type TapEvent } from "./tap-events";
 
 interface WebSocketMessage {
-  type: string;
-  [key: string]: any;
+  type?: string;
+  message?: string;
+  card_uid?: string;
+  lane?: string;
+  reader_ts?: string;
+  timestamp?: string;
 }
 
 interface UseNFCWebSocketOptions {
@@ -226,7 +230,7 @@ export function useNFCWebSocket(
                 card_uid: data.card_uid,
                 lane: data.lane,
                 reader_ts: data.reader_ts,
-                timestamp: data.timestamp,
+                timestamp: data.timestamp ?? new Date().toISOString(),
               };
 
               // Pass all taps to components - they will filter based on selectedReader
