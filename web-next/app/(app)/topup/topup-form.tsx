@@ -5,7 +5,11 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Copy, Check } from "@/lib/icons";
 
 import { getStudentByIdAction } from "@/app/actions/students";
-import { topupAction, adjustBalanceManualAction } from "@/app/actions/topup";
+import {
+  topupAction,
+  topupAndPayAction,
+  adjustBalanceManualAction,
+} from "@/app/actions/topup";
 import { StudentSearchField } from "@/components/student-search-field";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -33,23 +37,29 @@ interface TopupFormProps {
   userName: string;
 }
 
+type ReceiptItem = {
+  id: number;
+  label: string;
+};
+
 export function TopupForm({ studentIdsWithTransactions, userName }: TopupFormProps) {
   const [amount, setAmount] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | "">("");
   const [otherPaymentMethod, setOtherPaymentMethod] = useState("");
   const [description, setDescription] = useState("");
-  const [staff, setStaff] = useState("");
+  const [staff, setStaff] = useState(userName || "");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [transactionId, setTransactionId] = useState<number | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [receiptItems, setReceiptItems] = useState<ReceiptItem[]>([]);
+  const [copiedTransactionId, setCopiedTransactionId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
+  const [combinedLoading, setCombinedLoading] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<StudentWithAccount | null>(null);
   const [selectedAdjustStudent, setSelectedAdjustStudent] =
     useState<StudentWithAccount | null>(null);
   const [adjustAmount, setAdjustAmount] = useState("");
   const [adjustDescription, setAdjustDescription] = useState("");
-  const [adjustStaff, setAdjustStaff] = useState("");
+  const [adjustStaff, setAdjustStaff] = useState(userName || "");
   const [adjustError, setAdjustError] = useState("");
   const [adjustSuccess, setAdjustSuccess] = useState("");
   const [adjustTransactionId, setAdjustTransactionId] = useState<number | null>(null);
@@ -57,18 +67,6 @@ export function TopupForm({ studentIdsWithTransactions, userName }: TopupFormPro
   const [adjustLoading, setAdjustLoading] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
-
-  useEffect(() => {
-    if (userName && !staff) {
-      setStaff(userName);
-    }
-  }, [userName, staff]);
-
-  useEffect(() => {
-    if (userName && !adjustStaff) {
-      setAdjustStaff(userName);
-    }
-  }, [userName, adjustStaff]);
 
   useEffect(() => {
     const studentFromUrl = searchParams.get("student");
@@ -93,8 +91,11 @@ export function TopupForm({ studentIdsWithTransactions, userName }: TopupFormPro
 
   const copyTransactionId = async (txId: number) => {
     await navigator.clipboard.writeText(txId.toString());
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setCopiedTransactionId(txId);
+    setTimeout(
+      () => setCopiedTransactionId((current) => (current === txId ? null : current)),
+      2000,
+    );
   };
 
   const copyAdjustTransactionId = async (txId: number) => {
@@ -111,7 +112,8 @@ export function TopupForm({ studentIdsWithTransactions, userName }: TopupFormPro
 
     setError("");
     setSuccess("");
-    setTransactionId(null);
+    setReceiptItems([]);
+    setCopiedTransactionId(null);
     setLoading(true);
 
     const result = await topupAction({
@@ -128,7 +130,12 @@ export function TopupForm({ studentIdsWithTransactions, userName }: TopupFormPro
           result.data.newBalance,
         )}`,
       );
-      setTransactionId(result.data.transaction.id);
+      setReceiptItems([
+        {
+          id: result.data.transaction.id,
+          label: "Top-up Transaction ID",
+        },
+      ]);
       setSelectedStudent({
         ...selectedStudent,
         balance: result.data.newBalance,
@@ -142,6 +149,56 @@ export function TopupForm({ studentIdsWithTransactions, userName }: TopupFormPro
     }
 
     setLoading(false);
+  };
+
+  const handleTopupAndPay = async () => {
+    if (!selectedStudent) {
+      return;
+    }
+
+    setError("");
+    setSuccess("");
+    setReceiptItems([]);
+    setCopiedTransactionId(null);
+    setCombinedLoading(true);
+
+    const result = await topupAndPayAction({
+      student_id: selectedStudent.id,
+      amount: parseFloat(amount),
+      payment_method: paymentMethod as PaymentMethod,
+      other_payment_method: paymentMethod === "Other" ? otherPaymentMethod : undefined,
+      description: description || undefined,
+    });
+
+    if (result.success && result.data) {
+      setSuccess(
+        `Successfully added and deducted ¥${amount} for ${selectedStudent.name}. Balance remains: ¥${formatCurrency(
+          result.data.newBalance,
+        )}`,
+      );
+      setReceiptItems([
+        {
+          id: result.data.topupTransaction.id,
+          label: "Top-up Transaction ID",
+        },
+        {
+          id: result.data.paymentTransaction.id,
+          label: "Payment Transaction ID",
+        },
+      ]);
+      setSelectedStudent({
+        ...selectedStudent,
+        balance: result.data.newBalance,
+      });
+      setAmount("");
+      setPaymentMethod("");
+      setOtherPaymentMethod("");
+      setDescription("");
+    } else {
+      setError(result.error || "Failed to process top-up and payment");
+    }
+
+    setCombinedLoading(false);
   };
 
   const handleAdjust = async (e: React.FormEvent) => {
@@ -199,22 +256,26 @@ export function TopupForm({ studentIdsWithTransactions, userName }: TopupFormPro
                 <AlertDescription>
                   <div className="space-y-2">
                     <div>{success}</div>
-                    {transactionId ? (
-                      <div className="mt-2 flex items-center gap-2">
+                    {receiptItems.map((item) => (
+                      <div key={item.id} className="mt-2 flex items-center gap-2">
                         <span className="text-sm text-muted-foreground">
-                          Transaction ID:{" "}
-                          <span className="font-mono font-medium">{transactionId}</span>
+                          {item.label}: <span className="font-mono font-medium">{item.id}</span>
                         </span>
                         <Button
+                          type="button"
                           variant="ghost"
                           size="sm"
-                          onClick={() => copyTransactionId(transactionId)}
+                          onClick={() => copyTransactionId(item.id)}
                           className="h-6 w-6 p-0"
                         >
-                          {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                          {copiedTransactionId === item.id ? (
+                            <Check className="h-3 w-3" />
+                          ) : (
+                            <Copy className="h-3 w-3" />
+                          )}
                         </Button>
                       </div>
-                    ) : null}
+                    ))}
                   </div>
                 </AlertDescription>
               </Alert>
@@ -281,7 +342,7 @@ export function TopupForm({ studentIdsWithTransactions, userName }: TopupFormPro
               >
                 <SelectTrigger
                   id="payment-method"
-                  className="h-12 w-full text-base md:text-base *:data-[slot=select-value]:text-base"
+                  className="h-12 w-full px-3 py-1 text-base md:text-base *:data-[slot=select-value]:text-base"
                 >
                   <SelectValue placeholder="Select payment method" />
                 </SelectTrigger>
@@ -342,18 +403,37 @@ export function TopupForm({ studentIdsWithTransactions, userName }: TopupFormPro
               />
             </div>
 
-            <Button
-              type="submit"
-              disabled={
-                loading ||
-                !selectedStudent ||
-                !paymentMethod ||
-                (paymentMethod === "Other" && !otherPaymentMethod.trim())
-              }
-              className="w-full"
-            >
-              {loading ? "Processing..." : `Add ¥${amount || "0"}`}
-            </Button>
+            <div className="space-y-2 pt-1">
+              <Button
+                type="submit"
+                disabled={
+                  loading ||
+                  combinedLoading ||
+                  !selectedStudent ||
+                  !amount ||
+                  !paymentMethod ||
+                  (paymentMethod === "Other" && !otherPaymentMethod.trim())
+                }
+                className="h-14 w-full text-base font-semibold"
+              >
+                {loading ? "Processing..." : `Add ¥${amount || "0"}`}
+              </Button>
+              <Button
+                type="button"
+                disabled={
+                  loading ||
+                  combinedLoading ||
+                  !selectedStudent ||
+                  !amount ||
+                  !paymentMethod ||
+                  (paymentMethod === "Other" && !otherPaymentMethod.trim())
+                }
+                onClick={() => void handleTopupAndPay()}
+                className="h-14 w-full text-base font-semibold"
+              >
+                {combinedLoading ? "Processing..." : `Add and deduct ¥${amount || "0"}`}
+              </Button>
+            </div>
           </form>
         </CardContent>
       </Card>
@@ -480,7 +560,7 @@ export function TopupForm({ studentIdsWithTransactions, userName }: TopupFormPro
               type="submit"
               disabled={adjustLoading || !selectedAdjustStudent}
               variant="secondary"
-              className="w-full"
+              className="h-14 w-full text-base font-semibold"
             >
               {adjustLoading ? "Adjusting..." : "Apply Adjustment"}
             </Button>
