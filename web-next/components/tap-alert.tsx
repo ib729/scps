@@ -30,12 +30,16 @@ import { useNFCReader } from "@/lib/nfc-reader-context";
 export function TapAlert() {
   const pathname = usePathname();
 
-  // Don't render anything on the POS page (POS has its own dialog)
-  // IMPORTANT: Check pathname BEFORE using any other hooks to prevent duplicate WebSocket connections
+  // Don't render anything on the POS page (POS has its own dialog).
+  // Keep hooks in TapAlertContent isolated so they are never called conditionally.
   if (pathname === "/pos") {
     return null;
   }
 
+  return <TapAlertContent />;
+}
+
+function TapAlertContent() {
   const { selectedReader } = useNFCReader();
   const router = useRouter();
   const [open, setOpen] = useState(false);
