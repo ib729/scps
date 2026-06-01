@@ -1,6 +1,9 @@
 # NFC Card Tap Integration
 
-This guide sets up NFC tap support for the Student Council Payment System POS, enabling card taps to auto-select students in the web UI.
+> [!IMPORTANT]
+> **Architectural Alignment:** This guide covers configuring the **Raspberry Pi IoT reader client nodes** and serial PN532 card-broadcasting services. The main database backend, web application, and administrative systems are hosted remotely on your production **Cloud VPS**, which listens for real-time card tap events broadcasted by these localized Pi daemons over secure WebSocket connections.
+
+This guide sets up NFC tap support for the Student Council Payment System POS, enabling card taps on local client registers to auto-select students in the remote web UI.
 
 ## Overview
 
