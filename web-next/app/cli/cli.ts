@@ -8,7 +8,7 @@ import { Command } from "commander";
 import * as p from "@clack/prompts";
 import pc from "picocolors";
 import { handleManageUsers } from "./auth-commands";
-import { handleLedgerAdjustments, handleCSVImport, handleHardwareDiagnostics } from "./db-commands";
+import { handleLedgerAdjustments, handleCSVImport, handleHardwareDiagnostics, handleImportDatabase } from "./db-commands";
 
 const program = new Command();
 
@@ -22,6 +22,7 @@ async function showMainMenu() {
         { value: "users", label: "Manage Staff Accounts (Add, Delete, Reset Passwords)" },
         { value: "ledger", label: "Ledger & Balances (Top-up, Adjustments)" },
         { value: "import", label: "Import Students (CSV)" },
+        { value: "import-db", label: "Import SQLite Database Backup (Overwrite Active)" },
         { value: "diagnose", label: "NFC Hardware & Diagnostics" },
         { value: "exit", label: "Exit CLI" },
       ],
@@ -38,6 +39,8 @@ async function showMainMenu() {
       await handleLedgerAdjustments();
     } else if (action === "import") {
       await handleCSVImport();
+    } else if (action === "import-db") {
+      await handleImportDatabase();
     } else if (action === "diagnose") {
       await handleHardwareDiagnostics();
     }
@@ -70,6 +73,13 @@ async function main() {
     .description("Import students and card UIDs from a CSV file")
     .action(async () => {
       await handleCSVImport();
+    });
+
+  program
+    .command("import-db")
+    .description("Import an SQLite backup database and completely overwrite active data")
+    .action(async () => {
+      await handleImportDatabase();
     });
 
   program

@@ -1,0 +1,112 @@
+#!/bin/bash
+# ==============================================================================
+# SCPS Remote Production CLI Launcher
+# ==============================================================================
+# This script securely tunnels your local terminal inputs to the SCPS CLI
+# running on your remote production VPS using SSH pseudo-terminal allocation.
+#
+# Usage:
+#   ./scps-remote-cli [command]
+#
+# Configure remote VPS details in: web-next/.env.local
+#   SCPS_VPS_HOST=your_vps_ip_or_domain
+#   SCPS_VPS_USER=your_ssh_username (default: current user)
+#   SCPS_VPS_DIR=/path/to/deployed/scps (default: /var/www/scps)
+#   SCPS_VPS_PORT=22 (default: 22)
+#   SCPS_VPS_SSH_KEY=/path/to/private_key (optional)
+# ==============================================================================
+
+# Exit on standard shell errors
+set -e
+
+# Colored Output Helpers
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+CYAN='\033[0;36m'
+BOLD='\033[1m'
+NC='\033[0m' # No Color
+
+echo -e "${CYAN}${BOLD}┌──────────────────────────────────────────────┐${NC}"
+echo -e "${CYAN}${BOLD}│         SCPS REMOTE PRODUCTION CLI           │${NC}"
+echo -e "${CYAN}${BOLD}└──────────────────────────────────────────────┘${NC}"
+
+# 1. Resolve Project Directories
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ENV_FILE="$SCRIPT_DIR/web-next/.env.local"
+
+# Initialize variables with defaults
+VPS_HOST="${SCPS_VPS_HOST:-}"
+VPS_USER="${SCPS_VPS_USER:-$(whoami)}"
+VPS_DIR="${SCPS_VPS_DIR:-/var/www/scps}"
+VPS_PORT="${SCPS_VPS_PORT:-22}"
+VPS_SSH_KEY="${SCPS_VPS_SSH_KEY:-}"
+
+# 2. Parse VPS Configuration from web-next/.env.local if present
+if [ -f "$ENV_FILE" ]; then
+  # Use grep/sed to securely parse configs to prevent syntax errors
+  PARSE_HOST=$(grep -E "^SCPS_VPS_HOST=" "$ENV_FILE" | cut -d'=' -f2- | tr -d ' \r\n')
+  PARSE_USER=$(grep -E "^SCPS_VPS_USER=" "$ENV_FILE" | cut -d'=' -f2- | tr -d ' \r\n')
+  PARSE_DIR=$(grep -E "^SCPS_VPS_DIR=" "$ENV_FILE" | cut -d'=' -f2- | tr -d ' \r\n')
+  PARSE_PORT=$(grep -E "^SCPS_VPS_PORT=" "$ENV_FILE" | cut -d'=' -f2- | tr -d ' \r\n')
+  PARSE_KEY=$(grep -E "^SCPS_VPS_SSH_KEY=" "$ENV_FILE" | cut -d'=' -f2- | tr -d ' \r\n')
+
+  [ ! -z "$PARSE_HOST" ] && VPS_HOST="$PARSE_HOST"
+  [ ! -z "$PARSE_USER" ] && VPS_USER="$PARSE_USER"
+  [ ! -z "$PARSE_DIR" ]  && VPS_DIR="$PARSE_DIR"
+  [ ! -z "$PARSE_PORT" ] && VPS_PORT="$PARSE_PORT"
+  [ ! -z "$PARSE_KEY" ]  && VPS_SSH_KEY="$PARSE_KEY"
+fi
+
+# 3. Handle Missing VPS_HOST Configuration
+if [ -z "$VPS_HOST" ]; then
+  echo -e "${YELLOW}${BOLD}[Warning] Remote Production VPS Host is not configured!${NC}"
+  echo -e "To connect securely without entering credentials each time,"
+  echo -e "add the following variables to your local config file:"
+  echo -e "   ${CYAN}$ENV_FILE${NC}\n"
+  echo -e "   ${BOLD}SCPS_VPS_HOST${NC}=${YELLOW}123.45.67.89${NC}"
+  echo -e "   ${BOLD}SCPS_VPS_USER${NC}=${YELLOW}ubuntu${NC}"
+  echo -e "   ${BOLD}SCPS_VPS_DIR${NC}=${YELLOW}/var/www/scps${NC}\n"
+  
+  read -p "Enter remote VPS IP or Hostname to proceed: " MANUAL_HOST
+  if [ -z "$MANUAL_HOST" ]; then
+    echo -e "${RED}[Error] Connection cancelled. Host is required.${NC}"
+    exit 1
+  fi
+  VPS_HOST="$MANUAL_HOST"
+  
+  read -p "Enter SSH Username (default: $VPS_USER): " MANUAL_USER
+  [ ! -z "$MANUAL_USER" ] && VPS_USER="$MANUAL_USER"
+fi
+
+# 4. Construct the remote SSH command
+SSH_ARGS=("-p" "$VPS_PORT")
+
+# Add SSH key path if specified
+if [ ! -z "$VPS_SSH_KEY" ]; then
+  # Expand ~ if present in the path
+  REAL_KEY_PATH="${VPS_SSH_KEY/#\~/$HOME}"
+  if [ -f "$REAL_KEY_PATH" ]; then
+    SSH_ARGS+=("-i" "$REAL_KEY_PATH")
+  else
+    echo -e "${YELLOW}[Warning] Configured SSH key not found at: $REAL_KEY_PATH${NC}"
+  fi
+fi
+
+# Enable pseudo-terminal allocation (-t) to support full interactive Clack prompts
+SSH_ARGS+=("-t")
+
+# Add the target credentials
+SSH_TARGET="$VPS_USER@$VPS_HOST"
+
+# Prepare the remote command string
+# Bypasses direct executions by navigating to the project directory and invoking the root launcher script
+REMOTE_CMD="cd $VPS_DIR && ./scps-cli $@"
+
+echo -e "Connecting to ${GREEN}${BOLD}$SSH_TARGET${NC} on port ${CYAN}$VPS_PORT${NC}..."
+echo -e "Directory: ${CYAN}$VPS_DIR${NC}"
+echo -e "Commands: ${CYAN}$@${NC}\n"
+
+# Execute SSH Connection
+# Uses exec to replace the current shell process cleanly
+exec ssh "${SSH_ARGS[@]}" "$SSH_TARGET" "$REMOTE_CMD"

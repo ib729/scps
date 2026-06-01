@@ -9,4 +9,4 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR/web-next"
 
 # Run the CLI directly using npx and tsx (bypassing pnpm's strict pre-checks)
-npx tsx app/cli/cli.ts "$@"
+npm_config_loglevel=silent npx tsx app/cli/cli.ts "$@"
