@@ -1,4 +1,4 @@
-import { getDb } from "../../lib/db";
+import { getDb, closeDb, dbPath } from "../../lib/db";
 import { formatCurrency } from "../../lib/currency";
 import * as p from "@clack/prompts";
 import pc from "picocolors";
@@ -96,7 +96,7 @@ export async function handleLedgerAdjustments() {
           centsAmount > 0 ? "TOPUP" : "DEBIT",
           centsAmount,
           centsAmount > 0 ? "Cash" : "Balance",
-          description.trim() || "CLI Adjustment"
+          (typeof description === "string" ? description : "").trim() || "CLI Adjustment"
         );
 
         // 2. Update account balance
@@ -195,5 +195,77 @@ export async function handleHardwareDiagnostics() {
         resolve();
       });
     });
+  }
+}
+
+export async function handleImportDatabase() {
+  const activeDbPath = dbPath;
+  if (!activeDbPath) {
+    p.log.error("Active database path is not defined or found.");
+    return;
+  }
+
+  const sourcePath = await p.text({
+    message: "Enter the absolute or relative path to your SQLite database backup (.db file)",
+    placeholder: "e.g. stuco.db.backup",
+    validate: (v) => {
+      if (!v.trim()) return "Path cannot be empty";
+      if (!fs.existsSync(v.trim())) return "Backup file does not exist at that path";
+      // basic sqlite signature check
+      try {
+        const buffer = Buffer.alloc(16);
+        const fd = fs.openSync(v.trim(), "r");
+        fs.readSync(fd, buffer, 0, 16, 0);
+        fs.closeSync(fd);
+        if (buffer.toString("utf-8", 0, 15) !== "SQLite format 3") {
+          return "File is not a valid SQLite 3 database file";
+        }
+      } catch (err) {
+        return "Failed to read file signature";
+      }
+      return undefined;
+    },
+  });
+
+  if (p.isCancel(sourcePath)) return;
+
+  const confirm = await p.confirm({
+    message: pc.red(pc.bold("CRITICAL WARNING: This will completely OVERWRITE your active database (all transactions, cards, students, and users will be replaced). THIS CANNOT BE UNDONE! Are you sure?")),
+  });
+
+  if (!confirm || p.isCancel(confirm)) return;
+
+  const s = p.spinner();
+  s.start("Shutting down active database and purging logs...");
+
+  try {
+    // 1. Close current connection safely
+    closeDb();
+
+    // 2. Clear WAL and SHM files to avoid merge contamination
+    const walFile = `${activeDbPath}-wal`;
+    const shmFile = `${activeDbPath}-shm`;
+    if (fs.existsSync(walFile)) fs.unlinkSync(walFile);
+    if (fs.existsSync(shmFile)) fs.unlinkSync(shmFile);
+
+    s.message("Copying database backup over active database...");
+
+    // 3. Copy backup file to overwrite
+    fs.copyFileSync(sourcePath.trim(), activeDbPath);
+
+    s.message("Restarting database engine...");
+    
+    // 4. Force re-open database connection to apply new data schema
+    getDb();
+
+    s.stop(`✓ Database successfully imported and overwritten! Active at: ${activeDbPath}`);
+  } catch (err) {
+    s.stop("Failed to import database");
+    p.log.error(err instanceof Error ? err.message : "Unknown error");
+    
+    // Attempt recovery
+    try {
+      getDb();
+    } catch {}
   }
 }

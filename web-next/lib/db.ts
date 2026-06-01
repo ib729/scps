@@ -14,7 +14,7 @@ const dbPathCandidates = envDbPath
   ? [envDbPath]
   : fallbackDbLocations;
 
-const dbPath = dbPathCandidates.find((candidate) => fs.existsSync(candidate));
+export const dbPath = dbPathCandidates.find((candidate) => fs.existsSync(candidate));
 
 if (!dbPath) {
   const triedPaths = envDbPath ? dbPathCandidates : fallbackDbLocations;
