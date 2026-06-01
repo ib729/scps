@@ -11,6 +11,77 @@ The Student Council Payment System includes various scripts for:
 - **Student Management**: Enrollment and batch imports
 - **Maintenance**: Checking prerequisites and troubleshooting
 
+---
+
+## Unified Administrative CLI
+
+We have consolidated administrative tasks (user management, ledger adjustments, imports, and system diagnostics) into a unified TypeScript CLI. This replaces individual standalone Python scripts for production management.
+
+### scps-cli
+
+**Location**: `./scps-cli` (root)
+
+**Purpose**: High-fidelity terminal console interface for system management, database initialization, and diagnostics.
+
+**Usage:**
+
+*   **Interactive Menu Mode:** (Run with no arguments to open the visual console menu)
+    ```bash
+    ./scps-cli
+    ```
+*   **Non-Interactive Scripting Commands:**
+    ```bash
+    ./scps-cli users             # Manage staff accounts (Add, Delete, Reset Password)
+    ./scps-cli ledger            # Execute top-ups and balance debits
+    ./scps-cli import            # Parse and import students/cards from a CSV file
+    ./scps-cli import-db         # Overwrite active database securely from backup
+    ./scps-cli diagnose          # Spawns serial, reader, and GPIO test scripts
+    ```
+
+**Interactive Interface Preview:**
+```
+┌  SCPS CLI
+│
+◇  What management task would you like to perform?
+│  ● Manage Staff Accounts (Add, Delete, Reset Passwords)
+│  ○ Ledger & Balances (Top-up, Adjustments)
+│  ○ Import Students (CSV)
+│  ○ Import SQLite Database Backup (Overwrite Active)
+│  ○ NFC Hardware & Diagnostics
+│  ○ Exit CLI
+└
+```
+
+---
+
+### scps-remote-cli
+
+**Location**: `./scps-remote-cli` (root)
+
+**Purpose**: Secure SSH connection wrapper to interactively run the remote production server's CLI from your local terminal.
+
+**Prerequisites:**
+
+Configure your production server credentials in your local `web-next/.env.local` configuration file:
+```bash
+SCPS_VPS_HOST=157.180.68.183              # Remote server IP
+SCPS_VPS_USER=root                         # SSH user
+SCPS_VPS_DIR=/home/qiss/scps               # Repo directory path on VPS
+SCPS_VPS_PORT=22                          # SSH port (default: 22)
+SCPS_VPS_SSH_KEY=~/.ssh/id_ed25519         # Optional path to private key
+```
+
+**Usage:**
+
+Run the script locally to allocate a secure pseudo-terminal TTY session (`ssh -t`) to the VPS:
+```bash
+./scps-remote-cli [command]
+```
+
+This establishes an encrypted connection, navigates to the target repository directory, and initializes `./scps-cli` in your current terminal session cleanly.
+
+---
+
 ## Setup Scripts
 
 ### web-next-check-prereqs.sh
@@ -133,97 +204,17 @@ The Student Council Payment System includes various scripts for:
 
 ## Database Scripts
 
-### init_db.py
+Database initialization, bootstrapping, resets, and secure backups have been fully consolidated into the TypeScript administrative CLI under the `./scps-cli users` (interactive database schema and admin registration) and `./scps-cli import-db` (database overwrite and active log purge) subcommands.
 
-**Location**: `init_db.py` (root)
+Refer to the **Unified Administrative CLI** section at the top of this document for execution guides.
 
-**Purpose**: Initialize fresh database from migrations/schema.sql.
-
-**Usage:**
-```bash
-python init_db.py
-```
-
-**Actions:**
-- Reads `migrations/schema.sql`
-- Creates `stuco.db` if it doesn't exist
-- Executes schema to create tables
-- Enables foreign keys
-- Sets WAL journal mode
-
-**Output:**
-```
-Database initialized successfully!
-Tables created: students, cards, accounts, transactions, overdraft_weeks, users
-```
-
-**When to Use:**
-- First-time setup
-- After deleting database
-- For testing with fresh data
-
-**Note**: Safe to run multiple times (uses `CREATE TABLE IF NOT EXISTS`).
-
-### reset_db.py
-
-**Location**: `reset_db.py` (root)
-
-**Purpose**: Production-safe database reset with backup and optional admin user creation.
-
-**Usage:**
-```bash
-python reset_db.py
-```
-
-**Interactive Flow:**
-1. Prompts for confirmation (type 'RESET')
-2. Creates timestamped backup in `db_backups/`
-3. Removes old database files (db, wal, shm)
-4. Initializes fresh database
-5. Optionally creates admin user with password hashing
-
-**Features:**
-- Automatic backup before reset
-- Password hashing with bcryptjs
-- Admin user creation
-- Timestamped backups
-- Rollback instructions if issues occur
-
-**Example Session:**
-```
-⚠️  WARNING: This will DELETE all existing data!
-Type 'RESET' to confirm: RESET
-
-1. Creating backup: db_backups/stuco_backup_20251110_005702.db
-✓ Backup created
-
-2. Removing old database files
-Removed: stuco.db
-
-3. Creating fresh database
-✓ Database created
-
-4. Create admin user (optional)
-Create an admin user? (y/n): y
-Admin name: John Doe
-Admin email: john@example.com
-Admin password: ********
-✓ Admin user created
-
-✓ Database reset complete!
-```
-
-**When to Use:**
-- Resetting for new school year
-- Recovering from corruption
-- Testing with clean slate
-- Setting up production instance
+---
 
 ### reset_db.sh
 
 **Location**: `scripts/reset_db.sh`
 
-**Purpose**: Quick bash-based database reset (simpler than Python version).
+**Purpose**: Quick developer-centric database reset.
 
 **Usage:**
 ```bash
@@ -235,18 +226,11 @@ Admin password: ********
 2. Prompts for confirmation (type 'yes')
 3. Creates timestamped backup
 4. Removes old database files
-5. Calls `python init_db.py` to reinitialize
+5. Re-runs database initializers to reinitialize
 
 **When to Use:**
 - Quick resets during development
-- When Python environment isn't activated
 - Scripting/automation (non-interactive mode possible)
-
-**Differences from reset_db.py:**
-- No admin user creation
-- Simpler confirmation ('yes' vs 'RESET')
-- Bash-based (no Python imports needed)
-- Faster for development workflows
 
 ### run_migration.sh
 
@@ -689,116 +673,11 @@ journalctl -u tap-broadcaster -n 100
 - Reader issues: Check `[NFC]` log messages and hardware connections
 - Duplicate taps: Should be handled automatically; check debounce logs
 
-## CLI Tools
+## Deprecated Legacy Python CLI Tools
 
-### pos.py
+The legacy standalone Python CLI tools (`pos.py`, `topup.py`, `enroll.py`, `reset_db.py`, and `init_db.py`) have been fully deprecated and deleted from the codebase.
 
-**Location**: `pos.py` (root)
-
-**Purpose**: Command-line point-of-sale for charging via NFC card taps.
-
-**Usage:**
-
-**Simulation Mode:**
-```bash
-python pos.py 6.5 --simulate
-> DEADBEEF
-[OK] Charged ¥6.5 (overpay used ¥0.0). New balance: ¥43.5. TX ID: 42
-```
-
-**Hardware Mode:**
-```bash
-python pos.py 6.5 --device tty:AMA0:pn532
-# Tap card on reader
-[OK] Charged ¥6.5 (overpay used ¥0.0). New balance: ¥43.5. TX ID: 42
-```
-
-**Arguments:**
-- `price` (required) - Price per tap in CNY (e.g., 6.5 for ¥6.5)
-- `--device` - NFC device string (default: tty:AMA0:pn532)
-- `--simulate` - Manual UID entry mode
-
-**Features:**
-- Reads card UID and charges immediately
-- Overdraft support (¥20/week, resets Monday)
-- Decimal currency support (¥X.X)
-- Transaction logging with card UID
-- Weekly overpay tracking
-
-**When to Use:**
-- Quick sales without web UI
-- Testing NFC reader
-- Offline POS terminal
-
-### topup.py
-
-**Location**: `topup.py` (root)
-
-**Purpose**: Add funds to student account via card UID.
-
-**Usage:**
-```bash
-python topup.py DEADBEEF 20.0
-# Topped up ¥20.0. New balance: ¥63.5. TX ID: 43
-
-python topup.py CAFE1234 10.5 --staff "Jane Doe"
-# Topped up ¥10.5. New balance: ¥30.5. TX ID: 44
-```
-
-**Arguments:**
-- `uid` (required) - Card UID in hex
-- `amount` (required) - Amount in CNY (e.g., 20.5 for ¥20.5)
-- `--staff` - Staff member name (default: 'admin')
-
-**Features:**
-- Decimal currency support
-- Transaction logging with card UID and staff
-- Balance display after top-up
-
-**When to Use:**
-- Manual top-ups without web UI
-- Bulk top-ups via script
-- Testing transactions
-
-### enroll.py
-
-**Location**: `enroll.py` (root)
-
-**Purpose**: Enroll new students and associate NFC cards.
-
-**Usage:**
-
-**Interactive Mode:**
-```bash
-python enroll.py
-Student name: John Smith
-# Tap card on reader
-UID: DEADBEEF
-Enrolled John Smith → DEADBEEF
-```
-
-**Command-Line Mode:**
-```bash
-python enroll.py --name "Jane Doe" --simulate ABC123
-UID: ABC123
-Enrolled Jane Doe → ABC123
-```
-
-**Arguments:**
-- `--name` - Student name (prompts if not provided)
-- `--device` - NFC device string
-- `--simulate` - Manual UID entry
-
-**Features:**
-- Creates student record if doesn't exist
-- Creates account with ¥0 balance
-- Associates card UID with student
-- Replaces existing card if UID already enrolled
-
-**When to Use:**
-- Quick enrollment without web UI
-- Bulk enrollment via script
-- Testing card reading
+All administrative tasks, including balance adjustments, password resets, database initialization, and secure imports, are now managed cleanly by the unified TypeScript administrative CLI. Please refer to the **Unified Administrative CLI** section at the top of this document.
 
 ## Testing Scripts
 

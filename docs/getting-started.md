@@ -1,97 +1,74 @@
 # Getting Started
 
-This guide covers installing prerequisites, setting up the database, installing dependencies, and running the system on Raspberry Pi OS and Debian-based Linux.
+This guide covers installing prerequisites, setting up the database, installing dependencies, and running the system on a Linux Cloud VPS (Debian/Ubuntu) or standalone local platforms.
 
 ## Prerequisites
 
-### All Platforms
+### Host Server (Linux Cloud VPS)
 
-- **Python 3.9+**: For CLI tools.
-  - Check: `python --version`
-  - Install: `sudo apt install python3`
+We recommend deploying the Next.js server and SQLite database on a standard Linux Cloud VPS (such as Debian 12 or Ubuntu 24.04).
 
-- **Node.js 20+**: For the web UI.
+- **Node.js 22+**: For the web interface and TypeScript CLI.
   - Check: `node --version`
-  - Install: `curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - && sudo apt install -y nodejs`
-
-- **pnpm**: Package manager for Node.js.
+  - Install (NodeSource): `curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash - && sudo apt install -y nodejs`
+- **pnpm 10+**: Package manager for Node.js.
   - Check: `pnpm --version`
-  - Install: `npm install -g pnpm` or `curl -fsSL https://get.pnpm.io/install.sh | sh -`
+  - Install: `npm install -g pnpm`
+- **Build Essentials**: Required to compile native SQLite database bindings.
+  - Install: `sudo apt update && sudo apt install -y build-essential python3 pkg-config git curl`
 
-- **Git**: For cloning the repository.
-  - Check: `git --version`
+### Client NFC Node (Raspberry Pi)
 
-### Debian/Raspberry Pi OS
+For localized card reader nodes located at physical POS registers:
+- **Raspberry Pi OS (64-bit)**
+- **Python 3.9+**: To run the WebSocket serial tap broadcaster client.
+- **NFCPN532 Reader Hardware** (UART or USB configuration).
 
-**Build Essentials** (for compiling native modules):
-
-```bash
-sudo apt update
-sudo apt install -y build-essential python3 pkg-config
-```
-
-For Raspberry Pi OS Lite (headless):
-
-```bash
-sudo apt install -y git vim curl wget
-```
-
-### Raspberry Pi Notes
-
-- **Recommended**: Raspberry Pi 4B with 8GB RAM.
-- **Minimum**: Pi Zero 2 W (slower compilation).
-- **OS**: Raspberry Pi OS (64-bit, Bookworm or later).
-- **Swap**: Increase to 2GB if compiling on low-RAM models:
+### Alternative: Standalone Raspberry Pi Full-Stack Hosting
+If you wish to host the *entire* system (Next.js server, database, and reader daemon) locally on a single Raspberry Pi:
+- **Swap Size:** Increase the default system swap size to at least 2GB to prevent compiling processes from running out of memory:
   ```bash
   sudo dphys-swapfile swapoff
-  sudo nano /etc/dphys-swapfile  # Set CONF_SWAPSIZE=2048
+  sudo sed -i 's/CONF_SWAPSIZE=.*/CONF_SWAPSIZE=2048/' /etc/dphys-swapfile
   sudo dphys-swapfile setup
   sudo dphys-swapfile swapon
   ```
 
-### Automatic Prerequisite Check (Web UI)
-
-Before installing dependencies:
-
-```bash
-./scripts/web-next-check-prereqs.sh
-```
-
-This verifies all tools and provides installation instructions if missing.
-
-**When to use which script:**
-- `web-next-check-prereqs.sh` - Run first to verify build tools are installed (gcc, make, python3, etc.)
-- `pnpm install` - Standard setup (recommended, includes postinstall for better-sqlite3)
-- `web-next-setup.sh` - Legacy manual setup if postinstall fails
+---
 
 ## Database Setup
 
-1. **Initialize the Database**:
+Initialize your database schema and register your first administrator account cleanly using the built-in TypeScript CLI.
 
-   ```bash
-   python init_db.py
-   ```
+### 1. Initialize Schema & User Accounts
 
-   This creates `stuco.db` with:
-   - Main schema from `migrations/schema.sql` (students, cards, accounts, transactions, overdraft_weeks)
-   - Better Auth schema (user, session, account, verification) for web authentication
+Run the interactive admin command launcher located in the root directory:
 
-2. **Verify**:
+```bash
+./scps-cli users
+```
 
-   ```bash
-   sqlite3 stuco.db ".tables"
-   ```
+This initializes the SQLite database file `stuco.db` with the core relational tables (`students`, `accounts`, `transactions`), creates the necessary indexes, and walks you through registering your primary administrator account safely with cryptographically secure hashing.
 
-   Should show all tables including Better Auth tables (account, session, user, verification).
+### 2. Verify Tables
 
-3. **Optional: Run Migrations** (if needed):
+Verify that the tables were created successfully using the SQLite shell:
 
-   ```bash
-   ./scripts/run_migration.sh migrate_cascade_delete.sql
-   ./scripts/run_migration.sh migrate_decimal_currency.sql
-   ```
+```bash
+sqlite3 stuco.db ".tables"
+```
 
-   See [Database Guide](database.md) for details. Migration files are in `migrations/` directory.
+The output should show all core tables as well as the Better Auth system tables (`user`, `session`, `account`, `verification`).
+
+### 3. Optional: Run Database Migrations
+
+If you are upgrading an existing system, migrations are located in the `migrations/` folder and can be applied using the migration script:
+
+```bash
+./scripts/run_migration.sh migrate_cascade_delete.sql
+```
+
+See [Database Guide](database.md) for more details.
 
 ## Web UI Setup
 
@@ -247,26 +224,27 @@ See [Deployment Guide](deployment.md) for production setup.
 
 ## CLI Tools Setup
 
-1. **Python Environment**:
+We provide a unified TypeScript CLI to handle server administration tasks.
 
-   ```bash
-   python -m venv .venv
-   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-   pip install -r requirements.txt  # Installs nfcpy, requests, etc.
-   ```
+### Local CLI Execution (on the VPS)
+No Python environment or local database configuration is needed to run the CLI on the server, as it integrates directly with the Next.js runtime.
 
-2. **Test CLI**:
+1.  Make sure the script is executable:
+    ```bash
+    chmod +x scps-cli
+    ```
+2.  Boot the interactive administration console:
+    ```bash
+    ./scps-cli
+    ```
 
-   ```bash
-   # Enroll a student
-   python enroll.py
-
-   # Top-up (simulate)
-   python topup.py "Student Name" 10.0
-
-   # POS (simulate)
-   python pos.py 6.5 --simulate
-   ```
+### Remote Secure CLI Execution (from your Local Machine)
+To manage the remote production VPS database securely from your local developer machine without SSHing manually:
+1.  Configure your remote VPS parameters in your local `web-next/.env.local` file (see [Deployment Guide](deployment.md#remote-management) for options).
+2.  Launch the secure terminal tunnel:
+    ```bash
+    ./scps-remote-cli
+    ```
 
 ## NFC Setup Quick Start
 
@@ -326,10 +304,10 @@ For full NFC integration (card taps in web UI):
 4. Add description.
 5. Click "Add".
 
-### CLI POS
+### CLI Ledger adjustments (Top-up / Debit)
 
 ```bash
-python pos.py 6.5 --device tty:AMA0:pn532  # Real hardware
+./scps-cli ledger
 ```
 
 Weekly overdraft: ¥20.0 (resets Monday 00:00 Asia/Shanghai).

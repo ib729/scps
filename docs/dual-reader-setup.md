@@ -1,6 +1,9 @@
 # Dual NFC Reader Setup Guide
 
-This guide explains how to run two NFC readers simultaneously with per-staff filtering.
+> [!IMPORTANT]
+> **Architectural Alignment:** This guide covers configuring physical **dual card reader connections** on a local **Raspberry Pi POS client register node**. The central Next.js server and database backend are hosted remotely on your **Cloud VPS**, which listens for and routes the WebSocket tap broadcasts coming from both connected readers.
+
+This guide explains how to run two NFC readers simultaneously with per-staff filtering on your local Raspberry Pi POS registers.
 
 ## Overview
 
