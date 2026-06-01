@@ -1,6 +1,6 @@
 # Reporting and Fixing Security Issues
 
-Please do not open GitHub issues or pull requests for security reports.
+Please do not open pull requests for security reports.
 Public threads can expose the problem to everyone, including malicious actors.
 
 Send reports to hello@ivanbelousov.com
