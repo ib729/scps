@@ -15,10 +15,14 @@
     "lint": "eslint",
     "postinstall": "pnpm rebuild better-sqlite3",
     "auth:migrate": "npx @better-auth/cli@latest migrate",
-    "auth:generate": "npx @better-auth/cli@latest generate"
+    "auth:generate": "npx @better-auth/cli@latest generate",
+    "cli": "tsx app/cli/cli.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
+    "@clack/prompts": "^0.9.1",
+    "commander": "^13.1.0",
+    "picocolors": "^1.1.1",
     "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-avatar": "^1.1.11",
     "@radix-ui/react-collapsible": "^1.1.12",
@@ -62,6 +66,7 @@
   },
   "devDependencies": {
     "@better-auth/cli": "^1.4.21",
+    "tsx": "^4.19.3",
     "@tailwindcss/postcss": "^4.2.4",
     "@types/node": "^25.6.0",
     "@types/react": "^19.2.14",
