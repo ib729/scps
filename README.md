@@ -113,15 +113,6 @@ python pos.py 6.5  # Charge ¥6.5 per tap
 
 ---
 
-## Supporting This Project
-
-If you find this project helpful and would like to support its development, consider making a donation:
-
-**Bitcoin (BTC):**
-```
-bc1pyv54eqxuanqgv3cm2yjl37xjxlavnh7fcfu9d3yg983uzp4qazcs5xgsz2
-```
-
 ## License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
