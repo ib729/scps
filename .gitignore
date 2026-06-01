@@ -248,3 +248,8 @@ CLAUDE.md
 AGENTS.md
 **/AGENTS.md
 **/SKILL.md
+
+# Agent frameworks & Antigravity CLI
+.agent/
+.antigravitycli/
+.claude/
