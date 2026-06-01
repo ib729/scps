@@ -13,5 +13,5 @@ export NEXTJS_URL=http://localhost:3000
 export POS_LANE_ID=default
 
 echo "Testing NFC broadcaster..."
-python tap-broadcaster.py --test
+python hardware-pi/tap-broadcaster.py --test
 

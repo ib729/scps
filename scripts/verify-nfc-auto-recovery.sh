@@ -66,21 +66,21 @@ echo "2. Checking Hardware Reconnection Code"
 echo "═══════════════════════════════════════════════════════════════"
 
 # Check if hardware reconnection function exists
-if grep -q "nfc_reader_loop_with_reconnection" /home/qiss/scps/tap-broadcaster.py; then
+if grep -q "nfc_reader_loop_with_reconnection" /home/qiss/scps/hardware-pi/tap-broadcaster.py; then
     print_status "PASS" "Hardware reconnection wrapper found in tap-broadcaster.py"
 else
     print_status "FAIL" "Hardware reconnection wrapper NOT found in tap-broadcaster.py"
 fi
 
 # Check if it's being used
-if grep -q "await nfc_reader_loop_with_reconnection" /home/qiss/scps/tap-broadcaster.py; then
+if grep -q "await nfc_reader_loop_with_reconnection" /home/qiss/scps/hardware-pi/tap-broadcaster.py; then
     print_status "PASS" "Hardware reconnection is being used in main loop"
 else
     print_status "FAIL" "Hardware reconnection is NOT being used in main loop"
 fi
 
 # Check for enhanced error handling
-if grep -q "fatal_error" /home/qiss/scps/tap-broadcaster.py; then
+if grep -q "fatal_error" /home/qiss/scps/hardware-pi/tap-broadcaster.py; then
     print_status "PASS" "Enhanced error detection implemented"
 else
     print_status "FAIL" "Enhanced error detection NOT found"
