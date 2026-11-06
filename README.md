@@ -2,7 +2,6 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Raspberry%20Pi%204-C51A4A?logo=raspberrypi)](https://www.raspberrypi.com/)
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/ib729/scps)
 [![Donate Bitcoin](https://img.shields.io/badge/Donate-Bitcoin-orange?logo=bitcoin&logoColor=white)](#supporting-this-project)
 
 A complete NFC-based payment system for managing student snack bar purchases. Tap contactless cards for instant payments with real-time dashboard monitoring.
@@ -112,15 +111,6 @@ python pos.py 6.5  # Charge ¥6.5 per tap
 - [Changelog](docs/changelog.md) - Version history and updates
 
 ---
-
-## Supporting This Project
-
-If you find this project helpful and would like to support its development, consider making a donation:
-
-**Bitcoin (BTC):**
-```
-bc1pyv54eqxuanqgv3cm2yjl37xjxlavnh7fcfu9d3yg983uzp4qazcs5xgsz2
-```
 
 ## License
 
