@@ -59,6 +59,27 @@ CREATE TABLE IF NOT EXISTS overdraft_weeks (
   FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE RESTRICT
 );
 
+CREATE TABLE IF NOT EXISTS wechat_topup_requests (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  student_id INTEGER NOT NULL,
+  requested_amount INTEGER NOT NULL,
+  payable_amount INTEGER NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'approved', 'rejected', 'expired', 'cancelled')),
+  created_by_user_id TEXT NOT NULL,
+  created_by_name TEXT,
+  internal_note TEXT,
+  review_note TEXT,
+  reviewed_by_user_id TEXT,
+  reviewed_by_name TEXT,
+  approved_transaction_id INTEGER,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  expires_at TEXT NOT NULL,
+  claimed_at TEXT,
+  reviewed_at TEXT,
+  FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE RESTRICT,
+  FOREIGN KEY(approved_transaction_id) REFERENCES transactions(id) ON DELETE SET NULL
+);
+
 INSERT OR IGNORE INTO app_meta(key, value) VALUES ('currency_scale', '100');
 
 CREATE INDEX IF NOT EXISTS idx_tx_student_time
@@ -78,3 +99,9 @@ CREATE INDEX IF NOT EXISTS idx_transactions_student_id_created_at
 
 CREATE INDEX IF NOT EXISTS idx_transaction_note_history_transaction_id_edited_at
   ON transaction_note_history(transaction_id, edited_at DESC, id DESC);
+
+CREATE INDEX IF NOT EXISTS idx_wechat_topup_requests_status_expires_at
+  ON wechat_topup_requests(status, expires_at);
+
+CREATE INDEX IF NOT EXISTS idx_wechat_topup_requests_created_at
+  ON wechat_topup_requests(created_at DESC, id DESC);

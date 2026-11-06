@@ -163,7 +163,7 @@ fi
 resolved_database_path="$(read_env_value "DATABASE_PATH")"
 if [[ ! -f "$resolved_database_path" ]]; then
   echo "Initializing SQLite database at $resolved_database_path"
-  run_as_user bash -lc "cd '$REPO_ROOT' && python3 init_db.py"
+  run_as_user sqlite3 "$resolved_database_path" ".read '$REPO_ROOT/migrations/schema.sql'" ".read '$WEB_NEXT_DIR/migrations/better_auth_schema.sql'"
 fi
 
 run_as_user pnpm --dir "$WEB_NEXT_DIR" build

@@ -61,7 +61,7 @@ The authentication system requires additional database tables:
 - `account` - OAuth and credential accounts
 - `verification` - Email verification and password reset tokens
 
-**Automatic Setup**: These tables are automatically created when you run `python init_db.py` or any database reset script.
+**Setup**: Initialize the core schema with `sqlite3 stuco.db < migrations/schema.sql`, then apply the auth migration below. Use the path configured by `DATABASE_PATH`.
 
 **Manual Migration** (if needed):
 

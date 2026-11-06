@@ -22,7 +22,7 @@ const eslintConfig = defineConfig([
     },
   },
   {
-    files: ["server.js", "test-db.js"],
+    files: ["server.js"],
     rules: {
       // Legacy Node entrypoints are CommonJS.
       "@typescript-eslint/no-require-imports": "off",

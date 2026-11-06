@@ -1,6 +1,9 @@
 # NFC Card Tap Integration
 
-This guide sets up NFC tap support for the Student Council Payment System POS, enabling card taps to auto-select students in the web UI.
+> [!IMPORTANT]
+> **Architectural Alignment:** This guide covers configuring the **Raspberry Pi IoT reader client nodes** and serial PN532 card-broadcasting services. The main database backend, web application, and administrative systems are hosted remotely on your production **Cloud VPS**, which listens for real-time card tap events broadcasted by these localized Pi daemons over secure WebSocket connections.
+
+This guide sets up NFC tap support for the Student Council Payment System POS, enabling card taps on local client registers to auto-select students in the remote web UI.
 
 ## Overview
 
@@ -100,7 +103,7 @@ Since you're self-hosting on Node.js (not Vercel), a custom server is required f
    ```bash
    cd $PROJECT_ROOT
    source .venv/bin/activate
-   python tap-broadcaster.py --test --secret your-generated-secret
+   python hardware-pi/tap-broadcaster.py --test --secret your-generated-secret
    ```
 
    Expected:
@@ -168,7 +171,7 @@ ExecStart=/usr/bin/pnpm start
   ```
 - **Update Broadcaster**:
   ```bash
-  PN532_DEVICE=tty:USB0:pn532 python tap-broadcaster.py
+  PN532_DEVICE=tty:USB0:pn532 python hardware-pi/tap-broadcaster.py
   ```
 
 ### UART Device Setup
@@ -205,15 +208,15 @@ ExecStart=/usr/bin/pnpm start
 #### Simulation (No Hardware)
 
 ```bash
-python tap-broadcaster.py --simulate
+python hardware-pi/tap-broadcaster.py --simulate
 # Type UID hex (e.g., DEADBEEF) or 'quit'
 ```
 
 #### Hardware (TTY/USB - nfcpy)
 
 ```bash
-python tap-broadcaster.py --device tty:AMA0:pn532  # UART
-python tap-broadcaster.py --device tty:USB0:pn532  # USB
+python hardware-pi/tap-broadcaster.py --device tty:AMA0:pn532  # UART
+python hardware-pi/tap-broadcaster.py --device tty:USB0:pn532  # USB
 ```
 
 #### Hardware (I2C - libnfc)
@@ -221,13 +224,13 @@ python tap-broadcaster.py --device tty:USB0:pn532  # USB
 Uses `nfc-list` CLI; auto-detects.
 
 ```bash
-python tap-broadcaster.py --device i2c:/dev/i2c-1:pn532
+python hardware-pi/tap-broadcaster.py --device i2c:/dev/i2c-1:pn532
 ```
 
 #### Test
 
 ```bash
-python tap-broadcaster.py --test  # Sends fake UID "DEADBEEF"
+python hardware-pi/tap-broadcaster.py --test  # Sends fake UID "DEADBEEF"
 ```
 
 **Output**:
@@ -255,8 +258,8 @@ python tap-broadcaster.py --test  # Sends fake UID "DEADBEEF"
 
 For multiple checkouts:
 
-- Broadcaster 1: `POS_LANE_ID=lane-a python tap-broadcaster.py --device tty:AMA0:pn532`
-- Broadcaster 2: `POS_LANE_ID=lane-b python tap-broadcaster.py --device tty:USB0:pn532`
+- Broadcaster 1: `POS_LANE_ID=lane-a python hardware-pi/tap-broadcaster.py --device tty:AMA0:pn532`
+- Broadcaster 2: `POS_LANE_ID=lane-b python hardware-pi/tap-broadcaster.py --device tty:USB0:pn532`
 - POS URL: `/pos?lane=lane-a` (filters WebSocket events).
 
 ## Dual Reader Setup (Two Simultaneous NFC Readers)
@@ -444,7 +447,7 @@ sudo journalctl -u tap-broadcaster -u tap-broadcaster-reader2 -f
    Environment="NEXTJS_URL=http://your-server:3000"
    Environment="NFC_TAP_SECRET=your-secret"
    Environment="POS_LANE_ID=default"
-   ExecStart=$PROJECT_ROOT/.venv/bin/python $PROJECT_ROOT/tap-broadcaster.py
+   ExecStart=$PROJECT_ROOT/.venv/bin/python $PROJECT_ROOT/hardware-pi/tap-broadcaster.py
    Restart=always
    User=pi  # Or your user
    ```
@@ -712,7 +715,7 @@ If you still experience issues after the auto-recovery improvements:
 - **WebSocket support**: Ensure custom server is running (shows "WebSocket server ready")
 - **Firewall**: Check if WebSocket port is blocked
 - **Logs**: Look for `[WS] Connection error` or `[WS] Authentication failed`
-- **Test mode**: Run `python tap-broadcaster.py --test` to verify connection
+- **Test mode**: Run `python hardware-pi/tap-broadcaster.py --test` to verify connection
 
 ### Duplicate Taps
 
@@ -743,7 +746,7 @@ If still seeing duplicates:
 
 Use `--simulate` to test UI without hardware:
 ```bash
-python tap-broadcaster.py --simulate
+python hardware-pi/tap-broadcaster.py --simulate
 # Type UIDs like: DEADBEEF
 ```
 

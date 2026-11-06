@@ -1,0 +1,12 @@
+#!/bin/bash
+# SCPS CLI Launcher
+
+# Exit on errors
+set -e
+
+# Detect project root dynamically
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR/web-next"
+
+# Use the installed CLI dependency; never download an unpinned executable.
+exec "$SCRIPT_DIR/web-next/node_modules/.bin/tsx" app/cli/cli.ts "$@"

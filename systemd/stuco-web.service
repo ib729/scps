@@ -22,6 +22,7 @@ WorkingDirectory=__REPO_ROOT__/web-next
 Environment="NODE_ENV=production"
 Environment="PORT=3000"
 Environment="HOSTNAME=0.0.0.0"
+Environment="NEXT_TELEMETRY_DISABLED=1"
 ExecStart=/usr/bin/env pnpm start
 StandardOutput=journal
 StandardError=journal

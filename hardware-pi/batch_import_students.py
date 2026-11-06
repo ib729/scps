@@ -15,12 +15,13 @@ Or without UIDs:
 """
 
 import csv
+import os
 import sqlite3
 import sys
 import argparse
 from pathlib import Path
 
-DB = "stuco.db"
+DB = os.environ.get("DATABASE_PATH") or "stuco.db"
 
 def batch_import_students(csv_file, skip_duplicates=True, dry_run=False):
     """

@@ -29,7 +29,7 @@ This guide provides comprehensive testing procedures for the WebSocket-based NFC
 ```bash
 cd $PROJECT_ROOT
 source .venv/bin/activate
-python tap-broadcaster.py --test --secret test-secret-123
+python hardware-pi/tap-broadcaster.py --test --secret test-secret-123
 ```
 
 **Expected output**:
@@ -69,7 +69,7 @@ python tap-broadcaster.py --test --secret test-secret-123
 **Purpose**: Test tap detection without NFC hardware
 
 ```bash
-python tap-broadcaster.py --simulate --secret test-secret-123
+python hardware-pi/tap-broadcaster.py --simulate --secret test-secret-123
 ```
 
 **Actions**:
@@ -107,7 +107,7 @@ python tap-broadcaster.py --simulate --secret test-secret-123
 3. Select "Tap Card" mode in POS form
 4. In another terminal, run simulation:
    ```bash
-   python tap-broadcaster.py --simulate --secret test-secret-123
+   python hardware-pi/tap-broadcaster.py --simulate --secret test-secret-123
    ```
 5. Type `DEADBEEF` in simulation terminal
 
@@ -150,7 +150,7 @@ python tap-broadcaster.py --simulate --secret test-secret-123
 ls -l /dev/ttyAMA0
 
 # Run broadcaster
-python tap-broadcaster.py --device tty:AMA0:pn532 --secret test-secret-123
+python hardware-pi/tap-broadcaster.py --device tty:AMA0:pn532 --secret test-secret-123
 ```
 
 **Actions**:
@@ -191,7 +191,7 @@ lsusb | grep -i nfc
 ls -l /dev/ttyUSB*
 
 # Run with USB device
-python tap-broadcaster.py --device tty:USB0:pn532 --secret test-secret-123
+python hardware-pi/tap-broadcaster.py --device tty:USB0:pn532 --secret test-secret-123
 ```
 
 **Pass criteria**: Same as UART test
@@ -202,7 +202,7 @@ python tap-broadcaster.py --device tty:USB0:pn532 --secret test-secret-123
 
 **Method 1 - Simulation**:
 ```bash
-python tap-broadcaster.py --simulate --secret test-secret-123
+python hardware-pi/tap-broadcaster.py --simulate --secret test-secret-123
 ```
 Type same UID multiple times rapidly:
 ```
@@ -329,12 +329,12 @@ sudo systemctl status tap-broadcaster  # Should be running again
 
 **Terminal 1** (Lane A):
 ```bash
-POS_LANE_ID=lane-a python tap-broadcaster.py --simulate --secret test-secret-123
+POS_LANE_ID=lane-a python hardware-pi/tap-broadcaster.py --simulate --secret test-secret-123
 ```
 
 **Terminal 2** (Lane B):
 ```bash
-POS_LANE_ID=lane-b python tap-broadcaster.py --simulate --secret test-secret-123
+POS_LANE_ID=lane-b python hardware-pi/tap-broadcaster.py --simulate --secret test-secret-123
 ```
 
 **Browser**:

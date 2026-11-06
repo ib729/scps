@@ -98,11 +98,9 @@ CLI Tools (Python) ↔ stuco.db (SQLite) ↔ Web UI (Next.js)
 ```
 stuco/
 ├── stuco.db                # SQLite database
-├── init_db.py              # Database initialization
-├── pos.py                  # CLI POS
-├── topup.py                # CLI top-up
-├── enroll.py               # CLI enroll
-├── tap-broadcaster.py      # NFC broadcaster (WebSocket client)
+├── scps-cli                # Unified administrative CLI launcher
+├── scps-remote-cli         # SSH administrative launcher
+├── hardware-pi/            # NFC broadcaster, CSV import, diagnostics
 ├── requirements.txt        # Python dependencies
 ├── migrations/
 │   └── schema.sql          # Main database schema
@@ -175,11 +173,11 @@ See [Getting Started](getting-started.md).
 **CLI**:
 
 1. `.venv` activate, `pip install -r requirements.txt`.
-2. `python pos.py --simulate`.
+2. `./scps-cli` for administration; use the web POS for card payments.
 
 **NFC Testing**:
 
-`python tap-broadcaster.py --simulate` + open POS.
+`python hardware-pi/tap-broadcaster.py --simulate` + open POS.
 
 ## Building and Deployment
 
@@ -218,7 +216,7 @@ pnpm build  # Includes TS check
 
 ### CLI/NFC
 
-- Scripts run directly: `python pos.py`.
+- Administrative CLI: `./scps-cli`.
 - Broadcaster: Systemd service (see NFC Setup).
 
 ## Extending the System
@@ -245,7 +243,7 @@ pnpm build  # Includes TS check
 
 - **Manual**: Create student, tap, charge, top-up.
 - **DB**: `sqlite3 stuco.db` queries.
-- **UI**: Browser dev tools, test-db.js.
+- **UI**: Browser developer tools.
 - **NFC**: Simulate taps, check logs.
 
 **Edge Cases**:

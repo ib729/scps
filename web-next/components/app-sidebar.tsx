@@ -667,9 +667,6 @@ export function AppSidebar({ user: initialUser, initialPreferences, ...props }: 
                     onChange={(e) => handleFormChange("image", e.target.value)}
                     placeholder="Enter image URL"
                   />
-                  <p className="text-xs text-muted-foreground">
-                    Recommended size: 200x200px or larger, square aspect ratio
-                  </p>
                   {formData.image && (
                     <div className="mt-3">
                       <Label className="text-xs text-muted-foreground mb-2 block">Preview:</Label>

@@ -1,97 +1,85 @@
 # Getting Started
 
-This guide covers installing prerequisites, setting up the database, installing dependencies, and running the system on Raspberry Pi OS and Debian-based Linux.
+This guide covers installing prerequisites, setting up the database, installing dependencies, and running the system on a Linux Cloud VPS (Debian/Ubuntu) or standalone local platforms.
 
 ## Prerequisites
 
-### All Platforms
+### Host Server (Linux Cloud VPS)
 
-- **Python 3.9+**: For CLI tools.
-  - Check: `python --version`
-  - Install: `sudo apt install python3`
+We recommend deploying the Next.js server and SQLite database on a standard Linux Cloud VPS (such as Debian 12 or Ubuntu 24.04).
 
-- **Node.js 20+**: For the web UI.
+- **Node.js 22+**: For the web interface and TypeScript CLI.
   - Check: `node --version`
-  - Install: `curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - && sudo apt install -y nodejs`
-
-- **pnpm**: Package manager for Node.js.
+  - Install (NodeSource): `curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash - && sudo apt install -y nodejs`
+- **pnpm 10+**: Package manager for Node.js.
   - Check: `pnpm --version`
-  - Install: `npm install -g pnpm` or `curl -fsSL https://get.pnpm.io/install.sh | sh -`
+  - Install: `npm install -g pnpm`
+- **Build Essentials**: Required to compile native SQLite database bindings.
+  - Install: `sudo apt update && sudo apt install -y build-essential python3 pkg-config git curl`
 
-- **Git**: For cloning the repository.
-  - Check: `git --version`
+### Client NFC Node (Raspberry Pi)
 
-### Debian/Raspberry Pi OS
+For localized card reader nodes located at physical POS registers:
+- **Raspberry Pi OS (64-bit)**
+- **Python 3.9+**: To run the WebSocket serial tap broadcaster client.
+- **NFCPN532 Reader Hardware** (UART or USB configuration).
 
-**Build Essentials** (for compiling native modules):
-
-```bash
-sudo apt update
-sudo apt install -y build-essential python3 pkg-config
-```
-
-For Raspberry Pi OS Lite (headless):
-
-```bash
-sudo apt install -y git vim curl wget
-```
-
-### Raspberry Pi Notes
-
-- **Recommended**: Raspberry Pi 4B with 8GB RAM.
-- **Minimum**: Pi Zero 2 W (slower compilation).
-- **OS**: Raspberry Pi OS (64-bit, Bookworm or later).
-- **Swap**: Increase to 2GB if compiling on low-RAM models:
+### Alternative: Standalone Raspberry Pi Full-Stack Hosting
+If you wish to host the *entire* system (Next.js server, database, and reader daemon) locally on a single Raspberry Pi:
+- **Swap Size:** Increase the default system swap size to at least 2GB to prevent compiling processes from running out of memory:
   ```bash
   sudo dphys-swapfile swapoff
-  sudo nano /etc/dphys-swapfile  # Set CONF_SWAPSIZE=2048
+  sudo sed -i 's/CONF_SWAPSIZE=.*/CONF_SWAPSIZE=2048/' /etc/dphys-swapfile
   sudo dphys-swapfile setup
   sudo dphys-swapfile swapon
   ```
 
-### Automatic Prerequisite Check (Web UI)
-
-Before installing dependencies:
-
-```bash
-./scripts/web-next-check-prereqs.sh
-```
-
-This verifies all tools and provides installation instructions if missing.
-
-**When to use which script:**
-- `web-next-check-prereqs.sh` - Run first to verify build tools are installed (gcc, make, python3, etc.)
-- `pnpm install` - Standard setup (recommended, includes postinstall for better-sqlite3)
-- `web-next-setup.sh` - Legacy manual setup if postinstall fails
+---
 
 ## Database Setup
 
-1. **Initialize the Database**:
+Install Node.js 22, pnpm 10+, and `sqlite3` first. From the repository root:
 
-   ```bash
-   python init_db.py
-   ```
+```bash
+cd web-next
+pnpm install --frozen-lockfile
+cp .env.local.example .env.local
+cd ..
+```
 
-   This creates `stuco.db` with:
-   - Main schema from `migrations/schema.sql` (students, cards, accounts, transactions, overdraft_weeks)
-   - Better Auth schema (user, session, account, verification) for web authentication
+Set `DATABASE_PATH` in `web-next/.env.local` to the absolute database path and configure `BETTER_AUTH_SECRET`.
 
-2. **Verify**:
+### 1. Initialize Schema & User Accounts
 
-   ```bash
-   sqlite3 stuco.db ".tables"
-   ```
+For a new installation, initialize the same database path configured above:
 
-   Should show all tables including Better Auth tables (account, session, user, verification).
+```bash
+sqlite3 /absolute/path/to/stuco.db < migrations/schema.sql
+sqlite3 /absolute/path/to/stuco.db < web-next/migrations/better_auth_schema.sql
+./scps-cli users
+```
 
-3. **Optional: Run Migrations** (if needed):
+In the CLI, choose **Create a new user**, then select the **Admin** role. Existing installations should retain their database and environment files.
 
-   ```bash
-   ./scripts/run_migration.sh migrate_cascade_delete.sql
-   ./scripts/run_migration.sh migrate_decimal_currency.sql
-   ```
+### 2. Verify Tables
 
-   See [Database Guide](database.md) for details. Migration files are in `migrations/` directory.
+Verify that the tables were created successfully using the SQLite shell:
+
+```bash
+sqlite3 stuco.db ".tables"
+```
+
+The output should show all core tables as well as the Better Auth system tables (`user`, `session`, `account`, `verification`).
+
+### 3. Optional: Run Database Migrations
+
+If you are upgrading an existing system, migrations are located in the `migrations/` folder and can be applied using the migration script:
+
+```bash
+./scripts/run_migration.sh migrate_cascade_delete.sql
+```
+
+See [Database Guide](database.md) for more details.
 
 ## Web UI Setup
 
@@ -202,13 +190,13 @@ After the script finishes:
 
    For detailed authentication setup, see [Authentication Guide](authentication.md).
 
-6. **Test Database Connection** (optional):
+6. **Check Database Integrity** (use your configured database path):
 
    ```bash
-   node test-db.js
+   sqlite3 /absolute/path/to/stuco.db "PRAGMA integrity_check;"
    ```
 
-   Should output database stats and confirm connection.
+   Expected output: `ok`.
 
 7. **Start Development Server**:
 
@@ -247,26 +235,27 @@ See [Deployment Guide](deployment.md) for production setup.
 
 ## CLI Tools Setup
 
-1. **Python Environment**:
+We provide a unified TypeScript CLI to handle server administration tasks.
 
-   ```bash
-   python -m venv .venv
-   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-   pip install -r requirements.txt  # Installs nfcpy, requests, etc.
-   ```
+### Local CLI Execution (on the VPS)
+No Python environment or local database configuration is needed to run the CLI on the server, as it integrates directly with the Next.js runtime.
 
-2. **Test CLI**:
+1.  Make sure the script is executable:
+    ```bash
+    chmod +x scps-cli
+    ```
+2.  Boot the interactive administration console:
+    ```bash
+    ./scps-cli
+    ```
 
-   ```bash
-   # Enroll a student
-   python enroll.py
-
-   # Top-up (simulate)
-   python topup.py "Student Name" 10.0
-
-   # POS (simulate)
-   python pos.py 6.5 --simulate
-   ```
+### Remote Secure CLI Execution (from your Local Machine)
+To manage the remote production VPS database securely from your local developer machine without SSHing manually:
+1.  Configure your remote VPS parameters in your local `web-next/.env.local` file (see [Deployment Guide](deployment.md#remote-management) for options).
+2.  Launch the secure terminal tunnel:
+    ```bash
+    ./scps-remote-cli
+    ```
 
 ## NFC Setup Quick Start
 
@@ -287,13 +276,13 @@ For full NFC integration (card taps in web UI):
 3. **Test Broadcaster**:
 
    ```bash
-   python tap-broadcaster.py --simulate  # Type UIDs manually
+   python hardware-pi/tap-broadcaster.py --simulate  # Type UIDs manually
    ```
 
    For hardware:
 
    ```bash
-   python tap-broadcaster.py --device tty:AMA0:pn532
+   python hardware-pi/tap-broadcaster.py --device tty:AMA0:pn532
    ```
 
 4. **Run as Service** (see [NFC Setup](nfc-setup.md)).
@@ -326,10 +315,10 @@ For full NFC integration (card taps in web UI):
 4. Add description.
 5. Click "Add".
 
-### CLI POS
+### CLI Ledger adjustments (Top-up / Debit)
 
 ```bash
-python pos.py 6.5 --device tty:AMA0:pn532  # Real hardware
+./scps-cli ledger
 ```
 
 Weekly overdraft: ¥20.0 (resets Monday 00:00 Asia/Shanghai).

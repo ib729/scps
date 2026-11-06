@@ -1,6 +1,6 @@
 #!/bin/bash
 # Quick database reset script
-# This is a simpler alternative to reset_db.py
+# Stop the web server and all database writers before running this script.
 
 set -e
 
@@ -66,7 +66,7 @@ echo "Step 3: Creating fresh database"
 echo "------------------------------------------------------------"
 
 # Initialize database
-python3 init_db.py
+sqlite3 "$DB_FILE" < "$SCHEMA_FILE"
 
 # Apply Better Auth migration
 if [ -f "web-next/migrations/better_auth_schema.sql" ]; then

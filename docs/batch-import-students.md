@@ -75,16 +75,16 @@ Note: You can leave the UID column empty for students who don't have cards yet.
 
 ```bash
 # Basic template (names only)
-python batch_import_students.py --template students.csv
+python hardware-pi/batch_import_students.py --template students.csv
 
 # Template with UID column
-python batch_import_students.py --template --with-uid students_with_cards.csv
+python hardware-pi/batch_import_students.py --template --with-uid students_with_cards.csv
 ```
 
 ### Step 2: Preview the import (dry run)
 
 ```bash
-python batch_import_students.py --dry-run students.csv
+python hardware-pi/batch_import_students.py --dry-run students.csv
 ```
 
 This shows what would be imported without making changes.
@@ -92,32 +92,32 @@ This shows what would be imported without making changes.
 ### Step 3: Import the students
 
 ```bash
-python batch_import_students.py students.csv
+python hardware-pi/batch_import_students.py students.csv
 ```
 
 ### Script Options
 
 ```bash
 # Basic import (skips duplicates)
-python batch_import_students.py students.csv
+python hardware-pi/batch_import_students.py students.csv
 
 # Import students with NFC card UIDs
-python batch_import_students.py students_with_cards.csv
+python hardware-pi/batch_import_students.py students_with_cards.csv
 
 # Preview without importing
-python batch_import_students.py --dry-run students.csv
+python hardware-pi/batch_import_students.py --dry-run students.csv
 
 # Fail on duplicates instead of skipping
-python batch_import_students.py --no-skip-duplicates students.csv
+python hardware-pi/batch_import_students.py --no-skip-duplicates students.csv
 
 # Generate template file (names only)
-python batch_import_students.py --template students.csv
+python hardware-pi/batch_import_students.py --template students.csv
 
 # Generate template with UID column
-python batch_import_students.py --template --with-uid students_with_cards.csv
+python hardware-pi/batch_import_students.py --template --with-uid students_with_cards.csv
 
 # Help and examples
-python batch_import_students.py --help
+python hardware-pi/batch_import_students.py --help
 ```
 
 ### Features
@@ -184,15 +184,9 @@ Import Summary:
 
 If you're importing students with cards, you need to know their UIDs. Here's how to get them:
 
-### Method 1: Using enroll.py in Simulation Mode
+### Method 1: Use the Web Interface
 
-```bash
-# Read a card and display its UID
-python enroll.py --simulate
-# Then tap the card on the reader
-```
-
-The UID will be displayed (e.g., `0E39E996`).
+Open the POS page with the NFC broadcaster running, then tap the card. The enrollment prompt displays the card UID.
 
 ### Method 2: Check Existing Cards in Database
 
@@ -255,7 +249,7 @@ echo "name" > students.csv
 cat names.txt >> students.csv
 
 # Import
-python batch_import_students.py students.csv
+python hardware-pi/batch_import_students.py students.csv
 ```
 
 ## Verifying Imports
@@ -313,7 +307,7 @@ iconv -f ISO-8859-1 -t UTF-8 students_bad.csv > students.csv
 
 2. **Use dry-run first**: Preview imports before committing:
    ```bash
-   python batch_import_students.py --dry-run students.csv
+   python hardware-pi/batch_import_students.py --dry-run students.csv
    ```
 
 3. **Validate your CSV**: Check for:

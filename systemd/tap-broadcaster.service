@@ -8,7 +8,7 @@
 # Example:
 #   User=pi
 #   WorkingDirectory=/home/pi/stuco
-#   ExecStart=/home/pi/stuco/.venv/bin/python -u /home/pi/stuco/tap-broadcaster.py
+#   ExecStart=/home/pi/stuco/.venv/bin/python -u /home/pi/stuco/hardware-pi/tap-broadcaster.py
 # ============================================================================
 
 [Unit]
@@ -29,7 +29,7 @@ Environment="PN532_DEVICE=tty:USB0:pn532"
 ExecStartPre=/path/to/stuco/scripts/reset-usb-nfc.sh USB0
 
 # Main process with unbuffered output
-ExecStart=/path/to/stuco/.venv/bin/python -u /path/to/stuco/tap-broadcaster.py
+ExecStart=/path/to/stuco/.venv/bin/python -u /path/to/stuco/hardware-pi/tap-broadcaster.py
 
 # Post-stop: Allow cleanup time
 ExecStopPost=/bin/sleep 1

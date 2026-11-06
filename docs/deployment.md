@@ -4,9 +4,9 @@ This guide covers production deployment options for the Student Council Payment 
 
 ## Prerequisites
 
-- Production-ready server (Raspberry Pi 4B+ or Linux server)
-- Domain name (optional, for SSL)
-- Node.js 20+, Python 3.9+, pnpm installed
+- Production-ready server (Standard Linux Cloud VPS: Debian 12 / Ubuntu 22.04+)
+- Domain name and DNS records configured (for SSL)
+- Node.js 22+, Python 3.9+, pnpm installed on the VPS
 - Build tools installed (see [Getting Started](getting-started.md))
 
 ## Recommended VPS Flow
@@ -98,7 +98,7 @@ services:
     
   tap-broadcaster:
     image: python:3.11-slim
-    command: python /app/tap-broadcaster.py --device tty:AMA0:pn532
+    command: python /app/hardware-pi/tap-broadcaster.py --device tty:AMA0:pn532
     environment:
       - NEXTJS_URL=http://web:3000
       - NFC_TAP_SECRET=${NFC_TAP_SECRET}
@@ -152,7 +152,7 @@ Environment="NEXTJS_URL=http://localhost:3000"
 Environment="NFC_TAP_SECRET=your-production-secret"
 Environment="POS_LANE_ID=default"
 Environment="PN532_DEVICE=tty:AMA0:pn532"
-ExecStart=/home/stuco/stuco/.venv/bin/python /home/stuco/stuco/tap-broadcaster.py
+ExecStart=/home/stuco/stuco/.venv/bin/python /home/stuco/stuco/hardware-pi/tap-broadcaster.py
 Restart=always
 RestartSec=5
 
@@ -666,6 +666,35 @@ sudo nano /etc/systemd/system/stuco-web.service
 sudo systemctl daemon-reload
 sudo systemctl restart stuco-web
 ```
+
+## Remote Secure Management
+
+To manage your production VPS database securely from your local developer machine without having to manually log in and browse directories every time, use the root SSH-tunnel script `scps-remote-cli`.
+
+### 1. Local Configuration
+
+Add your remote VPS deployment parameters to your local `web-next/.env.local` file (on your local development machine):
+
+```bash
+# Production VPS SSH Parameters
+SCPS_VPS_HOST=157.180.68.183              # Your remote server IP or domain
+SCPS_VPS_USER=root                         # SSH user (default: current system user)
+SCPS_VPS_DIR=/home/qiss/scps               # The absolute path to your repo on the VPS
+SCPS_VPS_PORT=22                          # SSH port (default: 22)
+SCPS_VPS_SSH_KEY=~/.ssh/id_ed25519         # Optional: Path to private key file
+```
+
+### 2. Execution
+
+From the root of your local repository, launch the connection tunnel:
+
+```bash
+./scps-remote-cli
+```
+
+This allocates a secure interactive pseudo-terminal (`ssh -t`), enabling the remote administrative CLI prompts and selection menus to render natively in your local terminal.
+
+---
 
 ## Security Checklist
 

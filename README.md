@@ -1,9 +1,5 @@
 # Student Council Payment System (SCPS)
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/Platform-Raspberry%20Pi%204-C51A4A?logo=raspberrypi)](https://www.raspberrypi.com/)
-[![Donate Bitcoin](https://img.shields.io/badge/Donate-Bitcoin-orange?logo=bitcoin&logoColor=white)](#supporting-this-project)
-
 A complete NFC-based payment system for managing student snack bar purchases. Tap contactless cards for instant payments with real-time dashboard monitoring.
 
 ---
@@ -19,34 +15,47 @@ A complete NFC-based payment system for managing student snack bar purchases. Ta
 
 ---
 
-## Platform
+## Platform Architecture
 
-Built for **Raspberry Pi 4 Model B** running **Raspberry Pi OS (64-bit)**
+The Student Council Payment System is split into a central server and client tap nodes:
 
-Tested on:
-- Raspberry Pi 4 Model B (8GB RAM recommended)
-- Raspberry Pi OS (Bookworm or later)
-- Debian-based Linux distributions
-- Arch Linux
+*   **Primary Server:** Hosted on a standard **Linux Cloud VPS (Debian 12 / Ubuntu 22.04+)**. This runs the central Next.js server, hosts the SQLite database, and handles authentication.
+*   **IoT NFC Client Node:** Hosted on a **Raspberry Pi 4 Model B** running **Raspberry Pi OS (64-bit)**. This acts as the physical tap reader node, running a background service to stream card scans over WebSockets to the server.
 
 ---
 
 ## Quick Start
 
-### 1. Initialize the Database
+Requires Node.js 22, pnpm 10+, and `sqlite3`.
 
-```bash
-python init_db.py
-```
-
-### 2. Install Web Dependencies
+### 1. Install Dependencies and Configure the Environment
 
 ```bash
 cd web-next
-pnpm install
+pnpm install --frozen-lockfile
+cp .env.local.example .env.local
+cd ..
 ```
 
+Edit `web-next/.env.local`: set `DATABASE_PATH` to the absolute path of your database and generate `BETTER_AUTH_SECRET` with `openssl rand -base64 32`.
+
+### 2. Initialize a New Database and Create an Admin User
+
+For a new installation only (use the same database path configured above):
+
+```bash
+sqlite3 /absolute/path/to/stuco.db < migrations/schema.sql
+sqlite3 /absolute/path/to/stuco.db < web-next/migrations/better_auth_schema.sql
+./scps-cli users
+```
+
+Existing installations should keep their database and environment files.
+
 ### 3. Run the Web Interface
+
+```bash
+cd web-next
+```
 
 **Development mode:**
 ```bash
@@ -59,7 +68,7 @@ pnpm build
 pnpm start
 ```
 
-Open http://localhost:3000 and create your admin account.
+Open http://localhost:3000 to log in to the dashboard.
 
 ### 4. Next Steps
 
@@ -69,19 +78,23 @@ Open http://localhost:3000 and create your admin account.
 
 ---
 
-## CLI Tools
+## Administrative CLI Tools
 
-Quick operations from the command line:
+Manage your production stack securely using our unified TypeScript CLI launchers located at the root of the repository:
 
-- `pos.py` - Process payments via NFC card taps
-- `topup.py` - Add money to student accounts
-- `enroll.py` - Register new students and link NFC cards
-- `tap-broadcaster.py` - Broadcast NFC taps to the web interface in real-time
-
-**Example:**
+### Local Execution (on the Server/VPS)
+Run the CLI directly on the server to manage accounts, balances, and imports interactively:
 ```bash
-python pos.py 6.5  # Charge ¥6.5 per tap
+./scps-cli
 ```
+
+### Remote Secure Control (from your Local Machine)
+If your database is hosted on a remote production VPS, run the secure SSH-tunnel launcher to control the remote database interactively from your local terminal:
+```bash
+./scps-remote-cli
+```
+
+NFC broadcaster, CSV import, and hardware diagnostics live in `hardware-pi/`. The old Python POS, enrollment, top-up, and database-management entry points have been replaced by the web interface and administrative CLI.
 
 ---
 
@@ -89,17 +102,17 @@ python pos.py 6.5  # Charge ¥6.5 per tap
 
 ### Getting Started
 - [Getting Started](docs/getting-started.md) - Installation and prerequisites
-- [Deployment Guide](docs/deployment.md) - Production setup with Docker, systemd, and SSL
+- [Deployment Guide](docs/deployment.md) - Production Nginx reverse proxy, SSL, and systemd
 - [Security Guide](docs/security-guide.md) - Best practices for securing your system
 
 ### Configuration
 - [Authentication](docs/authentication.md) - Set up Better Auth for the web interface
-- [NFC Setup](docs/nfc-setup.md) - Configure PN532 card readers
+- [NFC Setup](docs/nfc-setup.md) - Configure PN532 card readers on client nodes
 - [Database Guide](docs/database.md) - Schema details and migrations
 
 ### Usage
 - [User Guide](docs/user-guide.md) - Day-to-day operations
-- [Scripts Reference](docs/scripts.md) - Utility scripts and tools
+- [Scripts Reference](docs/scripts.md) - Administrative CLI reference and utilities
 
 ### Development
 - [Development Guide](docs/development.md) - Architecture and extending the system

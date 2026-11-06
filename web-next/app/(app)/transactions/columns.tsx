@@ -71,6 +71,7 @@ export const columns: ColumnDef<TransactionWithStudent>[] = [
         <Button
           variant="ghost"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          className="-ml-4"
         >
           ID
           <ArrowUpDown className="ml-2 h-4 w-4" />
@@ -80,7 +81,7 @@ export const columns: ColumnDef<TransactionWithStudent>[] = [
     cell: ({ row }) => {
       const tx = row.original;
       return (
-        <div className="flex items-center gap-1 px-4">
+        <div className="flex items-center gap-1">
           <span className="font-mono text-xs">{tx.id}</span>
           <CopyButton txId={tx.id} />
         </div>
@@ -94,6 +95,7 @@ export const columns: ColumnDef<TransactionWithStudent>[] = [
         <Button
           variant="ghost"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          className="-ml-4"
         >
           Date
           <ArrowUpDown className="ml-2 h-4 w-4" />
@@ -103,7 +105,7 @@ export const columns: ColumnDef<TransactionWithStudent>[] = [
     cell: ({ row }) => {
       const tx = row.original;
       return (
-        <div className="px-4 text-sm">
+        <div className="text-sm">
           {new Date(tx.created_at + "Z").toLocaleString("en-US", {
             year: "numeric",
             month: "2-digit",
@@ -127,6 +129,7 @@ export const columns: ColumnDef<TransactionWithStudent>[] = [
         <Button
           variant="ghost"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          className="-ml-4"
         >
           Customer
           <ArrowUpDown className="ml-2 h-4 w-4" />
@@ -136,14 +139,12 @@ export const columns: ColumnDef<TransactionWithStudent>[] = [
     cell: ({ row }) => {
       const tx = row.original;
       return (
-        <div className="px-4">
-          <Link
-            href={`/customers/${tx.student_id}`}
-            className="hover:underline font-medium"
-          >
-            {tx.student_name}
-          </Link>
-        </div>
+        <Link
+          href={`/customers/${tx.student_id}`}
+          className="hover:underline font-medium"
+        >
+          {tx.student_name}
+        </Link>
       );
     },
   },
@@ -219,6 +220,7 @@ export const columns: ColumnDef<TransactionWithStudent>[] = [
         <Button
           variant="ghost"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          className="-ml-4"
         >
           Amount
           <ArrowUpDown className="ml-2 h-4 w-4" />
@@ -230,7 +232,7 @@ export const columns: ColumnDef<TransactionWithStudent>[] = [
       const sign = tx.amount > 0 ? "+" : tx.amount < 0 ? "-" : "";
 
       return (
-        <div className="px-4 min-w-[100px]">
+        <div className="min-w-[100px]">
           <span
             className={`font-bold whitespace-nowrap ${
               tx.amount >= 0 ? "text-green-600" : "text-red-600"
