@@ -6,14 +6,14 @@ Quick reference for importing students into the database.
 
 ```bash
 # Generate a template with UID column
-python batch_import_students.py --template --with-uid students.csv
+python hardware-pi/batch_import_students.py --template --with-uid students.csv
 
 # Edit the CSV file with your students
 # Then preview the import
-python batch_import_students.py --dry-run students.csv
+python hardware-pi/batch_import_students.py --dry-run students.csv
 
 # If it looks good, import for real
-python batch_import_students.py students.csv
+python hardware-pi/batch_import_students.py students.csv
 ```
 
 ## Method 1: SQL (Simplest for Small Lists)
@@ -46,7 +46,7 @@ Jane Smith
 ```
 
 ```bash
-python batch_import_students.py students.csv
+python hardware-pi/batch_import_students.py students.csv
 ```
 
 ## Method 3: CSV with Names and Card UIDs (Recommended)
@@ -62,7 +62,7 @@ Bob Wilson,
 ```
 
 ```bash
-python batch_import_students.py students_with_cards.csv
+python hardware-pi/batch_import_students.py students_with_cards.csv
 ```
 
 ## Real-World Example
@@ -82,7 +82,7 @@ Student Three,
 3. **Preview the import:**
 
 ```bash
-python batch_import_students.py --dry-run new_students.csv
+python hardware-pi/batch_import_students.py --dry-run new_students.csv
 ```
 
 Output:
@@ -109,7 +109,7 @@ Import Summary:
 4. **Import for real:**
 
 ```bash
-python batch_import_students.py new_students.csv
+python hardware-pi/batch_import_students.py new_students.csv
 ```
 
 ## Tips

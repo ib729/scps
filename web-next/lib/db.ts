@@ -14,7 +14,7 @@ const dbPathCandidates = envDbPath
   ? [envDbPath]
   : fallbackDbLocations;
 
-const dbPath = dbPathCandidates.find((candidate) => fs.existsSync(candidate));
+export const dbPath = dbPathCandidates.find((candidate) => fs.existsSync(candidate));
 
 if (!dbPath) {
   const triedPaths = envDbPath ? dbPathCandidates : fallbackDbLocations;
@@ -79,6 +79,27 @@ function ensureApplicationSchema(database: Database.Database) {
       updated_at TEXT NOT NULL DEFAULT (datetime('now')),
       FOREIGN KEY(user_id) REFERENCES user(id) ON DELETE CASCADE
     );
+
+    CREATE TABLE IF NOT EXISTS wechat_topup_requests (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      student_id INTEGER NOT NULL,
+      requested_amount INTEGER NOT NULL,
+      payable_amount INTEGER NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'approved', 'rejected', 'expired', 'cancelled')),
+      created_by_user_id TEXT NOT NULL,
+      created_by_name TEXT,
+      internal_note TEXT,
+      review_note TEXT,
+      reviewed_by_user_id TEXT,
+      reviewed_by_name TEXT,
+      approved_transaction_id INTEGER,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      expires_at TEXT NOT NULL,
+      claimed_at TEXT,
+      reviewed_at TEXT,
+      FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE RESTRICT,
+      FOREIGN KEY(approved_transaction_id) REFERENCES transactions(id) ON DELETE SET NULL
+    );
   `);
 
   if (!hasColumn(database, "students", "archived")) {
@@ -123,6 +144,22 @@ function ensureApplicationSchema(database: Database.Database) {
       if (
         !(error instanceof Error) ||
         !error.message.includes("duplicate column name: payment_method")
+      ) {
+        throw error;
+      }
+    }
+  }
+
+  if (!hasColumn(database, "wechat_topup_requests", "claimed_at")) {
+    try {
+      database.exec(`
+        ALTER TABLE wechat_topup_requests
+        ADD COLUMN claimed_at TEXT;
+      `);
+    } catch (error) {
+      if (
+        !(error instanceof Error) ||
+        !error.message.includes("duplicate column name: claimed_at")
       ) {
         throw error;
       }
@@ -231,6 +268,12 @@ function ensureApplicationSchema(database: Database.Database) {
 
     CREATE INDEX IF NOT EXISTS idx_transaction_note_history_transaction_id_edited_at
     ON transaction_note_history(transaction_id, edited_at DESC, id DESC);
+
+    CREATE INDEX IF NOT EXISTS idx_wechat_topup_requests_status_expires_at
+    ON wechat_topup_requests(status, expires_at);
+
+    CREATE INDEX IF NOT EXISTS idx_wechat_topup_requests_created_at
+    ON wechat_topup_requests(created_at DESC, id DESC);
   `);
 
   const adminCount = database

@@ -1,6 +1,9 @@
 # Dual NFC Reader Setup Guide
 
-This guide explains how to run two NFC readers simultaneously with per-staff filtering.
+> [!IMPORTANT]
+> **Architectural Alignment:** This guide covers configuring physical **dual card reader connections** on a local **Raspberry Pi POS client register node**. The central Next.js server and database backend are hosted remotely on your **Cloud VPS**, which listens for and routes the WebSocket tap broadcasts coming from both connected readers.
+
+This guide explains how to run two NFC readers simultaneously with per-staff filtering on your local Raspberry Pi POS registers.
 
 ## Overview
 
@@ -61,7 +64,7 @@ The system now supports multiple NFC readers working simultaneously:
 The broadcaster will auto-detect ttyUSB0 and identify as `reader-1`:
 
 ```bash
-python tap-broadcaster.py --url http://localhost:3000 --secret YOUR_SECRET
+python hardware-pi/tap-broadcaster.py --url http://localhost:3000 --secret YOUR_SECRET
 ```
 
 Expected output:
@@ -92,7 +95,7 @@ Expected output:
 In a new terminal, start the second broadcaster. It will auto-detect ttyUSB1:
 
 ```bash
-python tap-broadcaster.py --url http://localhost:3000 --secret YOUR_SECRET
+python hardware-pi/tap-broadcaster.py --url http://localhost:3000 --secret YOUR_SECRET
 ```
 
 Expected output:
@@ -202,10 +205,10 @@ The first broadcaster that successfully opens a reader "locks" it. Start broadca
 2. Or manually specify device and lane:
    ```bash
    # Broadcaster 1:
-   python tap-broadcaster.py --device tty:USB0:pn532 --lane reader-1
+   python hardware-pi/tap-broadcaster.py --device tty:USB0:pn532 --lane reader-1
 
    # Broadcaster 2:
-   python tap-broadcaster.py --device tty:USB1:pn532 --lane reader-2
+   python hardware-pi/tap-broadcaster.py --device tty:USB1:pn532 --lane reader-2
    ```
 
 ## Running as Services
@@ -226,7 +229,7 @@ User=$USER
 WorkingDirectory=$PROJECT_ROOT
 Environment="NEXTJS_URL=http://localhost:3000"
 Environment="NFC_TAP_SECRET=your-secret-here"
-ExecStart=/usr/bin/python3 $PROJECT_ROOT/tap-broadcaster.py
+ExecStart=/usr/bin/python3 $PROJECT_ROOT/hardware-pi/tap-broadcaster.py
 Restart=always
 RestartSec=10
 
@@ -248,7 +251,7 @@ User=$USER
 WorkingDirectory=$PROJECT_ROOT
 Environment="NEXTJS_URL=http://localhost:3000"
 Environment="NFC_TAP_SECRET=your-secret-here"
-ExecStart=/usr/bin/python3 $PROJECT_ROOT/tap-broadcaster.py
+ExecStart=/usr/bin/python3 $PROJECT_ROOT/hardware-pi/tap-broadcaster.py
 Restart=always
 RestartSec=10
 # Add 5 second delay to ensure reader-1 connects first
@@ -333,7 +336,7 @@ If auto-detection doesn't work or you need specific mappings:
 
 ```bash
 # Force specific reader assignment:
-python tap-broadcaster.py \
+python hardware-pi/tap-broadcaster.py \
   --device tty:USB0:pn532 \
   --lane reader-1 \
   --url http://localhost:3000 \
@@ -346,11 +349,11 @@ Test filtering without hardware:
 
 ```bash
 # Terminal 1 (simulate reader-1):
-python tap-broadcaster.py --simulate --lane reader-1
+python hardware-pi/tap-broadcaster.py --simulate --lane reader-1
 > ABC123
 
 # Terminal 2 (simulate reader-2):
-python tap-broadcaster.py --simulate --lane reader-2
+python hardware-pi/tap-broadcaster.py --simulate --lane reader-2
 > DEF456
 ```
 

@@ -188,7 +188,7 @@ pnpm install
 
 **Solution**:
 
-Since v2.0+, Better Auth tables are automatically created by `init_db.py` and reset scripts. If you're using an older database or manually reset it, run:
+Apply the core and Better Auth SQL schemas when creating a database. For an existing database without authentication tables, run:
 
 ```bash
 cd web-next
@@ -208,7 +208,7 @@ Should return all 4 table names.
 **Solutions**:
 
 1. **Check Better Auth Tables**: Run the verification command above to ensure auth tables exist
-2. **Run Database Init**: If starting fresh, use `python init_db.py` (automatically includes Better Auth tables)
+2. **Initialize a New Database**: Apply `migrations/schema.sql` and `web-next/migrations/better_auth_schema.sql` to the configured database path.
 3. **Check DATABASE_PATH**: Must be absolute path in `.env.local`
 4. **Verify Permissions**: Database file must be readable/writable by the web server user
 
@@ -265,7 +265,7 @@ After setup, verify authentication works:
 **Solutions**:
 1. Check `.env.local`: `DATABASE_PATH=/absolute/path/to/stuco.db`.
 2. Verify file: `ls -l stuco.db` (readable/writable).
-3. Test: `cd web-next && node test-db.js`.
+3. Test: `sqlite3 /absolute/path/to/stuco.db "PRAGMA integrity_check;"`.
 4. Permissions: `chmod 666 stuco.db`.
 
 ### "500 Internal Server Error" on Pages
@@ -274,7 +274,7 @@ After setup, verify authentication works:
 
 **Solutions**:
 1. Check browser console/server logs.
-2. Ensure DB initialized: `python init_db.py`.
+2. Ensure the configured DB has the core and Better Auth schemas; see [Getting Started](getting-started.md).
 3. Run migrations if schema outdated.
 4. Restart: `pnpm dev`.
 
@@ -318,7 +318,7 @@ After setup, verify authentication works:
 
 **Solutions**:
 1. Check device: `lsusb` (USB) or `ls /dev/ttyAMA*` (UART).
-2. Test CLI: `nfc-list` (libnfc) or `python tap-broadcaster.py --device <dev>`.
+2. Test CLI: `nfc-list` (libnfc) or `python hardware-pi/tap-broadcaster.py --device <dev>`.
 3. Permissions: `sudo usermod -aG dialout,i2c $USER` (relogin).
 4. Wiring: Verify PN532 pins (UART: TX/RX/GND/3.3V).
 
@@ -348,7 +348,7 @@ After setup, verify authentication works:
 
 **Solutions**:
 1. Logs: `journalctl -u tap-broadcaster -f`.
-2. Test: `python tap-broadcaster.py --test`.
+2. Test: `python hardware-pi/tap-broadcaster.py --test`.
 3. URL: Verify NEXTJS_URL reachable.
 4. Secret: Matches web UI.
 
@@ -559,13 +559,9 @@ In these cases, use the fix-readers.sh script or check physical connections.
 
 ## CLI Issues
 
-### pos.py: "Unknown/inactive card"
+### Unknown or Inactive Card
 
-**Solution**: Enroll card: `python enroll.py` or web UI.
-
-### topup.py: Float Errors
-
-**Solution**: Update to decimal support (post-migration).
+Enroll the card through the web POS or Students page. Use `./scps-cli ledger` for administrative balance adjustments.
 
 ### NFC Import Error
 

@@ -117,3 +117,37 @@ export type UserPreferences = {
   pos_default_mode: PosDefaultMode;
   updated_at: string;
 };
+
+export const wechatTopupRequestStatusValues = [
+  "pending",
+  "approved",
+  "rejected",
+  "expired",
+  "cancelled",
+] as const;
+
+export type WechatTopupRequestStatus =
+  (typeof wechatTopupRequestStatusValues)[number];
+
+export type WechatTopupRequest = {
+  id: number;
+  student_id: number;
+  requested_amount: number;
+  payable_amount: number;
+  status: WechatTopupRequestStatus;
+  created_by_user_id: string;
+  created_by_name: string | null;
+  internal_note: string | null;
+  review_note: string | null;
+  reviewed_by_user_id: string | null;
+  reviewed_by_name: string | null;
+  approved_transaction_id: number | null;
+  created_at: string;
+  expires_at: string;
+  claimed_at: string | null;
+  reviewed_at: string | null;
+};
+
+export type WechatTopupRequestWithStudent = WechatTopupRequest & {
+  student_name: string;
+};

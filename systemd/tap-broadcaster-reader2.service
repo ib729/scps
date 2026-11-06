@@ -8,7 +8,7 @@
 # Example:
 #   User=pi
 #   WorkingDirectory=/home/pi/stuco
-#   ExecStart=/home/pi/stuco/.venv/bin/python -u /home/pi/stuco/tap-broadcaster.py
+#   ExecStart=/home/pi/stuco/.venv/bin/python -u /home/pi/stuco/hardware-pi/tap-broadcaster.py
 # ============================================================================
 
 [Unit]
@@ -32,7 +32,7 @@ ExecStartPre=/home/qiss/scps/scripts/reset-usb-nfc.sh USB1
 ExecStartPre=/bin/sleep 5
 
 # Main process with unbuffered output
-ExecStart=/home/qiss/scps/.venv/bin/python -u /home/qiss/scps/tap-broadcaster.py
+ExecStart=/home/qiss/scps/.venv/bin/python -u /home/qiss/scps/hardware-pi/tap-broadcaster.py
 
 # Post-stop: Allow cleanup time
 ExecStopPost=/bin/sleep 1

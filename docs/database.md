@@ -4,7 +4,7 @@ The system uses a single SQLite database (`stuco.db`) shared between CLI tools a
 
 ## Schema
 
-The database is initialized with `python init_db.py`, which runs `migrations/schema.sql`.
+Initialize a new database with `sqlite3 stuco.db < migrations/schema.sql`, then `sqlite3 stuco.db < web-next/migrations/better_auth_schema.sql`. Substitute the path configured in `DATABASE_PATH`, then run `./scps-cli users` to create an administrator.
 
 ### Full Schema (schema.sql)
 
@@ -110,11 +110,10 @@ export default db;
 **Test Connection**:
 
 ```bash
-cd web-next
-node test-db.js
+sqlite3 /absolute/path/to/stuco.db "PRAGMA integrity_check;"
 ```
 
-Outputs tables, student count, balances, transactions.
+Expected output: `ok`. Use the database path from `.env.local`.
 
 ### Compatibility
 
@@ -191,23 +190,14 @@ tar -czf stuco_backup_$(date +%Y%m%d_%H%M%S).tar.gz stuco.db stuco.db-wal stuco.
 
 ### Database Reset
 
-**Production Reset Script (`reset_db.py`):**
-```bash
-python reset_db.py
-# Interactive: prompts for confirmation, creates backup, optional admin user
-```
+Stop the web server and all database writers first. From the repository root:
 
-Features:
-- Automatic backup to `db_backups/` directory
-- Confirmation prompt (type 'RESET')
-- Optional admin user creation with password hashing
-- Timestamped backups
-
-**Quick Reset Script (`reset_db.sh`):**
 ```bash
 ./scripts/reset_db.sh
-# Simpler bash version, auto-backups and reinitializes
+./scps-cli users
 ```
+
+The reset script backs up and replaces the root `stuco.db` after confirmation. It does not follow `DATABASE_PATH`; do not use it to reset a database at another path. Recreate your administrator with the CLI afterward.
 
 ### Migration Runner
 
@@ -369,7 +359,8 @@ For more, see [Troubleshooting](troubleshooting.md).
 **Common Commands:**
 ```bash
 # Initialize database
-python init_db.py
+sqlite3 stuco.db < migrations/schema.sql
+sqlite3 stuco.db < web-next/migrations/better_auth_schema.sql
 
 # View schema
 sqlite3 stuco.db ".schema"
@@ -380,9 +371,8 @@ sqlite3 stuco.db ".tables"
 # Query students with balances
 sqlite3 stuco.db "SELECT s.name, a.balance FROM students s JOIN accounts a ON s.id = a.student_id;"
 
-# Backup
-./scripts/reset_db.sh  # Full reset with backup
-python reset_db.py  # Interactive reset
+# Reset (destructive; stop all database writers first)
+./scripts/reset_db.sh
 
 # Migrations
 ./scripts/run_migration.sh migration_file.sql

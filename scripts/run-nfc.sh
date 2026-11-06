@@ -27,5 +27,5 @@ echo "  Device: $PN532_DEVICE"
 echo "  Secret: $([ -n "$NFC_TAP_SECRET" ] && echo "configured" || echo "NOT SET")"
 echo
 
-python tap-broadcaster.py "$@"
+python hardware-pi/tap-broadcaster.py "$@"
 

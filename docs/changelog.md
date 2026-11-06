@@ -1,5 +1,22 @@
 # Change Log
 
+## 2026-11-06
+
+### Changed
+- Integrated the SourceHut `master` history into the GitHub `main` history using their matching April application snapshot, retaining destination-only agent tooling and the latest README removals.
+- Moved NFC broadcaster, CSV import, and diagnostics to `hardware-pi/`; replaced legacy Python administration with `scps-cli` and `scps-remote-cli`.
+- Updated setup/reset scripts and documentation for the removed Python entry points.
+
+### Added
+- Manual WeChat top-up requests at `/wcp`, with Telegram payment review. Configure the Telegram bot, chat, webhook secret, and reviewer allowlist before accepting payments. Supply your own QR image as a same-origin public path; external image hosts are blocked by CSP.
+- Isolated CLI and payment ledger self-checks. From `web-next/`, run `node_modules/.bin/tsx app/cli/self-check.ts` and `node --import tsx --test lib/repositories/wechat-topup-requests.test.ts`.
+
+### Fixed
+- CLI credential creation/reset now matches Better Auth's provider and timestamp format; configuration loads before database resolution.
+- CLI CSV import targets the active database; ledger input validation and updates preserve account/transaction consistency.
+- Database import validates compatible backups and restores through SQLite without deleting open WAL/SHM files. Stop other writers before deliberate rollback.
+- Payment dialogs follow refreshed request state and local expiry; saved payment claims can resend failed Telegram review notifications without paying again.
+
 ## 2025-11-18
 
 ### Added
