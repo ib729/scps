@@ -61,3 +61,36 @@ test("open browser sockets stop receiving NFC identifiers when their exact sessi
     await server.close();
   }
 });
+
+test("authenticated remote readers drive per-lane HTTP readiness and missing protocol pong disconnects", async () => {
+  const server = await startTestServer();
+  const sockets: WebSocket[] = [];
+  try {
+    const login = await fetch(server.baseURL+"/api/auth/sign-in/email",{method:"POST",headers:{"Content-Type":"application/json",Origin:server.baseURL},body:JSON.stringify({email:"staff@example.test",password:"scps-test-password-123"})});
+    const cookie=login.headers.getSetCookie().map(c=>c.split(";")[0]).join("; ");
+    async function status(lane="reader-1") {
+      const response=await fetch(server.baseURL+`/api/nfc/status?reader=${lane}`,{headers:{Cookie:cookie}});
+      assert.equal(response.status,200);return (await response.json()).data;
+    }
+    async function connect(lane="reader-1",role="broadcaster",secret="scps-test-only-nfc-secret-2026",autoPong=true) {
+      const ws=new WebSocket(server.baseURL.replace("http:","ws:")+`/api/nfc/ws?lane=${lane}`,{autoPong,headers:{Origin:server.baseURL,Cookie:cookie}});
+      sockets.push(ws);await once(ws,"open");const reply=waitMessage(ws);ws.send(JSON.stringify({type:"auth",role,secret,lane}));await reply;return ws;
+    }
+    async function disconnect(ws: WebSocket) {const closed=once(ws,"close");ws.close();await closed;}
+    assert.equal((await status()).connected,false);
+    await connect("reader-1","client");await connect("reader-1","broadcaster","wrong");
+    assert.equal((await status()).connected,false);
+    const first=await connect();assert.equal((await status()).message,"Reader 1 broadcaster connected; hardware health unknown");
+    const second=await connect();await disconnect(first);assert.equal((await status()).connected,true);
+    assert.equal((await status("reader-2")).connected,false);
+    const other=await connect("reader-2");assert.equal((await status("reader-2")).connected,true);
+    await disconnect(second);assert.equal((await status()).message,"Reader 1 broadcaster disconnected");
+    await disconnect(other);
+    const silent=await connect("reader-1","broadcaster","scps-test-only-nfc-secret-2026",false);
+    const closed=once(silent,"close",{signal:AbortSignal.timeout(65000)});await closed;
+    assert.equal((await status()).connected,false);
+  } finally {
+    await Promise.all(sockets.filter(ws=>ws.readyState!==WebSocket.CLOSED).map(async ws=>{const closed=once(ws,"close");ws.terminate();await closed;}));
+    await server.close();
+  }
+});

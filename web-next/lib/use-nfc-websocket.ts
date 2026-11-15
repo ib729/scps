@@ -65,7 +65,7 @@ interface UseNFCWebSocketReturn {
   isWebSocketConnected: boolean;
 
   /**
-   * Whether the selected physical NFC reader appears connected
+   * Whether the selected reader's authenticated broadcaster is online; hardware health is unknown
    */
   isReaderConnected: boolean;
   

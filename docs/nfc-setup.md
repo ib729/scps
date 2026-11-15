@@ -5,6 +5,8 @@
 
 This guide sets up NFC tap support for the Student Council Payment System POS, enabling card taps on local client registers to auto-select students in the remote web UI.
 
+The POS indicator and authenticated `/api/nfc/status?reader=reader-1` report the selected lane's authenticated broadcaster network presence. “Broadcaster connected; hardware health unknown” does not prove PN532 health. Reader sockets answer WebSocket protocol ping/pong automatically; missing the next heartbeat removes readiness. No USB device or systemd service is required on the central server.
+
 ## Overview
 
 **NFC Flow (POS Only)**:

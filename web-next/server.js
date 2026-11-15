@@ -15,6 +15,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const { resolveDatabasePath } = require('./lib/database-path.cjs');
 const Database = require('better-sqlite3');
+const { registerReader } = require('./lib/nfc-readers.cjs');
 
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = process.env.HOSTNAME || 'localhost';
@@ -401,6 +402,9 @@ function handleWebSocketConnection(ws, request) {
   let authenticated = false;
   let pingInterval = null;
   let tapUnsubscribe = null;
+  let unregisterReader = null;
+  let alive = true;
+  ws.on('pong', () => { alive = true; });
 
   // Connection tracking and metadata
   const connectionId = ++connectionCounter;
@@ -535,6 +539,7 @@ function handleWebSocketConnection(ws, request) {
       };
 
       authenticated = true;
+      unregisterReader = registerReader(connectionInfo.lane, ws);
 
       console.log(`[WS #${connectionId}] ✓ Broadcaster authenticated successfully (lane: ${connectionInfo.lane})`);
 
@@ -664,12 +669,15 @@ function handleWebSocketConnection(ws, request) {
   // Start ping/pong interval
   function startPingInterval() {
     pingInterval = setInterval(() => {
-      if (ws.readyState === ws.OPEN) {
-        ws.send(JSON.stringify({ type: 'ping' }));
-      } else {
-        if (pingInterval) clearInterval(pingInterval);
+      if (!alive || ws.readyState !== ws.OPEN) {
+        if (unregisterReader) unregisterReader();
+        clearInterval(pingInterval);
+        ws.terminate();
+        return;
       }
-    }, 30000); // Ping every 30 seconds
+      alive = false;
+      ws.ping();
+    }, 30000);
   }
 
   // Handle connection close
@@ -678,6 +686,7 @@ function handleWebSocketConnection(ws, request) {
     console.log(`[WS #${connectionId}] Connection closed (code: ${code}, reason: ${reason || 'none'}, duration: ${(duration / 1000).toFixed(1)}s, role: ${connectionInfo?.role || 'unauthenticated'})`);
     
     // Cleanup
+    if (unregisterReader) unregisterReader();
     if (pingInterval) {
       clearInterval(pingInterval);
     }
@@ -689,6 +698,7 @@ function handleWebSocketConnection(ws, request) {
 
   // Handle errors
   ws.on('error', (error) => {
+    if (unregisterReader) unregisterReader();
     console.error(`[WS #${connectionId}] Socket error:`, error);
   });
 }

@@ -12,6 +12,7 @@
 - Currency startup conversion now locks before reading the scale marker and commits all cent values and metadata together. Unknown markers, invalid amounts and overflow roll back. Historical ledger usage is not rewritten.
 - Protected HTTP requests always check the database session, including old cache cookies. CLI password resets atomically revoke only that user's sessions; failed revocation rolls back the credential change.
 - Every matching-lane NFC delivery rechecks the original signed session's current user, staff role and finite expiry. Revoked, expired or demoted sockets close 1008 without receiving the next identifier; duplicate authentication and malformed cookies are rejected.
+- NFC readiness tracks authenticated remote broadcasters per lane, not local USB/systemd state. Protocol ping/pong removes stale connections; connected means network presence, not confirmed reader hardware health.
 
 ## 2026-11-06
 
