@@ -1,15 +1,5 @@
-# ============================================================================
-# INSTALLATION INSTRUCTIONS
-# ============================================================================
-# Before installing this service file, render these placeholders:
-# 1. __RUN_USER__
-# 2. __REPO_ROOT__
-#
-# Example:
-#   User=pi
-#   WorkingDirectory=/home/pi/stuco/web-next
-#   ExecStart=/usr/bin/env pnpm start
-# ============================================================================
+# Render __RUN_USER__, __REPO_ROOT__, __NODE_EXEC__ and __RUN_PATH__ with
+# tools/ops/setup-debian.ts before installing this unit.
 
 [Unit]
 Description=SCPS Web Server (Next.js with WebSocket)
@@ -18,12 +8,13 @@ After=network.target
 [Service]
 Type=simple
 User=__RUN_USER__
-WorkingDirectory=__REPO_ROOT__/web-next
+WorkingDirectory="__REPO_ROOT__/web-next"
 Environment="NODE_ENV=production"
 Environment="PORT=3000"
 Environment="HOSTNAME=0.0.0.0"
 Environment="NEXT_TELEMETRY_DISABLED=1"
-ExecStart=/usr/bin/env pnpm start
+Environment="PATH=__RUN_PATH__"
+ExecStart="__NODE_EXEC__" --import tsx server.ts
 StandardOutput=journal
 StandardError=journal
 Restart=always

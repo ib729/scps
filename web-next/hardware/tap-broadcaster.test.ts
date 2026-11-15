@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { once } from "node:events";
 import { watch } from "node:fs";
 import { mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
@@ -16,6 +16,16 @@ const fixtureDevice = "pn532_i2c:/dev/i2c-1";
 const entrypoint = fileURLToPath(new URL("./tap-broadcaster.ts", import.meta.url));
 const loader = pathToFileURL(createRequire(import.meta.url).resolve("tsx")).href;
 type Frame = Record<string, unknown>;
+
+test("CLI help never reveals the configured broadcaster secret", () => {
+  const secret = `${fixtureSecret}-help`;
+  const result = spawnSync(process.execPath, ["--import", loader, entrypoint, "--help"], {
+    env: { ...process.env, NFC_TAP_SECRET: secret }, encoding: "utf8", timeout: 5000,
+  });
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /--secret <secret>/);
+  assert.equal((result.stdout + result.stderr).includes(secret), false);
+});
 
 class Queue<T> {
   readonly values: T[] = [];

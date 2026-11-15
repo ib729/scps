@@ -33,13 +33,13 @@ COPY web-next/public ./public
 COPY web-next/migrations ./migrations
 COPY migrations /app/migrations
 
-RUN node -e "const fs=require('fs'),D=require('better-sqlite3'),d=new D('/tmp/scps-build.db'); d.exec(fs.readFileSync('/app/migrations/schema.sql','utf8')+fs.readFileSync('migrations/better_auth_schema.sql','utf8'));d.close()" \
+RUN DATABASE_PATH=/tmp/scps-build.db node --import tsx -e "require('./tools/ops/setup-debian.ts').configureDatabase()" \
   && DATABASE_PATH=/tmp/scps-build.db \
      BETTER_AUTH_SECRET=scps-test-only-auth-secret-never-production-2026 \
      NFC_TAP_SECRET=scps-test-only-nfc-secret-2026 \
      NEXT_PUBLIC_APP_URL=http://localhost:3000 TRUSTED_ORIGINS=http://localhost:3000 \
      TRUST_PROXY=false NEXT_TELEMETRY_DISABLED=1 pnpm build \
-  && rm -f /tmp/scps-build.db*
+  && rm -f /tmp/scps-build.db* .env.local
 
 FROM node:26.13.1-bookworm-slim AS runner
 
@@ -51,7 +51,7 @@ ENV NODE_ENV=production \
 
 RUN npm install --global pnpm@12.21.0 \
   && apt-get update \
-  && apt-get install -y --no-install-recommends python3 sqlite3 zstd rclone ca-certificates libnfc-bin \
+  && apt-get install -y --no-install-recommends sqlite3 zstd rclone ca-certificates libnfc-bin usbutils lsof udev \
   && rm -rf /var/lib/apt/lists/* \
   && groupadd -g 1001 nodejs \
   && useradd -u 1001 -g nodejs -m nextjs
@@ -68,8 +68,10 @@ COPY --from=builder --chown=nextjs:nodejs /app/web-next/components ./components
 COPY --from=builder --chown=nextjs:nodejs /app/web-next/migrations ./migrations
 COPY --chown=nextjs:nodejs scripts /app/scripts
 COPY --chown=nextjs:nodejs migrations /app/migrations
+COPY --chown=nextjs:nodejs systemd /app/systemd
 COPY --chown=nextjs:nodejs scps-cli /app/scps-cli
 
+COPY --chown=nextjs:nodejs scps-remote-cli /app/scps-remote-cli
 EXPOSE 3000
 
 USER nextjs

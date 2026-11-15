@@ -26,6 +26,11 @@
 - Replace the Python reader and diagnostic programs with TypeScript and native libnfc; preserve authenticated sends, reader/lane identity, debounce and independent reader/network recovery.
 - Bound each reader child to five seconds, await close before replacement, and discard cancelled-generation UIDs. Physical PN532/native USB acceptance is still required on deployed hardware.
 
+### Typed operational workflows
+- Move all operational scripts into `web-next/tools/ops`; keep only the two root CLI launchers and Debian toolchain bootstrap in shell. Remove Python runtime requirements; native-addon compilation may still need Python.
+- Preserve backup publication/restore, deployment argument quoting and stopped-reader ownership; reset the selected TTY's real USB ancestor and retain the existing reader timing.
+- Require a verified stopped local web service before destructive reset/restore, preserve existing crypt configuration on failed replacement, and keep configured NFC secrets out of CLI help.
+
 ### Toolchain
 - Pin Node 26.13.1, pnpm 12.21.0 and current stable direct dependencies; use the installed `auth` CLI. Python reader dependencies require Python 3.11 or newer.
 - TypeScript 7 checks the application; ESLint compiler-API consumers resolve isolated TypeScript 6.0.3. Workspace policy explicitly permits native builds and denies unused Prisma client generation and telemetry scripts.

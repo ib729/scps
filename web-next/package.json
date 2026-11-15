@@ -16,7 +16,7 @@
     "auth:migrate": "auth migrate",
     "auth:generate": "auth generate",
     "cli": "node --import tsx app/cli/cli.ts",
-    "test": "node --import tsx --test --test-concurrency=1 && node --import tsx app/cli/self-check.ts"
+    "test": "node --import tsx --test --test-concurrency=1 \"lib/**/*.test.ts\" \"tests/**/*.test.ts\" \"tools/**/*.test.ts\" \"hardware/**/*.test.ts\" && node --import tsx app/cli/self-check.ts"
   },
   "dependencies": {
     "@clack/prompts": "1.9.0",

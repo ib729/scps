@@ -1,0 +1,115 @@
+import fs from "node:fs";
+import path from "node:path";
+import os from "node:os";
+import { randomBytes, randomUUID } from "node:crypto";
+import { execFileSync } from "node:child_process";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { parse } from "dotenv";
+import Database from "better-sqlite3";
+import { resolveDatabasePath } from "../../lib/database-path";
+
+const repository = fileURLToPath(new URL("../../../", import.meta.url));
+const web = path.join(repository, "web-next");
+const envFile = path.join(web, ".env.local");
+const appUser = process.env.SUDO_USER || os.userInfo().username;
+
+export function runAsUser(command: string, args: string[], cwd = web): void {
+  execFileSync("sudo", ["-u", appUser, "env", "-u", "SUDO_USER", `PATH=${process.env.PATH ?? "/usr/bin:/bin"}`, command, ...args], { cwd, stdio: "inherit" });
+}
+
+export function readEnvValue(key: string): string {
+  if (!fs.existsSync(envFile)) return "";
+  const line = fs.readFileSync(envFile, "utf8").split(/\r?\n/).find(value => value.startsWith(`${key}=`));
+  return line === undefined ? "" : parse(line)[key] ?? "";
+}
+
+export function ensureEnvValue(key: string, value: string): void {
+  const lines = fs.existsSync(envFile) ? fs.readFileSync(envFile, "utf8").split(/\r?\n/) : [];
+  if (lines.at(-1) === "") lines.pop();
+  const index = lines.findIndex(line => line.startsWith(`${key}=`));
+  if (index < 0) lines.push(`${key}=${value}`); else lines[index] = `${key}=${value}`;
+  const temporary = `${envFile}.tmp-${randomUUID()}`;
+  try {
+    fs.writeFileSync(temporary, lines.join("\n") + "\n", { flag: "wx", mode: 0o600 });
+    fs.renameSync(temporary, envFile);
+  } finally { fs.rmSync(temporary, { force: true }); }
+}
+
+export function configureDatabase(): string {
+  const previous = process.env.DATABASE_PATH;
+  const configured = fs.existsSync(envFile) ? parse(fs.readFileSync(envFile)).DATABASE_PATH : undefined;
+  if (previous === undefined && configured !== undefined) process.env.DATABASE_PATH = configured;
+  let target: string;
+  try { target = resolveDatabasePath(); }
+  finally { if (previous === undefined) delete process.env.DATABASE_PATH; }
+  ensureEnvValue("DATABASE_PATH", JSON.stringify(target));
+  fs.mkdirSync(path.dirname(target), { recursive: true });
+  if (!fs.existsSync(target)) {
+    const descriptor = fs.openSync(target, "wx", 0o600);
+    fs.closeSync(descriptor);
+    const database = new Database(target);
+    try {
+      database.pragma("foreign_keys = ON");
+      database.transaction(() => {
+        database.exec(fs.readFileSync(path.join(repository, "migrations/schema.sql"), "utf8"));
+        database.exec(fs.readFileSync(path.join(web, "migrations/better_auth_schema.sql"), "utf8"));
+      })();
+    } finally { database.close(); }
+    console.log(`Initialized SQLite database at ${target}`);
+  } else console.log(`Preserving existing database at ${target}; legacy schemas require the explicit stopped-writer migration.`);
+  return target;
+}
+
+function unitValue(value: string): string {
+  if (/[\0\r\n]/.test(value)) throw new Error("Systemd paths/user/environment must be single-line values");
+  return value.replaceAll("%", "%%").replaceAll("\\", "\\\\").replaceAll('"', '\\"');
+}
+
+export function main(args = process.argv.slice(2)): number {
+  if (args.includes("--help") || args.includes("-h")) {
+    console.log("Usage: ./scripts/setup-debian.sh\nThe bootstrap installs Node/pnpm/native dependencies. This typed stage configures env/database, builds and installs services. Existing ledgers are preserved; reader units are installed but not enabled automatically.");
+    return 0;
+  }
+  if (args.length) throw new Error(`Unknown argument: ${args[0]}`);
+  const release = parse(fs.readFileSync("/etc/os-release", "utf8"));
+  if (![release.ID, ...(release.ID_LIKE ?? "").split(/\s+/)].some(value => value === "debian" || value === "raspbian")) throw new Error("This setup supports Debian-based Linux hosts only");
+  if (os.userInfo().username !== appUser) {
+    runAsUser(process.execPath, ["--import", "tsx", fileURLToPath(import.meta.url), ...args]);
+    return 0;
+  }
+  const replacements: [string, string][] = [
+    ["__RUN_USER__", unitValue(appUser)], ["__REPO_ROOT__", unitValue(repository.replace(/\/$/, ""))],
+    ["__NODE_EXEC__", unitValue(process.execPath)], ["__RUN_PATH__", unitValue(process.env.PATH ?? "/usr/bin:/bin")],
+  ];
+  if (!fs.existsSync(envFile)) fs.copyFileSync(path.join(web, ".env.local.example"), envFile, fs.constants.COPYFILE_EXCL);
+  fs.chmodSync(envFile, 0o600);
+  configureDatabase();
+  const secret = readEnvValue("BETTER_AUTH_SECRET");
+  if (!secret || secret === "replace-with-a-random-secret") {
+    ensureEnvValue("BETTER_AUTH_SECRET", randomBytes(32).toString("base64"));
+    console.log("Generated BETTER_AUTH_SECRET (value not logged)");
+  }
+  if (!readEnvValue("NEXT_PUBLIC_APP_URL")) ensureEnvValue("NEXT_PUBLIC_APP_URL", "http://localhost:3000");
+  const origins = readEnvValue("TRUSTED_ORIGINS");
+  if (!origins || origins === "http://localhost:3000") ensureEnvValue("TRUSTED_ORIGINS", readEnvValue("NEXT_PUBLIC_APP_URL"));
+  runAsUser("pnpm", ["--dir", web, "build"]);
+  for (const name of ["stuco-web.service", "tap-broadcaster.service", "tap-broadcaster-reader2.service"]) {
+    let unit = fs.readFileSync(path.join(repository, "systemd", name), "utf8");
+    for (const [placeholder, value] of replacements) unit = unit.replaceAll(placeholder, value);
+    execFileSync("sudo", ["tee", `/etc/systemd/system/${name}`], { input: unit, stdio: ["pipe", "ignore", "inherit"] });
+  }
+  execFileSync("sudo", ["systemctl", "daemon-reload"], { stdio: "inherit" });
+  execFileSync("sudo", ["systemctl", "enable", "stuco-web.service"], { stdio: "inherit" });
+  execFileSync("sudo", ["systemctl", "restart", "stuco-web.service"], { stdio: "inherit" });
+  execFileSync("sudo", ["systemctl", "--no-pager", "--full", "status", "stuco-web.service"], { stdio: "inherit" });
+  console.log(`SCPS Debian setup complete.\nEdit ${envFile} for the public URL and trusted origins, then restart stuco-web.\nReader units are installed but inactive: configure .env.broadcaster, serial permissions and noninteractive USB reset privileges before enabling the desired reader service.\nEncrypted backups: node --import tsx tools/ops/setup-r2-crypt.ts\nFuture deploy: node --import tsx tools/ops/deploy-vps.ts`);
+  return 0;
+}
+
+if (process.argv[1] && fs.existsSync(process.argv[1]) && import.meta.url === pathToFileURL(fs.realpathSync(process.argv[1])).href) {
+  try { process.exitCode = main(); } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error));
+    if (error && typeof error === "object" && "signal" in error && typeof error.signal === "string" && error.signal in os.constants.signals) process.kill(process.pid, error.signal as NodeJS.Signals);
+    else process.exitCode = error && typeof error === "object" && "status" in error && typeof error.status === "number" ? error.status : 1;
+  }
+}

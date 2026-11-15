@@ -81,7 +81,7 @@ async function main() {
 
   program
     .command("diagnose")
-    .description("Run serial, reader, and GPIO test scripts on the Pi")
+    .description("Run USB, UART and I2C NFC diagnostics on the Pi")
     .action(async () => {
       await handleHardwareDiagnostics();
     });

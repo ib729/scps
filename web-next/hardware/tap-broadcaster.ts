@@ -260,7 +260,7 @@ export async function main(args = process.argv.slice(2)): Promise<number> {
     .name("tap-broadcaster")
     .description("Broadcast native NFC reader taps to the SCPS server")
     .option("--url <url>", "Server URL", DEFAULT_SERVER_URL)
-    .option("--secret <secret>", "NFC broadcaster authentication secret", NFC_TAP_SECRET)
+    .option("--secret <secret>", "NFC broadcaster authentication secret")
     .option("--lane <lane>", "POS lane and reader identity", DEFAULT_LANE_ID)
     .option("--device <device>", "Explicit native or legacy NFC device selector")
     .option("--simulate", "Read UIDs from standard input without NFC hardware")
