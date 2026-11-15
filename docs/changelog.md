@@ -36,6 +36,7 @@ Use the current guides for operations.
 - Bound each reader child to five seconds, await close before replacement, and discard cancelled-generation UIDs. Physical PN532/native USB acceptance is still required on deployed hardware.
 
 ### Typed operational workflows
+- Detect Debian and Ubuntu, offer optional systemd services, and use port 38173 for new automated installations without changing existing environments.
 - Move all operational scripts into `web-next/tools/ops`; keep only the two root CLI launchers and Debian toolchain bootstrap in shell. Remove Python runtime requirements; native-addon compilation may still need Python.
 - Preserve backup publication/restore, deployment argument quoting and stopped-reader ownership; reset the selected TTY's real USB ancestor and retain the existing reader timing.
 - Require a verified stopped local web service before destructive reset/restore, preserve existing crypt configuration on failed replacement, and keep configured NFC secrets out of CLI help.

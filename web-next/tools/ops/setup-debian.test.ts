@@ -86,15 +86,18 @@ else if(args[0]!=='systemctl')throw new Error('Unexpected privileged command: '+
   await fs.writeFile(path.join(f.binaries, "sudo"), fakeSudo, { mode: 0o700 });
   await fs.writeFile(path.join(f.binaries, "pnpm"), `#!${process.execPath}\nrequire(${JSON.stringify(path.join(f.web, "node_modules/dotenv"))}).config({path:${JSON.stringify(path.join(f.web, ".env.local"))},quiet:true});\nif(!process.env.BETTER_AUTH_SECRET||process.env.BETTER_AUTH_SECRET==='replace-with-a-random-secret'){console.error('Build inherited a stale auth secret');process.exit(41);}\nrequire('node:fs').appendFileSync(${JSON.stringify(log)},JSON.stringify(['pnpm',...process.argv.slice(2)])+'\\n');\n`, { mode: 0o700 });
   const result = await probe(f.web, `import fs from 'node:fs';
-const read=fs.readFileSync;fs.readFileSync=((file,...args)=>String(file)==='/etc/os-release'?'ID=debian\\n':Reflect.apply(read,fs,[file,...args])) as typeof fs.readFileSync;
+const read=fs.readFileSync;fs.readFileSync=((file,...args)=>String(file)==='/etc/os-release'?'ID=ubuntu\\n':Reflect.apply(read,fs,[file,...args])) as typeof fs.readFileSync;
 import { main } from './ops/setup-debian';
-Promise.resolve().then(()=>main([])).then(code=>{process.exitCode=code??0}).catch(error=>{console.error(error);process.exitCode=1});`, f.root, { ...f.env, PATH: `${f.binaries}:${f.env.PATH ?? ""}` });
+Promise.resolve().then(()=>main(["--systemd"])).then(code=>{process.exitCode=code??0}).catch(error=>{console.error(error);process.exitCode=1});`, f.root, { ...f.env, PATH: `${f.binaries}:${f.env.PATH ?? ""}` });
   assert.equal(result.status, 0, result.stderr);
   const env = parse(await fs.readFile(path.join(f.web, ".env.local")));
   assert.ok(env.BETTER_AUTH_SECRET.length >= 40);
   assert.notEqual(env.BETTER_AUTH_SECRET, "replace-with-a-random-secret");
   assert.ok(!(result.stdout + result.stderr).includes(env.BETTER_AUTH_SECRET));
   assert.equal((await fs.stat(path.join(f.web, ".env.local"))).mode & 0o777, 0o600);
+  assert.equal(env.NEXT_PUBLIC_APP_URL, "http://localhost:38173");
+  assert.equal(env.TRUSTED_ORIGINS, "http://localhost:38173");
+  assert.equal(env.PORT, "38173");
   const escapedRoot = f.root.replaceAll("%", "%%").replaceAll("\\", "\\\\").replaceAll('"', '\\"');
   for (const [name, usb, lane] of [["tap-broadcaster.service", "USB0", "reader-1"], ["tap-broadcaster-reader2.service", "USB1", "reader-2"]]) {
     const unit = await fs.readFile(path.join(units, name), "utf8");
@@ -108,4 +111,18 @@ Promise.resolve().then(()=>main([])).then(code=>{process.exitCode=code??0}).catc
   const calls = (await fs.readFile(log, "utf8")).trim().split("\n").map(line => JSON.parse(line) as string[]);
   assert.ok(calls.some(args => args.join(" ") === "systemctl restart stuco-web.service"));
   assert.ok(!calls.some(args => args[0] === "systemctl" && args.some(arg => arg.startsWith("tap-broadcaster"))));
+});
+
+test("setup without systemd builds without installing or restarting services", async t => {
+  const f = await fixture(t);
+  await fs.writeFile(path.join(f.binaries, "sudo"), `#!/bin/sh\n[ "$1" = "-u" ] || exit 77\nshift 2\nexec "$@"\n`, { mode: 0o700 });
+  await fs.writeFile(path.join(f.binaries, "pnpm"), "#!/bin/sh\nexit 0\n", { mode: 0o700 });
+  const result = await probe(f.web, `import fs from 'node:fs';
+const read=fs.readFileSync;fs.readFileSync=((file,...args)=>String(file)==='/etc/os-release'?'ID=ubuntu\\n':Reflect.apply(read,fs,[file,...args])) as typeof fs.readFileSync;
+import { main } from './ops/setup-debian';
+process.exitCode=main(["--no-systemd"]);`, f.root, { ...f.env, PATH: `${f.binaries}:${f.env.PATH ?? ""}` });
+  assert.equal(result.status, 0, result.stderr);
+  const env = parse(await fs.readFile(path.join(f.web, ".env.local")));
+  assert.equal(env.PORT, "38173");
+  assert.equal(env.NEXT_PUBLIC_APP_URL, "http://localhost:38173");
 });

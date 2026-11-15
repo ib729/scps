@@ -3,15 +3,26 @@ set -eu
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 APP_USER=${SUDO_USER:-${USER:-$(id -un)}}
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  printf '%s\n' 'Usage: ./scripts/setup-debian.sh' 'Bootstrap Debian/Node/pnpm/native build tools, then invoke tools/ops/setup-debian.ts.'
+  printf '%s\n' 'Usage: ./scripts/setup-debian.sh [--systemd|--no-systemd]' 'Bootstrap Debian/Ubuntu dependencies and configure SCPS. Prompts before installing systemd services.'
   exit 0
 fi
-if [ "$#" -ne 0 ]; then printf '%s\n' 'Unexpected setup argument' >&2; exit 2; fi
+if [ "$#" -gt 1 ] || { [ "$#" -eq 1 ] && [ "$1" != "--systemd" ] && [ "$1" != "--no-systemd" ]; }; then printf '%s\n' 'Unexpected setup argument' >&2; exit 2; fi
 . /etc/os-release
 case " ${ID:-} ${ID_LIKE:-} " in
-  *" debian "*|*" raspbian "*) ;;
-  *) printf '%s\n' 'Debian-based Linux required' >&2; exit 1 ;;
+  *" debian "*|*" raspbian "*|*" ubuntu "*) ;;
+  *) printf '%s\n' 'Debian or Ubuntu based Linux required' >&2; exit 1 ;;
 esac
+printf 'Detected %s\n' "${PRETTY_NAME:-${ID:-Linux}}"
+if [ "$#" -eq 0 ]; then
+  if [ -t 0 ]; then
+    printf 'Install and enable the web systemd service? [y/N] '
+    read -r answer || answer=
+    case "$answer" in y|Y|yes|YES) set -- --systemd ;; *) set -- --no-systemd ;; esac
+  else
+    printf '%s\n' 'Noninteractive setup: skipping systemd services (use --systemd to enable).'
+    set -- --no-systemd
+  fi
+fi
 command -v sudo >/dev/null
 sudo apt-get update
 sudo apt-get install -y git curl sqlite3 zstd rclone python3 build-essential ca-certificates gnupg openssl libnfc-bin usbutils lsof udev

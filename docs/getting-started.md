@@ -37,7 +37,7 @@ On a Pi hosting the whole stack, allow enough memory for native compilation and 
 
 **Existing installation? Do not initialize or reset its database.** Preserve its ledger and environment files and follow [Deployment: existing-schema upgrade and rollback](deployment.md#existing-schema-upgrade-and-rollback). Startup rejects legacy/mixed/non-cent schemas; it does not silently convert money.
 
-### Automated Debian setup
+### Automated Debian or Ubuntu setup
 
 From the repository root, as the intended service user with sudo access:
 
@@ -45,9 +45,11 @@ From the repository root, as the intended service user with sudo access:
 ./scripts/setup-debian.sh
 ```
 
-This is the only setup shell bootstrap: it installs OS/Node/native-build prerequisites, pins pnpm and installs package dependencies, then invokes `web-next/tools/ops/setup-debian.ts`. The typed stage configures the private env file, creates a missing auth secret without printing it, initializes core+auth only for a **missing** ledger, builds, and renders all three systemd units using the actual user/repo/Node/PATH.
+This bootstrap detects Debian, Ubuntu and derivatives, installs OS/Node/native-build prerequisites, pins pnpm and installs package dependencies, then invokes `web-next/tools/ops/setup-debian.ts`. The typed stage configures the private env file, creates a missing auth secret without printing it, initializes core+auth only for a **missing** ledger, and builds. A new environment defaults to port **38173** and matching localhost URL and trusted origin. Existing environment settings and ledgers are preserved.
 
-It enables/restarts **web only**. Reader units remain inactive until you configure `.env.broadcaster`, device selection, serial access and noninteractive USB reset privileges. Existing ledgers are preserved, not automatically migrated.
+The script asks whether to install systemd services. Answer yes to render all three units and enable/restart **web only**. Reader units remain inactive until you configure `.env.broadcaster`, device selection, serial access and noninteractive USB reset privileges. Use `--systemd` or `--no-systemd` to select explicitly; noninteractive runs without a flag skip services. Without systemd, start the production server from `web-next` with `pnpm start`.
+
+The web service binds all interfaces by default. Restrict port 38173 with a firewall or loopback override before exposing the host.
 
 Before allowing public access:
 
@@ -184,6 +186,8 @@ NEXTJS_URL=http://localhost:3000
 NFC_TAP_SECRET=<same-secret-as-server>
 POS_LANE_ID=default
 ```
+
+For a new automated local setup, use `NEXTJS_URL=http://localhost:38173` instead. Match the web server's configured port.
 
 With package dependencies installed, from `web-next`:
 

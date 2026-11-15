@@ -12,7 +12,7 @@ Run `pnpm dev` / `pnpm start`, not `next dev` / `next start`: the custom `server
 - Preserve the existing ledger, auth credentials, application revision and environment files before an upgrade. **Do not initialize/reset an existing installation.**
 - Current schema is `customers` / `customer_id` / `user_customer_links`, with roles `admin | staff | customer`. Follow [Existing-schema upgrade](#existing-schema-upgrade-and-rollback) before starting the new app against an old ledger.
 
-## Native Debian/systemd deployment
+## Native Debian/Ubuntu deployment
 
 ### Initial setup
 
@@ -27,11 +27,12 @@ The shell bootstrap only handles Debian/Node availability, pinned pnpm/dependenc
 
 The typed `web-next/tools/ops/setup-debian.ts` stage:
 
-1. Creates/restricts `web-next/.env.local`, sets the canonical quoted database path and generates a missing Better Auth secret without logging its value.
+1. Creates/restricts `web-next/.env.local`, sets the canonical quoted database path and generates a missing Better Auth secret without logging its value. A new environment uses port 38173 and matching localhost URL/origin; an existing environment retains its settings.
 2. Initializes both core and auth schemas **only if the database does not exist**; otherwise preserves it and requires explicit legacy migration.
 3. Builds as the service user with the pinned PATH preserved through sudo.
-4. Renders `stuco-web.service`, `tap-broadcaster.service` and `tap-broadcaster-reader2.service` using the actual user, repository, Node executable and PATH.
-5. Reloads systemd and enables/restarts **only `stuco-web`**. Reader units are installed but not automatically enabled.
+4. Offers systemd installation. If accepted, renders `stuco-web.service`, `tap-broadcaster.service` and `tap-broadcaster-reader2.service`, reloads systemd, and enables/restarts **only `stuco-web`**. Reader units remain inactive.
+
+Use `--systemd` or `--no-systemd` to select explicitly. Noninteractive setup without either flag skips service installation. If skipped, start from `web-next` with `pnpm start`.
 
 Do not copy unrendered repository units directly: they contain placeholders. Configure public URL, origins and secrets before public access, then restart web. Setup itself is not proof of a working production environment.
 
@@ -55,7 +56,7 @@ Configured relative `DATABASE_PATH` resolves against `web-next`, regardless of c
 
 The service user needs access to the **ledger directory**, not just the file, so SQLite can create WAL/SHM. Restrict directory traversal and database access to the intended account/administrators; do not make it world-writable or change ownership on a live ledger. See [Database](database.md) and [Security](security-guide.md).
 
-The rendered web unit defaults to `HOSTNAME=0.0.0.0`, `PORT=3000`. For native loopback-only deployment, use a systemd override:
+The rendered web unit defaults to `HOSTNAME=0.0.0.0`; new automated setups configure `PORT=38173` in `.env.local`. Existing configurations without a port retain the server default of 3000. For native loopback-only deployment, use a systemd override:
 
 ```bash
 sudo systemctl edit stuco-web.service
@@ -64,7 +65,7 @@ sudo systemctl edit stuco-web.service
 ```ini
 [Service]
 Environment="HOSTNAME=127.0.0.1"
-Environment="PORT=3000"
+Environment="PORT=38173"
 ```
 
 Then reload/restart:
@@ -76,7 +77,7 @@ sudo systemctl status stuco-web.service
 journalctl -u stuco-web.service -f
 ```
 
-Change `PORT` through environment, not an invented `pnpm start -p` flag. If URL/origin values change, rebuild for public build-time configuration as appropriate before restart.
+Change `PORT` through environment, not an invented `pnpm start -p` flag. Match the reverse proxy and reader URL to the chosen port. If URL/origin values change, rebuild for public build-time configuration as appropriate before restart.
 
 ### Application updates
 
@@ -202,6 +203,8 @@ Run `docker compose up -d` only after arranging storage permissions, database mi
 Default `TRUST_PROXY=false` uses the socket peer. Set `TRUST_PROXY=true` **only** for the supported single loopback Nginx hop, with no publicly reachable app port. Only a loopback immediate peer's rightmost valid forwarded address is trusted; caller `X-Real-IP` and `x-scps-client-ip` are ignored. Nginx must append `$remote_addr` to `X-Forwarded-For` or overwrite it. Remote/multi-hop topologies are unsupported without separate trust configuration.
 
 Install Nginx and configure DNS for your actual domain. The following assumes TLS certificate files already exist; for initial certificate issuance first serve a plain HTTP site, then use your certificate provider/Certbot before enabling the TLS block. Put `map` and `limit_req_zone` in Nginx's **http context**, not inside `server`:
+The proxy example below uses port 3000. Replace it with 38173 for a new automated native setup, or use the port configured for your deployment.
+
 
 ```nginx
 map $http_upgrade $scps_connection_upgrade {

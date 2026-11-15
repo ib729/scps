@@ -67,12 +67,12 @@ function unitValue(value: string): string {
 
 export function main(args = process.argv.slice(2)): number {
   if (args.includes("--help") || args.includes("-h")) {
-    console.log("Usage: ./scripts/setup-debian.sh\nThe bootstrap installs Node/pnpm/native dependencies. This typed stage configures env/database, builds and installs services. Existing ledgers are preserved; reader units are installed but not enabled automatically.");
+    console.log("Usage: ./scripts/setup-debian.sh [--systemd|--no-systemd]\nConfigures env/database and builds; service installation is optional. Existing ledgers are preserved.");
     return 0;
   }
-  if (args.length) throw new Error(`Unknown argument: ${args[0]}`);
+  if (args.length !== 1 || !["--systemd", "--no-systemd"].includes(args[0])) throw new Error("Specify --systemd or --no-systemd");
   const release = parse(fs.readFileSync("/etc/os-release", "utf8"));
-  if (![release.ID, ...(release.ID_LIKE ?? "").split(/\s+/)].some(value => value === "debian" || value === "raspbian")) throw new Error("This setup supports Debian-based Linux hosts only");
+  if (![release.ID, ...(release.ID_LIKE ?? "").split(/\s+/)].some(value => value === "debian" || value === "raspbian" || value === "ubuntu")) throw new Error("This setup supports Debian and Ubuntu based Linux hosts only");
   if (os.userInfo().username !== appUser) {
     runAsUser(process.execPath, ["--import", "tsx", fileURLToPath(import.meta.url), ...args]);
     return 0;
@@ -81,8 +81,14 @@ export function main(args = process.argv.slice(2)): number {
     ["__RUN_USER__", unitValue(appUser)], ["__REPO_ROOT__", unitValue(repository.replace(/\/$/, ""))],
     ["__NODE_EXEC__", unitValue(process.execPath)], ["__RUN_PATH__", unitValue(process.env.PATH ?? "/usr/bin:/bin")],
   ];
-  if (!fs.existsSync(envFile)) fs.copyFileSync(path.join(web, ".env.local.example"), envFile, fs.constants.COPYFILE_EXCL);
+  const freshEnv = !fs.existsSync(envFile);
+  if (freshEnv) fs.copyFileSync(path.join(web, ".env.local.example"), envFile, fs.constants.COPYFILE_EXCL);
   fs.chmodSync(envFile, 0o600);
+  if (freshEnv) {
+    ensureEnvValue("PORT", "38173");
+    ensureEnvValue("NEXT_PUBLIC_APP_URL", "http://localhost:38173");
+    ensureEnvValue("TRUSTED_ORIGINS", "http://localhost:38173");
+  }
   configureDatabase();
   const secret = readEnvValue("BETTER_AUTH_SECRET");
   if (!secret || secret === "replace-with-a-random-secret") {
@@ -93,6 +99,10 @@ export function main(args = process.argv.slice(2)): number {
   const origins = readEnvValue("TRUSTED_ORIGINS");
   if (!origins || origins === "http://localhost:3000") ensureEnvValue("TRUSTED_ORIGINS", readEnvValue("NEXT_PUBLIC_APP_URL"));
   runAsUser("pnpm", ["--dir", web, "build"]);
+  if (args[0] === "--no-systemd") {
+    console.log(`SCPS setup complete. Start manually with: cd ${web} && pnpm start`);
+    return 0;
+  }
   for (const name of ["stuco-web.service", "tap-broadcaster.service", "tap-broadcaster-reader2.service"]) {
     let unit = fs.readFileSync(path.join(repository, "systemd", name), "utf8");
     for (const [placeholder, value] of replacements) unit = unit.replaceAll(placeholder, value);
@@ -102,7 +112,7 @@ export function main(args = process.argv.slice(2)): number {
   execFileSync("sudo", ["systemctl", "enable", "stuco-web.service"], { stdio: "inherit" });
   execFileSync("sudo", ["systemctl", "restart", "stuco-web.service"], { stdio: "inherit" });
   execFileSync("sudo", ["systemctl", "--no-pager", "--full", "status", "stuco-web.service"], { stdio: "inherit" });
-  console.log(`SCPS Debian setup complete.\nEdit ${envFile} for the public URL and trusted origins, then restart stuco-web.\nReader units are installed but inactive: configure .env.broadcaster, serial permissions and noninteractive USB reset privileges before enabling the desired reader service.\nEncrypted backups: node --import tsx tools/ops/setup-r2-crypt.ts\nFuture deploy: node --import tsx tools/ops/deploy-vps.ts`);
+  console.log(`SCPS setup complete.\nEdit ${envFile} for the public URL and trusted origins, then restart stuco-web.\nReader units are installed but inactive: configure .env.broadcaster, serial permissions and noninteractive USB reset privileges before enabling the desired reader service.\nEncrypted backups: node --import tsx tools/ops/setup-r2-crypt.ts\nFuture deploy: node --import tsx tools/ops/deploy-vps.ts`);
   return 0;
 }
 
