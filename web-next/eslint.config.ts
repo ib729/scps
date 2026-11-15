@@ -22,13 +22,6 @@ const eslintConfig = defineConfig([
       "react-hooks/purity": "off",
     },
   },
-  {
-    files: ["server.js", "lib/**/*.cjs"],
-    rules: {
-      // Legacy Node entrypoints are CommonJS.
-      "@typescript-eslint/no-require-imports": "off",
-    },
-  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:

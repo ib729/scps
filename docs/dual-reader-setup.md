@@ -30,7 +30,7 @@ The system now supports multiple NFC readers working simultaneously:
          │  WebSocket (lane=reader-1)
          ▼
 ┌──────────────────────────────┐
-│      server.js (WebSocket)   │
+│      server.ts (WebSocket)   │
 │   Lane-based filtering       │
 └────────┬─────────────────────┘
          │
@@ -359,8 +359,8 @@ python hardware-pi/tap-broadcaster.py --simulate --lane reader-2
 
 ### Debug Logging
 
-Enable verbose WebSocket logs in `server.js` (lines 303-330):
-```javascript
+Enable verbose WebSocket logs in the relevant `server.ts` handler:
+```typescript
 console.log(`[WS #${connectionId}] Sending tap event to client: ${event.card_uid} (lane: ${eventLane})`);
 ```
 

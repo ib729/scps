@@ -97,12 +97,12 @@ class SQLiteBackupTest(unittest.TestCase):
 
     def test_cloud_roundtrip_and_noninteractive_restore_preserve_pre_restore_state(self):
         root = self.directory / "repo"
-        for name in ["scripts/web_backup.sh", "scripts/cloud_backup_r2.sh", "scripts/restore_from_r2.sh", "scripts/sqlite_snapshot.py", "web-next/lib/database-path.cjs", "scps-cli"]:
+        for name in ["scripts/web_backup.sh", "scripts/cloud_backup_r2.sh", "scripts/restore_from_r2.sh", "scripts/sqlite_snapshot.py", "web-next/lib/database-path.ts", "scps-cli"]:
             target = root / name
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes((ROOT / name).read_bytes())
             target.chmod(0o755)
-        for name in ["node_modules", "app", "lib/db.ts", "lib/models.ts", "lib/currency.ts", "lib/pos-preferences.ts", "lib/user-schema.cjs", "lib/repositories", "tsconfig.json"]:
+        for name in ["node_modules", "app", "lib/db.ts", "lib/models.ts", "lib/currency.ts", "lib/currency-scale.ts", "lib/pos-preferences.ts", "lib/user-schema.ts", "lib/repositories", "tsconfig.json"]:
             target = root / "web-next" / name
             target.parent.mkdir(parents=True, exist_ok=True)
             target.symlink_to(ROOT / "web-next" / name)
@@ -113,7 +113,7 @@ class SQLiteBackupTest(unittest.TestCase):
             db.execute("INSERT INTO accounts(student_id,balance) VALUES(1,731)")
             db.commit()
         env = {**os.environ, "DATABASE_PATH": str(active)}
-        subprocess.run([str(ROOT / "web-next/node_modules/.bin/tsx"), "-e", "import {getDb,closeDb} from './lib/db';getDb();closeDb()"], cwd=ROOT / "web-next", env=env, check=True, capture_output=True)
+        subprocess.run(["node", "--import", "tsx", "--input-type=module", "-e", "import {getDb,closeDb} from './lib/db.ts';getDb();closeDb()"], cwd=ROOT / "web-next", env=env, check=True, capture_output=True)
         remote = self.directory / "remote"
         remote.mkdir()
         config = self.directory / "rclone.conf"

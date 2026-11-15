@@ -1,4 +1,4 @@
-import { isReaderConnected } from "@/lib/nfc-readers.cjs";
+import { isReaderConnected } from "@/lib/nfc-readers";
 
 import { NextRequest, NextResponse } from "next/server";
 

@@ -15,7 +15,7 @@ else
     echo "Migration file not found: $1" >&2
     exit 1
 fi
-DB_FILE="$(node "$PROJECT_ROOT/web-next/lib/database-path.cjs")"
+DB_FILE="$(cd "$PROJECT_ROOT/web-next" && node --import tsx lib/database-path.ts)"
 BACKUP_FILE="${DB_FILE}.backup.$(date +%Y%m%d_%H%M%S).$$"
 python3 "$SCRIPT_DIR/sqlite_snapshot.py" snapshot "$DB_FILE" "$BACKUP_FILE"
 echo "Validated pre-migration snapshot: $BACKUP_FILE"

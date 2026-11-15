@@ -19,7 +19,7 @@ export interface TapEvent {
 
 type TapListener = (event: TapEvent) => void;
 
-class TapEventBroadcaster {
+export class TapEventBroadcaster {
   private listeners: Set<TapListener> = new Set();
   private recentTaps = new Map<string, number>();
   private readonly DEBOUNCE_MS = 1000;
@@ -150,8 +150,10 @@ class TapEventBroadcaster {
   }
 }
 
-// Global singleton instance
-const tapBroadcaster = new TapEventBroadcaster();
+// The custom server and bundled Next routes must share listeners and the cleanup timer.
+const key = Symbol.for('scps.tap-events');
+const shared = globalThis as typeof globalThis & { [key]?: TapEventBroadcaster };
+const tapBroadcaster = shared[key] ??= new TapEventBroadcaster();
 
 export default tapBroadcaster;
 

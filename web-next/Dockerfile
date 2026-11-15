@@ -22,7 +22,7 @@ RUN pnpm install --frozen-lockfile
 FROM base AS builder
 
 COPY --from=deps /app/web-next/node_modules ./node_modules
-COPY web-next/package.json web-next/pnpm-lock.yaml web-next/pnpm-workspace.yaml web-next/tsconfig.json web-next/next-env.d.ts web-next/next.config.ts web-next/postcss.config.mjs web-next/server.js ./
+COPY web-next/package.json web-next/pnpm-lock.yaml web-next/pnpm-workspace.yaml web-next/tsconfig.json web-next/next-env.d.ts web-next/next.config.ts web-next/server.ts ./
 COPY web-next/app ./app
 COPY web-next/components ./components
 COPY web-next/hooks ./hooks
@@ -57,7 +57,7 @@ RUN npm install --global pnpm@12.21.0 \
 COPY --from=deps --chown=nextjs:nodejs /app/web-next/node_modules ./node_modules
 COPY --from=builder --chown=nextjs:nodejs /app/web-next/.next ./.next
 COPY --from=builder --chown=nextjs:nodejs /app/web-next/public ./public
-COPY --from=builder --chown=nextjs:nodejs /app/web-next/package.json /app/web-next/pnpm-lock.yaml /app/web-next/pnpm-workspace.yaml /app/web-next/tsconfig.json /app/web-next/next.config.ts /app/web-next/server.js ./
+COPY --from=builder --chown=nextjs:nodejs /app/web-next/package.json /app/web-next/pnpm-lock.yaml /app/web-next/pnpm-workspace.yaml /app/web-next/tsconfig.json /app/web-next/next.config.ts /app/web-next/server.ts ./
 COPY --from=builder --chown=nextjs:nodejs /app/web-next/lib ./lib
 COPY --from=builder --chown=nextjs:nodejs /app/web-next/app ./app
 COPY --from=builder --chown=nextjs:nodejs /app/web-next/components ./components
@@ -70,4 +70,4 @@ EXPOSE 3000
 
 USER nextjs
 
-CMD ["node", "server.js"]
+CMD ["node", "--import", "tsx", "server.ts"]

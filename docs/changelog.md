@@ -5,6 +5,10 @@
 ### Payment review
 - Keep the mounted administrator queue polling when empty; resolved history shows the newest decisions regardless of status, while pending claims retain priority.
 
+### Typed web runtime
+- Run the custom server, CLI and shared SQLite/NFC modules with `node --import tsx`; the web bundle and server share one tap broadcaster.
+- Keep configured relative database paths rooted at `web-next`, independent of the launch directory.
+
 ### Toolchain
 - Pin Node 26.13.1, pnpm 12.21.0 and current stable direct dependencies; use the installed `auth` CLI. Python reader dependencies require Python 3.11 or newer.
 - TypeScript 7 checks the application; ESLint compiler-API consumers resolve isolated TypeScript 6.0.3. Workspace policy explicitly permits native builds and denies unused Prisma client generation and telemetry scripts.

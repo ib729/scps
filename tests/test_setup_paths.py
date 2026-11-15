@@ -28,7 +28,7 @@ class SetupPathsTest(unittest.TestCase):
     def test_configure_database_preserves_target_from_both_working_directories(self):
         with tempfile.TemporaryDirectory(prefix="scps-setup-") as directory:
             root = Path(directory)
-            for name in ["scripts/setup-debian.sh", "web-next/lib/database-path.cjs", "migrations/schema.sql", "web-next/migrations/better_auth_schema.sql", "web-next/.env.local.example"]:
+            for name in ["scripts/setup-debian.sh", "web-next/lib/database-path.ts", "migrations/schema.sql", "web-next/migrations/better_auth_schema.sql", "web-next/.env.local.example"]:
                 target = root / name
                 target.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(ROOT / name, target)

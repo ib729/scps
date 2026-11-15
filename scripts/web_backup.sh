@@ -5,7 +5,7 @@ set -euo pipefail
 umask 077
 [[ $# == 1 ]] || { echo "Usage: $0 <output_file>" >&2; exit 1; }
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DB_FILE="$(node "$SCRIPT_DIR/../web-next/lib/database-path.cjs")"
+DB_FILE="$(cd "$SCRIPT_DIR/../web-next" && node --import tsx lib/database-path.ts)"
 OUTPUT_FILE="$(realpath -m "$1")"
 STAGING="$(mktemp -d)"
 PENDING=""

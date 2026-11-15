@@ -42,22 +42,22 @@ Since you're self-hosting on Node.js (not Vercel), a custom server is required f
 
 ### What is Required
 
-1. **Custom Server** (`web-next/server.js`):
+1. **Custom Server** (`web-next/server.ts`):
    - Node.js HTTP server with WebSocket support using `ws` package.
    - Handles Next.js requests and WebSocket connections at `ws://localhost:3000/api/nfc/ws`.
 
-2. **Node.js-Compatible Broadcaster** (`web-next/lib/tap-events-node.js`):
-   - CommonJS version for the custom server.
+2. **Shared Typed Broadcaster** (`web-next/lib/tap-events.ts`):
+   - Shares one process-wide event broadcaster between Next.js and the custom server.
    - Includes deduplication logic.
 
-3. **Dependencies**: `ws@^8.18.0` in `web-next/package.json`.
+3. **Dependencies**: Pinned `ws` and runtime `tsx` in `web-next/package.json`.
 
 ### Installation Steps
 
-1. **Install WebSocket Package**:
+1. **Install Package Dependencies**:
    ```bash
    cd $PROJECT_ROOT/web-next
-   pnpm install ws@^8.18.0
+   pnpm install --frozen-lockfile
    ```
 
 2. **Install Python WebSocket Library**:
@@ -123,7 +123,8 @@ Update `stuco-web.service` to use custom server:
 ```ini
 [Service]
 ...
-ExecStart=/usr/bin/node $PROJECT_ROOT/web-next/server.js
+WorkingDirectory=$PROJECT_ROOT/web-next
+ExecStart=/usr/bin/node --import tsx server.ts
 ...
 ```
 
@@ -416,7 +417,7 @@ Common issues:
 This should not happen with proper lane filtering. Check:
 - Each staff member selected different readers in Settings
 - WebSocket connection shows correct lane in browser console
-- Server is properly filtering by lane (check server.js line 314)
+- Server is properly filtering by lane (check the WebSocket handlers in `server.ts`)
 
 **Problem: Device swap after reboot**
 
@@ -768,7 +769,7 @@ console.log("WebSocket ready state:", ws.readyState);
 
 **Common WebSocket Errors:**
 - "Cannot find module 'ws'": Run `pnpm install` in web-next.
-- "Cannot find module './lib/tap-events-node'": Verify file exists.
+- TypeScript loader errors: run `node --import tsx server.ts` from `web-next` after a frozen dependency install.
 - Port in use: Kill process `sudo lsof -ti:3000 | xargs kill -9`.
 
 ### WebSocket Authentication Troubleshooting

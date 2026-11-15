@@ -22,7 +22,7 @@ This guide is for developers extending or maintaining the Student Council Paymen
 - **Authentication**: Better Auth with email/password support.
 - **Database**: better-sqlite3 (native bindings auto-built).
 - **Real-time**: WebSocket for NFC tap events with automatic reconnection.
-- **Custom Server**: Node.js HTTP server with WebSocket support (server.js).
+- **Custom Server**: Typed Node.js HTTP server with WebSocket support (`server.ts`, run with `node --import tsx server.ts` from `web-next`).
 - **Notifications**: Sonner (toasts).
 - **Animation**: Motion (Framer Motion), animate-ui.
 - **3D/Graphics**: Three.js for background effects.
@@ -51,7 +51,7 @@ CLI Tools (Python) ↔ stuco.db (SQLite) ↔ Web UI (Next.js)
 - **NFC Flow**: Hardware → Python broadcaster → Next.js WebSocket/API → Real-time UI updates.
 - **Authentication**: Better Auth with session-based authentication (protected routes).
 - **Server Actions**: Mutations in web UI use Next.js actions (atomic, typed).
-- **Custom Server**: server.js handles WebSocket connections alongside Next.js.
+- **Custom Server**: `server.ts` handles WebSocket connections alongside Next.js.
 
 ### Web UI Layers
 
@@ -87,7 +87,7 @@ CLI Tools (Python) ↔ stuco.db (SQLite) ↔ Web UI (Next.js)
 5. **API Routes** (`app/api/`):
    - `/auth/[...all]`: Better Auth authentication endpoints.
    - `/nfc/tap`: Legacy POST endpoint for NFC tap events (fallback, not recommended).
-   - **WebSocket**: `/api/nfc/ws` endpoint handled by custom server.js for real-time NFC events.
+   - **WebSocket**: `/api/nfc/ws` endpoint handled by custom `server.ts` for real-time NFC events.
 
 **Rendering**: Dynamic (`force-dynamic`) for DB pages.
 
@@ -146,7 +146,7 @@ web-next/
 ├── public/
 │   └── robots.txt       # SEO configuration
 ├── Dockerfile           # Production container
-├── server.js            # Custom Node server with WebSocket
+├── server.ts            # Typed custom Node server with WebSocket
 ├── next.config.ts       # Next.js configuration
 └── package.json         # Dependencies and scripts
 ```
@@ -186,7 +186,7 @@ See [Getting Started](getting-started.md).
 **Development**:
 
 ```bash
-pnpm dev  # Runs custom server.js with WebSocket on http://localhost:3000
+pnpm dev  # Runs node --import tsx server.ts with WebSocket on http://localhost:3000
 ```
 
 **Production Build**:
@@ -237,7 +237,7 @@ pnpm build  # Includes TS check
 
 3. **NFC Enhancement**:
    - Extend `/api/nfc/tap` handler.
-   - Update WebSocket handlers in `server.js`.
+   - Update WebSocket handlers in `server.ts`.
    - Modify client WebSocket hook in `lib/use-nfc-websocket.ts`.
 
 ### Testing

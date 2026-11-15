@@ -2,9 +2,8 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import Database from "better-sqlite3";
 import { test } from "node:test";
-import { createRequire } from "node:module";
+import { ensureUserSchema } from "./user-schema";
 
-const require = createRequire(import.meta.url);
 function fixture(role = "role TEXT NOT NULL DEFAULT 'staff' CHECK(role IN ('admin','staff')),") {
   const db = new Database(":memory:");
   db.pragma("foreign_keys = ON");
@@ -15,7 +14,6 @@ function fixture(role = "role TEXT NOT NULL DEFAULT 'staff' CHECK(role IN ('admi
 }
 
 test("role migration preserves identities, credentials, links and cents on repeated initialization", () => {
-  const { ensureUserSchema } = require("./user-schema.cjs");
   const db = fixture();
   try {
     db.exec("UPDATE user SET role='admin'; INSERT INTO user_student_links VALUES('operator',1)");
@@ -40,7 +38,6 @@ test("role migration preserves identities, credentials, links and cents on repea
 });
 
 test("legacy operators remain staff and students are never auto-promoted", () => {
-  const { ensureUserSchema } = require("./user-schema.cjs");
   const db = fixture("");
   try {
     ensureUserSchema(db);
@@ -52,7 +49,6 @@ test("legacy operators remain staff and students are never auto-promoted", () =>
 });
 
 test("unsupported columns and orphan references refuse migration without partial mutation", () => {
-  const { ensureUserSchema } = require("./user-schema.cjs");
   for (const unsupported of [true, false]) {
     const db = fixture();
     try {
@@ -118,7 +114,6 @@ test("administrator linking and grants preserve ownership and financial history"
 });
 
 test("unknown generated columns and missing core columns are refused before data loss", () => {
-  const { ensureUserSchema } = require("./user-schema.cjs");
   for (const alteration of ["ALTER TABLE user ADD COLUMN generated_name TEXT GENERATED ALWAYS AS (name) VIRTUAL", "ALTER TABLE user DROP COLUMN image"]) {
     const db = fixture();
     try {
@@ -131,7 +126,6 @@ test("unknown generated columns and missing core columns are refused before data
 });
 
 test("invalid legacy roles become unprivileged students, never operators", () => {
-  const { ensureUserSchema } = require("./user-schema.cjs");
   const db = fixture("role TEXT DEFAULT 'staff',");
   try {
     db.exec("UPDATE user SET role='unexpected'");

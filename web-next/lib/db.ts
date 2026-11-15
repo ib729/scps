@@ -2,10 +2,10 @@ import fs from "node:fs";
 
 import Database from "better-sqlite3";
 import { DEFAULT_NFC_READER, DEFAULT_POS_MODE } from "./pos-preferences";
-import { ensureUserSchema } from "./user-schema.cjs";
+import { ensureUserSchema } from "./user-schema";
 
-import { resolveDatabasePath } from "./database-path.cjs";
-import { ensureCurrencyScale } from "./currency-scale.cjs";
+import { resolveDatabasePath } from "./database-path";
+import { ensureCurrencyScale } from "./currency-scale";
 
 export const dbPath = resolveDatabasePath();
 if (!fs.existsSync(dbPath)) {

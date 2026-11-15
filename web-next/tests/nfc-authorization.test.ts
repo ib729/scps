@@ -23,6 +23,16 @@ test("open browser sockets stop receiving NFC identifiers when their exact sessi
       return {ws,reply:await reply};
     }
     const reader = (await socket(undefined,"reader-1","broadcaster")).ws;
+    const httpClient = await socket(await login());
+    const httpTap = waitMessage(httpClient.ws);
+    const posted = await fetch(server.baseURL + "/api/nfc/tap", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ card_uid: "HTTPCAFE", lane: "reader-1", secret: "scps-test-only-nfc-secret-2026" }),
+    });
+    assert.equal(posted.status, 200);
+    assert.equal((await httpTap).card_uid, "HTTPCAFE");
+    httpClient.ws.close();
     const sendTap = (lane = "reader-1") => {const card_uid = `CARD${++uid}`;reader.send(JSON.stringify({type:"tap",card_uid,lane}));return card_uid;};
     for (const reason of ["demotion","session deletion","expiry","malformed expiry","password reset","user deletion"]) {
       server.database.exec("UPDATE user SET role='staff' WHERE email='staff@example.test'");

@@ -47,7 +47,7 @@ export async function startTestServer(): Promise<{ baseURL: string; database: Da
   listener.close(error => error ? closing.reject(error) : closing.resolve());
   await closing.promise;
   const baseURL = `http://localhost:${port}`;
-  const child = spawn(process.execPath, ["server.js"], {
+  const child = spawn(process.execPath, ["--import", "tsx", "server.ts"], {
     cwd: webDirectory,
     env: {
       ...process.env, NODE_ENV: "development", HOSTNAME: "localhost", PORT: String(port), DATABASE_PATH: databasePath,

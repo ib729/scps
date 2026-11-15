@@ -5,19 +5,41 @@
  * while maintaining all Next.js functionality.
  */
 
-// Load environment variables from .env.local
-require('dotenv').config({ path: '.env.local', quiet: true });
+import dotenv from 'dotenv';
+import { createServer, type IncomingMessage } from 'node:http';
+import next from 'next';
+import WebSocket, { WebSocketServer } from 'ws';
+import crypto from 'node:crypto';
+import { isIP } from 'node:net';
+import fs from 'node:fs';
+import { resolveDatabasePath } from './lib/database-path';
+import Database from 'better-sqlite3';
+import { ensureUserSchema } from './lib/user-schema';
+import { registerReader } from './lib/nfc-readers';
+import tapBroadcaster from './lib/tap-events';
 
-const { createServer } = require('http');
-const next = require('next');
-const { WebSocketServer } = require('ws');
-const crypto = require('crypto');
-const { isIP } = require('node:net');
-const fs = require('fs');
-const { resolveDatabasePath } = require('./lib/database-path.cjs');
-const Database = require('better-sqlite3');
-const { ensureUserSchema } = require('./lib/user-schema.cjs');
-const { registerReader } = require('./lib/nfc-readers.cjs');
+dotenv.config({ path: '.env.local', quiet: true });
+
+type BrowserSession = {
+  userId: string;
+  expiresAt: number | string | null;
+  email: string;
+  name: string;
+  role: string;
+};
+type SessionResult =
+  | { session: BrowserSession; sessionToken: string; error?: never }
+  | { session?: never; sessionToken?: never; error: string };
+type ConnectionInfo = {
+  role: 'broadcaster' | 'client';
+  lane: string;
+  ip: string;
+  connectedAt: string;
+};
+type SocketMessage =
+  | { type: 'auth'; role?: unknown; secret?: unknown; lane?: unknown }
+  | { type: 'tap'; card_uid?: unknown; lane?: unknown; reader_ts?: unknown }
+  | { type: 'pong' };
 
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = process.env.HOSTNAME || 'localhost';
@@ -53,14 +75,14 @@ const trustedOrigins = new Set(
 );
 
 // Rate limiting: Track failed auth attempts per IP
-const failedAttempts = new Map(); // ip -> { count, firstAttempt, blocked }
+const failedAttempts = new Map<string, { count: number; firstAttempt: number; blocked: number | null }>();
 const RATE_LIMIT_WINDOW = 60000; // 1 minute window
 const MAX_FAILED_ATTEMPTS = 5; // Max attempts per window
 const BLOCK_DURATION = 300000; // 5 minutes block
 
 // Connection tracking
 let connectionCounter = 0;
-let authDb = null;
+let authDb: Database.Database | null = null;
 
 function resolveDbPath() {
   const dbPath = resolveDatabasePath();
@@ -87,7 +109,7 @@ function getAuthDb() {
   return authDb;
 }
 
-function isAllowedOrigin(origin) {
+function isAllowedOrigin(origin: string | undefined): boolean {
   if (!origin) {
     return false;
   }
@@ -99,12 +121,12 @@ function isAllowedOrigin(origin) {
   }
 }
 
-function parseCookieHeader(cookieHeader) {
+function parseCookieHeader(cookieHeader: string | undefined): Record<string, string> {
   if (!cookieHeader) {
     return {};
   }
 
-  return cookieHeader.split(';').reduce((cookies, part) => {
+  return cookieHeader.split(';').reduce<Record<string, string>>((cookies, part) => {
     const [rawKey, ...rawValue] = part.trim().split('=');
     if (!rawKey) {
       return cookies;
@@ -115,7 +137,7 @@ function parseCookieHeader(cookieHeader) {
   }, {});
 }
 
-function unsignCookieValue(value, secret) {
+function unsignCookieValue(value: string | null | undefined, secret: string | undefined): string | null {
   if (!value || !secret) {
     return null;
   }
@@ -149,7 +171,7 @@ function unsignCookieValue(value, secret) {
     : null;
 }
 
-function getSessionToken(request) {
+function getSessionToken(request: IncomingMessage): string | null {
   try {
   const cookies = parseCookieHeader(request.headers.cookie);
   const rawToken = (
@@ -168,7 +190,7 @@ function getSessionToken(request) {
   }
 }
 
-function validateBrowserSession(request, sessionToken = getSessionToken(request)) {
+function validateBrowserSession(request: IncomingMessage, sessionToken = getSessionToken(request)): SessionResult {
   const origin = request.headers.origin;
   if (!isAllowedOrigin(origin)) {
     return { error: 'Origin not allowed' };
@@ -180,7 +202,7 @@ function validateBrowserSession(request, sessionToken = getSessionToken(request)
 
   try {
   const session = getAuthDb()
-    .prepare(
+    .prepare<[string], BrowserSession>(
       `
         SELECT
           s.userId,
@@ -217,8 +239,8 @@ function validateBrowserSession(request, sessionToken = getSessionToken(request)
   }
 }
 
-function safeCompareSecret(expected, provided) {
-  if (!expected || !provided) {
+function safeCompareSecret(expected: string | undefined, provided: unknown): boolean {
+  if (!expected || typeof provided !== 'string' || !provided) {
     return false;
   }
 
@@ -234,7 +256,7 @@ function safeCompareSecret(expected, provided) {
 /**
  * Get client IP address from request
  */
-function getClientIP(request) {
+function getClientIP(request: IncomingMessage): string {
   const peer = request.socket.remoteAddress?.toLowerCase().replace(/^::ffff:/, '') || '';
   const loopback = peer === '::1' || (isIP(peer) === 4 && peer.startsWith('127.'));
   const forwarded = request.headers['x-forwarded-for'];
@@ -250,15 +272,15 @@ function getClientIP(request) {
 /**
  * Mask secret for logging (show first 4 and last 4 chars)
  */
-function maskSecret(secret) {
-  if (!secret || secret.length < 12) return '[INVALID]';
+function maskSecret(secret: unknown): string {
+  if (typeof secret !== 'string' || secret.length < 12) return '[INVALID]';
   return `${secret.slice(0, 4)}...${secret.slice(-4)}`;
 }
 
 /**
  * Check if IP is rate limited
  */
-function isRateLimited(ip) {
+function isRateLimited(ip: string): boolean {
   const now = Date.now();
   const record = failedAttempts.get(ip);
   
@@ -281,7 +303,7 @@ function isRateLimited(ip) {
 /**
  * Record failed authentication attempt
  */
-function recordFailedAttempt(ip) {
+function recordFailedAttempt(ip: string): void {
   const now = Date.now();
   const record = failedAttempts.get(ip);
   
@@ -300,31 +322,35 @@ function recordFailedAttempt(ip) {
 /**
  * Clear failed attempts for IP (on successful auth)
  */
-function clearFailedAttempts(ip) {
+function clearFailedAttempts(ip: string): void {
   failedAttempts.delete(ip);
 }
 
 const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
 
-// Import tap broadcaster (will be loaded after Next.js prepares)
-let tapBroadcaster;
 
 app.prepare().then(() => {
   const handleUpgrade = app.getUpgradeHandler();
-  // Dynamically import the tap broadcaster after Next.js is ready
-  tapBroadcaster = require('./lib/tap-events-node').default;
   
   const server = createServer(async (req, res) => {
     req.headers['x-scps-client-ip'] = getClientIP(req);
     try {
       const requestUrl = new URL(
-        req.url,
+        req.url || '/',
         `http://${req.headers.host || `${hostname}:${port}`}`
       );
       const parsedUrl = {
         pathname: requestUrl.pathname,
         query: Object.fromEntries(requestUrl.searchParams.entries()),
+        hash: null,
+        hostname: null,
+        href: requestUrl.pathname + requestUrl.search,
+        // Next treats a protocol-bearing URL as an external proxy destination.
+        protocol: null,
+        search: null,
+        slashes: null,
+        port: null,
       };
       await handle(req, res, parsedUrl);
     } catch (err) {
@@ -340,7 +366,7 @@ app.prepare().then(() => {
   // Handle WebSocket upgrade
   server.on('upgrade', (request, socket, head) => {
     const requestUrl = new URL(
-      request.url,
+      request.url || '/',
       `http://${request.headers.host || `${hostname}:${port}`}`
     );
     const { pathname } = requestUrl;
@@ -366,8 +392,7 @@ app.prepare().then(() => {
     handleWebSocketConnection(ws, request);
   });
 
-  server.listen(port, hostname, (err) => {
-    if (err) throw err;
+  server.listen(port, hostname, () => {
     console.log(`> Ready on http://${hostname}:${port}`);
     console.log(`> WebSocket server ready on ws://${hostname}:${port}/api/nfc/ws`);
   });
@@ -376,12 +401,12 @@ app.prepare().then(() => {
 /**
  * Handle WebSocket connection lifecycle
  */
-function handleWebSocketConnection(ws, request) {
-  let connectionInfo = null;
+function handleWebSocketConnection(ws: WebSocket, request: IncomingMessage) {
+  let connectionInfo: ConnectionInfo | null = null;
   let authenticated = false;
-  let pingInterval = null;
-  let tapUnsubscribe = null;
-  let unregisterReader = null;
+  let pingInterval: NodeJS.Timeout | undefined;
+  let tapUnsubscribe: (() => void) | null = null;
+  let unregisterReader: (() => void) | null = null;
   let alive = true;
   ws.on('pong', () => { alive = true; });
 
@@ -392,7 +417,7 @@ function handleWebSocketConnection(ws, request) {
   const userAgent = request.headers['user-agent'] || 'unknown';
   const origin = request.headers['origin'] || request.headers['referer'] || 'unknown';
 
-  const url = new URL(request.url, `http://${request.headers.host}`);
+  const url = new URL(request.url || '/', `http://${request.headers.host}`);
   const lane = url.searchParams.get('lane') || 'default';
 
   console.log(`[WS #${connectionId}] New connection from ${clientIP}`);
@@ -405,7 +430,10 @@ function handleWebSocketConnection(ws, request) {
   // Handle incoming messages
   ws.on('message', async (data) => {
     try {
-      const message = JSON.parse(data.toString());
+      const parsed: unknown = JSON.parse(data.toString());
+      if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) throw new Error('Invalid message');
+      if (!('type' in parsed) || (parsed.type !== 'auth' && parsed.type !== 'tap' && parsed.type !== 'pong')) return;
+      const message = parsed as SocketMessage;
 
       // Handle authentication
       if (message.type === 'auth') {
@@ -446,7 +474,7 @@ function handleWebSocketConnection(ws, request) {
   });
 
   // Handle authentication
-  async function handleAuthentication(ws, message, lane) {
+  async function handleAuthentication(ws: WebSocket, message: Extract<SocketMessage, { type: 'auth' }>, lane: string) {
     const role = message.role;
 
     console.log(`[WS #${connectionId}] Auth attempt - Role: ${role || 'none'}, IP: ${clientIP}`);
@@ -470,7 +498,7 @@ function handleWebSocketConnection(ws, request) {
         return;
       }
       
-      // Authenticate Python broadcaster with shared secret
+      // Authenticate the reader broadcaster with the shared secret.
       const expectedSecret = process.env.NFC_TAP_SECRET;
       const providedSecret = message.secret;
       
@@ -512,7 +540,7 @@ function handleWebSocketConnection(ws, request) {
 
       connectionInfo = {
         role: 'broadcaster',
-        lane: message.lane || lane,
+        lane: typeof message.lane === 'string' && message.lane ? message.lane : lane,
         ip: clientIP,
         connectedAt,
       };
@@ -550,13 +578,10 @@ function handleWebSocketConnection(ws, request) {
         lane: lane,
         ip: clientIP,
         connectedAt,
-        userAgent,
-        userId: sessionResult.session.userId,
-        sessionToken: sessionResult.sessionToken,
-        email: sessionResult.session.email,
       };
 
       authenticated = true;
+      const sessionToken = sessionResult.sessionToken;
 
       console.log(`[WS #${connectionId}] ✓ Browser client authenticated (${sessionResult.session.email}, lane: ${lane})`);
 
@@ -584,7 +609,7 @@ function handleWebSocketConnection(ws, request) {
           return;
         }
 
-        if (!validateBrowserSession(request, connectionInfo.sessionToken).session) {
+        if (!validateBrowserSession(request, sessionToken).session) {
           if (tapUnsubscribe) tapUnsubscribe();
           ws.close(1008, 'Session no longer authorized');
           return;
@@ -612,14 +637,14 @@ function handleWebSocketConnection(ws, request) {
   }
 
   // Handle tap events from broadcaster
-  function handleTapEvent(message) {
-    if (!message.card_uid) {
+  function handleTapEvent(message: Extract<SocketMessage, { type: 'tap' }>) {
+    if (typeof message.card_uid !== 'string' || !message.card_uid) {
       console.warn(`[WS #${connectionId}] Tap event missing card_uid`);
       return;
     }
     
     // Normalize lane coming from broadcaster/connection info
-    let eventLane = message.lane || connectionInfo?.lane || 'default';
+    let eventLane = typeof message.lane === 'string' && message.lane || connectionInfo?.lane || 'default';
     if (typeof eventLane === 'string') {
       eventLane = eventLane.trim();
     }
@@ -631,7 +656,7 @@ function handleWebSocketConnection(ws, request) {
     const tapEvent = {
       card_uid: message.card_uid,
       lane: eventLane,
-      reader_ts: message.reader_ts,
+      reader_ts: typeof message.reader_ts === 'string' ? message.reader_ts : undefined,
       timestamp: new Date().toISOString(),
     };
 
@@ -666,9 +691,7 @@ function handleWebSocketConnection(ws, request) {
     
     // Cleanup
     if (unregisterReader) unregisterReader();
-    if (pingInterval) {
-      clearInterval(pingInterval);
-    }
+    clearInterval(pingInterval);
     
     if (tapUnsubscribe) {
       tapUnsubscribe();

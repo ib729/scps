@@ -4,10 +4,9 @@ import Database from "better-sqlite3";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { createRequire } from "node:module";
+import { ensureCurrencyScale } from "./currency-scale";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-const require = createRequire(import.meta.url);
 const execute = promisify(execFile);
 function fixture(marker?: string) {
   const db = new Database(":memory:");
@@ -19,7 +18,6 @@ function fixture(marker?: string) {
 }
 const state = (db: Database.Database) => [db.prepare("SELECT balance,max_overdraft_week FROM accounts").get(), db.prepare("SELECT amount,overdraft_component FROM transactions").get(), db.prepare("SELECT used FROM overdraft_weeks").get(), db.prepare("SELECT * FROM app_meta").all()];
 test("legacy currency converts exactly once and existing cents stay unchanged", () => {
-  const { ensureCurrencyScale } = require("./currency-scale.cjs");
   for (const marker of [undefined, "10", "100"]) {
     const db = fixture(marker);
     try {
@@ -36,7 +34,6 @@ test("legacy currency converts exactly once and existing cents stay unchanged", 
   try { empty.exec("DELETE FROM transactions; DELETE FROM overdraft_weeks; DELETE FROM accounts"); ensureCurrencyScale(empty); assert.equal(empty.prepare("SELECT value FROM app_meta").pluck().get(), "100"); } finally { empty.close(); }
 });
 test("conversion errors roll back values and marker together", () => {
-  const { ensureCurrencyScale } = require("./currency-scale.cjs");
   for (const failure of ["unknown", "overflow", "update", "marker", "fraction"]) {
     const db = fixture(failure === "unknown" ? "bogus" : "10");
     try {

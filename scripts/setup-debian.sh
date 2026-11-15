@@ -73,7 +73,7 @@ ensure_package() {
 
 configure_database() {
   local resolved_database_path
-  resolved_database_path="$(run_as_user node "$WEB_NEXT_DIR/lib/database-path.cjs")"
+  resolved_database_path="$(cd "$WEB_NEXT_DIR" && run_as_user node --import tsx lib/database-path.ts)"
   [[ "$resolved_database_path" == /* ]] || { echo "Database resolver did not return an absolute path" >&2; return 1; }
   ensure_env_value "DATABASE_PATH" "$(node -p 'JSON.stringify(process.argv[1])' "$resolved_database_path")"
   run_as_user mkdir -p "$(dirname "$resolved_database_path")"
