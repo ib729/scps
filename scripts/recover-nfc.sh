@@ -9,8 +9,8 @@ echo ""
 echo "1. Stopping tap-broadcaster service..."
 sudo systemctl stop tap-broadcaster
 
-echo "2. Killing any python processes holding the port..."
-sudo pkill -f "tap-broadcaster.py" 2>/dev/null || true
+echo "2. Killing any stale broadcaster processes holding the port..."
+sudo pkill -f "[h]ardware/tap-broadcaster.ts" 2>/dev/null || true
 sleep 1
 
 echo "3. Resetting USB device..."

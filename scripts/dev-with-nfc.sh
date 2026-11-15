@@ -14,7 +14,7 @@ sleep 1
 
 # Kill any rogue broadcaster processes
 echo "🧹 Cleaning up any stale processes..."
-sudo pkill -f "tap-broadcaster.py" 2>/dev/null || true
+sudo pkill -f "[h]ardware/tap-broadcaster.ts" 2>/dev/null || true
 sleep 1
 
 # Reset USB device

@@ -7,8 +7,8 @@
 #
 # Example:
 #   User=pi
-#   WorkingDirectory=/home/pi/stuco
-#   ExecStart=/home/pi/stuco/.venv/bin/python -u /home/pi/stuco/hardware-pi/tap-broadcaster.py
+#   WorkingDirectory=/home/pi/stuco/web-next
+#   ExecStart=/usr/bin/env node --import tsx hardware/tap-broadcaster.ts
 # ============================================================================
 
 [Unit]
@@ -17,22 +17,22 @@ After=network.target
 
 [Service]
 Type=simple
-User=qiss
-WorkingDirectory=/home/qiss/scps
+User=YOUR_USERNAME
+WorkingDirectory=/path/to/stuco/web-next
 # Load environment variables from file (including NFC_TAP_SECRET)
-EnvironmentFile=/home/qiss/scps/.env.broadcaster
+EnvironmentFile=/path/to/stuco/.env.broadcaster
 Environment="NEXTJS_URL=http://localhost:3000"
 Environment="POS_LANE_ID=reader-2"
 Environment="PN532_DEVICE=tty:USB1:pn532"
 
 # Pre-start: Reset USB device to ensure clean state (Target USB1 specifically)
-ExecStartPre=/home/qiss/scps/scripts/reset-usb-nfc.sh USB1
+ExecStartPre=/path/to/stuco/scripts/reset-usb-nfc.sh USB1
 
 # Pre-start: Wait for device to be ready (avoid race condition)
 ExecStartPre=/bin/sleep 5
 
-# Main process with unbuffered output
-ExecStart=/home/qiss/scps/.venv/bin/python -u /home/qiss/scps/hardware-pi/tap-broadcaster.py
+# Main TypeScript process
+ExecStart=/usr/bin/env node --import tsx hardware/tap-broadcaster.ts
 
 # Post-stop: Allow cleanup time
 ExecStopPost=/bin/sleep 1

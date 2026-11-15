@@ -22,6 +22,10 @@
 - Reject unsafe/truncated archives and unknown currency scales; normalize pre-cutover cent-based backups in private restore staging without replacing live files.
 - CSV imports commit valid rows atomically, report failures with nonzero status, and keep dry runs/template generation nonmutating.
 
+### Typed NFC tools
+- Replace the Python reader and diagnostic programs with TypeScript and native libnfc; preserve authenticated sends, reader/lane identity, debounce and independent reader/network recovery.
+- Bound each reader child to five seconds, await close before replacement, and discard cancelled-generation UIDs. Physical PN532/native USB acceptance is still required on deployed hardware.
+
 ### Toolchain
 - Pin Node 26.13.1, pnpm 12.21.0 and current stable direct dependencies; use the installed `auth` CLI. Python reader dependencies require Python 3.11 or newer.
 - TypeScript 7 checks the application; ESLint compiler-API consumers resolve isolated TypeScript 6.0.3. Workspace policy explicitly permits native builds and denies unused Prisma client generation and telemetry scripts.

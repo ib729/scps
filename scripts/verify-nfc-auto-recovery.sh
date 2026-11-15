@@ -62,29 +62,16 @@ fi
 
 echo ""
 echo "═══════════════════════════════════════════════════════════════"
-echo "2. Checking Hardware Reconnection Code"
+echo "2. Checking Broadcaster Process State"
 echo "═══════════════════════════════════════════════════════════════"
 
-# Check if hardware reconnection function exists
-if grep -q "nfc_reader_loop_with_reconnection" /home/qiss/scps/hardware-pi/tap-broadcaster.py; then
-    print_status "PASS" "Hardware reconnection wrapper found in tap-broadcaster.py"
-else
-    print_status "FAIL" "Hardware reconnection wrapper NOT found in tap-broadcaster.py"
-fi
-
-# Check if it's being used
-if grep -q "await nfc_reader_loop_with_reconnection" /home/qiss/scps/hardware-pi/tap-broadcaster.py; then
-    print_status "PASS" "Hardware reconnection is being used in main loop"
-else
-    print_status "FAIL" "Hardware reconnection is NOT being used in main loop"
-fi
-
-# Check for enhanced error handling
-if grep -q "fatal_error" /home/qiss/scps/hardware-pi/tap-broadcaster.py; then
-    print_status "PASS" "Enhanced error detection implemented"
-else
-    print_status "FAIL" "Enhanced error detection NOT found"
-fi
+for SERVICE in tap-broadcaster.service tap-broadcaster-reader2.service; do
+    if systemctl is-active --quiet "$SERVICE"; then
+        print_status "PASS" "$SERVICE is active; verify hardware with a real tap"
+    else
+        print_status "WARN" "$SERVICE is inactive; stop/reset/start recovery may be needed"
+    fi
+done
 
 echo ""
 echo "═══════════════════════════════════════════════════════════════"

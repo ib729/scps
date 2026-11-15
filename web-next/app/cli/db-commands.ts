@@ -210,12 +210,12 @@ export async function handleHardwareDiagnostics() {
 
     if (p.isCancel(choice) || choice === "back") break;
 
-    let pyScript = "";
-    if (choice === "diagnose") pyScript = "diagnose_nfc.py";
-    if (choice === "usb") pyScript = "test_usb_ports.py";
-    if (choice === "test_readers") pyScript = "test_readers.py";
+    let script = "";
+    if (choice === "diagnose") script = "diagnose-nfc.ts";
+    if (choice === "usb") script = "test-usb-ports.ts";
+    if (choice === "test_readers") script = "test-readers.ts";
 
-    const scriptPath = path.resolve(__dirname, "../../../hardware-pi", pyScript);
+    const scriptPath = path.resolve(__dirname, "../../hardware", script);
 
     if (!fs.existsSync(scriptPath)) {
       p.log.error(`Hardware script not found at: ${scriptPath}`);
@@ -223,9 +223,10 @@ export async function handleHardwareDiagnostics() {
     }
 
     const s = p.spinner();
-    s.start(`Booting ${pyScript}...`);
+    s.start(`Booting ${script}...`);
 
-    const child = spawn("python3", [scriptPath], {
+    const child = spawn(process.execPath, ["--import", "tsx", scriptPath], {
+      cwd: path.resolve(__dirname, "../.."),
       stdio: "inherit",
     });
 
