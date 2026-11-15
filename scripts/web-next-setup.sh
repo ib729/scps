@@ -21,9 +21,11 @@ require_command() {
 echo "Preparing SCPS web environment"
 echo "Detected platform: ${OS_NAME} ${ARCH_NAME}"
 
-require_command node "Install Node.js 20 or newer before running this script."
-require_command pnpm "Enable Corepack or install pnpm before running this script."
-require_command python3 "Install Python 3 so native modules can build correctly."
+require_command node "Install Node.js >=26.13.1 <27 before running this script."
+require_command pnpm "Install pnpm 12.21.0 before running this script."
+require_command python3 "Install Python >=3.11 so native modules can build correctly."
+node -e 'const [a,b,c] = process.versions.node.split(".").map(Number); if (a !== 26 || b < 13 || b === 13 && c < 1) throw new Error("Node.js >=26.13.1 <27 required")'
+python3 -c 'import sys; assert sys.version_info >= (3, 11), "Python >=3.11 required"'
 
 if [[ "$OS_NAME" == "Linux" ]]; then
   require_command make "Install build-essential or an equivalent C/C++ toolchain."

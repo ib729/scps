@@ -7,6 +7,7 @@ const contentSecurityPolicy = getContentSecurityPolicy();
 const nextConfig: NextConfig = {
   /* config options here */
   serverExternalPackages: ["better-sqlite3"],
+  experimental: { useTypeScriptCli: true },
   outputFileTracingRoot: path.resolve(__dirname, "."),
   allowedDevOrigins: [
     "scps.ivanbelousov.com",

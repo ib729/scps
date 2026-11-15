@@ -1,5 +1,13 @@
 # Change Log
 
+## 2026-11-15
+
+### Toolchain
+- Pin Node 26.13.1, pnpm 12.21.0 and current stable direct dependencies; use the installed `auth` CLI. Python reader dependencies require Python 3.11 or newer.
+- TypeScript 7 checks the application; ESLint compiler-API consumers resolve isolated TypeScript 6.0.3. Workspace policy explicitly permits native builds and denies unused Prisma client generation and telemetry scripts.
+- Remove unreachable TanStack tables; keep the live customer and transaction interfaces. Forward Next development upgrades so browser hydration works alongside NFC sockets.
+- Run `cd web-next && pnpm test` for account/payment regressions and CLI self-checks. HTTP fixtures use temporary databases and test credentials, never an operator ledger.
+
 ## 2026-11-06
 
 ### Changed

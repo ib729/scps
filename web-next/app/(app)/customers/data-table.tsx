@@ -16,7 +16,11 @@ import {
 import { ArrowUpDown } from "@/lib/icons";
 import { formatCurrency, LOW_BALANCE_THRESHOLD } from "@/lib/currency";
 import { DeleteStudentDialog } from "./delete-student-dialog";
-import type { StudentTableData } from "./columns";
+import type { StudentWithAccount } from "@/lib/models";
+
+export type StudentTableData = StudentWithAccount & {
+  hasTransactions: boolean;
+};
 
 interface DataTableProps {
   data: StudentTableData[];

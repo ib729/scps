@@ -38,8 +38,8 @@ case "$OS_TYPE" in
     fi
     
     # Check for python3
-    if ! command -v python3 &> /dev/null; then
-      echo "❌ python3 not found"
+    if ! python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)' 2>/dev/null; then
+      echo "❌ Python >=3.11 required"
       MISSING_DEPS+=("python3")
     else
       echo "✅ python3: $(python3 --version)"
@@ -62,16 +62,16 @@ esac
 echo ""
 
 # Check for Node.js
-if ! command -v node &> /dev/null; then
-  echo "❌ Node.js not found"
+if ! node -e 'const [a,b,c] = process.versions.node.split(".").map(Number); process.exit(a === 26 && (b > 13 || b === 13 && c >= 1) ? 0 : 1)' 2>/dev/null; then
+  echo "❌ Node.js >=26.13.1 <27 required"
   MISSING_DEPS+=("nodejs")
 else
   echo "✅ Node.js: $(node --version)"
 fi
 
 # Check for pnpm
-if ! command -v pnpm &> /dev/null; then
-  echo "❌ pnpm not found"
+if ! command -v pnpm &> /dev/null || [[ "$(pnpm --version)" != "12.21.0" ]]; then
+  echo "❌ pnpm 12.21.0 required"
   MISSING_DEPS+=("pnpm")
 else
   echo "✅ pnpm: $(pnpm --version)"
@@ -105,8 +105,8 @@ else
         echo "  sudo apt install -y python3"
       fi
       if [[ " ${MISSING_DEPS[@]} " =~ " pnpm " ]]; then
-        echo "  npm install -g pnpm"
-        echo "  # or: curl -fsSL https://get.pnpm.io/install.sh | sh -"
+        echo "  npm install --prefix .local/pnpm --no-save pnpm@12.21.0"
+        echo '  export PATH="$PWD/.local/pnpm/node_modules/.bin:$PATH"'
       fi
       ;;
   esac

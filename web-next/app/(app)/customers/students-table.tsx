@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import type { StudentWithAccount } from "@/lib/models";
 import { CreateStudentDialog } from "./create-student-dialog";
 import { DataTable } from "./data-table";
-import type { StudentTableData } from "./columns";
+import type { StudentTableData } from "./data-table";
 
 interface StudentsTableProps {
   students: StudentWithAccount[];

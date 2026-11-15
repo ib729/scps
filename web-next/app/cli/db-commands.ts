@@ -90,7 +90,7 @@ export async function handleLedgerAdjustments() {
     const search = await p.text({
       message: "Search for a student/customer by name",
       placeholder: "e.g. John",
-      validate: (v) => (!v.trim() ? "Search query cannot be empty" : undefined),
+      validate: (v = "") => (!v.trim() ? "Search query cannot be empty" : undefined),
     });
 
     if (p.isCancel(search)) break;
@@ -126,7 +126,7 @@ export async function handleLedgerAdjustments() {
     const amountInput = await p.text({
       message: "Enter Top-up / Adjustment amount in ¥ (e.g. 50 or -20 for debit)",
       placeholder: "e.g. 50.00",
-      validate: (v) => {
+      validate: (v = "") => {
         try {
           parseAdjustmentAmount(v);
           return undefined;
@@ -172,7 +172,7 @@ export async function handleCSVImport() {
   const csvPath = await p.text({
     message: "Enter the absolute or relative path to your CSV file",
     placeholder: "e.g. students.csv",
-    validate: (v) => {
+    validate: (v = "") => {
       if (!v.trim()) return "Path cannot be empty";
       if (!fs.existsSync(v.trim())) return "File does not exist at that path";
       return undefined;
@@ -270,7 +270,7 @@ export async function handleImportDatabase() {
   const sourcePath = await p.text({
     message: "Enter the absolute or relative path to your SQLite database backup (.db file)",
     placeholder: "e.g. stuco.db.backup",
-    validate: (v) => {
+    validate: (v = "") => {
       if (!v.trim()) return "Path cannot be empty";
       if (!fs.existsSync(v.trim())) return "Backup file does not exist at that path";
       // basic sqlite signature check

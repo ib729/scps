@@ -331,6 +331,7 @@ const handle = app.getRequestHandler();
 let tapBroadcaster;
 
 app.prepare().then(() => {
+  const handleUpgrade = app.getUpgradeHandler();
   // Dynamically import the tap broadcaster after Next.js is ready
   tapBroadcaster = require('./lib/tap-events-node').default;
   
@@ -375,7 +376,7 @@ app.prepare().then(() => {
         wss.emit('connection', ws, request);
       });
     } else {
-      socket.destroy();
+      handleUpgrade(request, socket, head);
     }
   });
 

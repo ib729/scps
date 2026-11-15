@@ -6,6 +6,7 @@ const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
   {
+    files: ["**/*.{js,jsx,mjs,ts,tsx,mts,cts}"],
     rules: {
       // React Compiler rules are useful, but too strict for existing mounted-flag and
       // URL-sync effects. Keep them visible without blocking production builds.
@@ -22,7 +23,7 @@ const eslintConfig = defineConfig([
     },
   },
   {
-    files: ["server.js"],
+    files: ["server.js", "lib/**/*.cjs"],
     rules: {
       // Legacy Node entrypoints are CommonJS.
       "@typescript-eslint/no-require-imports": "off",

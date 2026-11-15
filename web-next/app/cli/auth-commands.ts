@@ -86,14 +86,14 @@ export async function handleManageUsers() {
       const name = await p.text({
         message: "Full Name",
         placeholder: "e.g. Jason Kang",
-        validate: (v) => (!v.trim() ? "Name is required" : undefined),
+        validate: (v = "") => (!v.trim() ? "Name is required" : undefined),
       });
       if (p.isCancel(name)) continue;
 
       const email = await p.text({
         message: "Email Address",
         placeholder: "e.g. jason@qiss.org.cn",
-        validate: (v) => (!v.trim() || !v.includes("@") ? "Enter a valid email" : undefined),
+        validate: (v = "") => (!v.trim() || !v.includes("@") ? "Enter a valid email" : undefined),
       });
       if (p.isCancel(email)) continue;
 
@@ -106,7 +106,7 @@ export async function handleManageUsers() {
 
       const password = await p.password({
         message: "Password (min 8 chars)",
-        validate: (v) => (v.length < 8 ? "Password must be at least 8 characters" : undefined),
+        validate: (v = "") => (v.length < 8 ? "Password must be at least 8 characters" : undefined),
       });
       if (p.isCancel(password)) continue;
 
@@ -152,7 +152,7 @@ export async function handleManageUsers() {
 
       const newPassword = await p.password({
         message: "Enter new password (min 8 chars)",
-        validate: (v) => (v.length < 8 ? "Password must be at least 8 characters" : undefined),
+        validate: (v = "") => (v.length < 8 ? "Password must be at least 8 characters" : undefined),
       });
 
       if (p.isCancel(newPassword)) continue;

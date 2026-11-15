@@ -1,11 +1,11 @@
 # syntax=docker/dockerfile:1
 
-FROM node:20-bookworm-slim AS base
+FROM node:26.13.1-bookworm-slim AS base
 
 ENV PNPM_HOME=/usr/local/share/pnpm
 ENV PATH="${PNPM_HOME}:${PATH}"
 
-RUN corepack enable
+RUN npm install --global pnpm@12.21.0
 
 WORKDIR /app
 
@@ -15,7 +15,7 @@ RUN apt-get update \
   && apt-get install -y --no-install-recommends python3 make g++ \
   && rm -rf /var/lib/apt/lists/*
 
-COPY package.json pnpm-lock.yaml .npmrc .pnpm-allowed-build-scripts.json ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 
 RUN pnpm install --frozen-lockfile
 
@@ -26,7 +26,7 @@ COPY . .
 
 RUN pnpm build
 
-FROM node:20-bookworm-slim AS runner
+FROM node:26.13.1-bookworm-slim AS runner
 
 WORKDIR /app
 
@@ -34,7 +34,7 @@ ENV NODE_ENV=production \
   PORT=3000 \
   NEXT_TELEMETRY_DISABLED=1
 
-RUN corepack enable \
+RUN npm install --global pnpm@12.21.0 \
   && apt-get update \
   && apt-get install -y --no-install-recommends python3 make g++ \
   && rm -rf /var/lib/apt/lists/* \

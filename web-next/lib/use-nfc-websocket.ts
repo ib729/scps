@@ -261,7 +261,7 @@ export function useNFCWebSocket(
   /**
    * Connect to WebSocket
    */
-  const connect = useCallback(() => {
+  const connect = useCallback(function connect() {
     // Don't connect if already connected or connecting
     if (wsRef.current?.readyState === WebSocket.OPEN || 
         wsRef.current?.readyState === WebSocket.CONNECTING) {

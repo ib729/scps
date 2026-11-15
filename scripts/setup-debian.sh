@@ -100,17 +100,17 @@ echo "Repository root: $REPO_ROOT"
 
 ensure_package git curl sqlite3 zstd rclone python3 python3-venv python3-pip build-essential ca-certificates gnupg openssl
 
-if (( "$(node_major_version)" < 22 )); then
-  echo "Installing Node.js 22 from NodeSource..."
-  curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+if ! node -e 'const [a,b,c] = process.versions.node.split(".").map(Number); process.exit(a === 26 && (b > 13 || b === 13 && c >= 1) ? 0 : 1)' 2>/dev/null; then
+  echo "Installing Node.js 26 from NodeSource..."
+  curl -fsSL https://deb.nodesource.com/setup_26.x | sudo -E bash -
   ensure_package nodejs
 fi
+node -e 'const [a,b,c] = process.versions.node.split(".").map(Number); if (a !== 26 || b < 13 || b === 13 && c < 1) throw new Error("Node.js >=26.13.1 <27 required")'
+python3 -c 'import sys; assert sys.version_info >= (3, 11), "Python >=3.11 required"'
 
-corepack enable >/dev/null 2>&1 || sudo corepack enable
-
-if ! command -v pnpm >/dev/null 2>&1; then
-  corepack prepare pnpm@latest --activate >/dev/null 2>&1 || sudo corepack prepare pnpm@latest --activate
-fi
+PNPM_PREFIX="$REPO_ROOT/.local/pnpm"
+run_as_user npm install --prefix "$PNPM_PREFIX" --no-save pnpm@12.21.0
+export PATH="$PNPM_PREFIX/node_modules/.bin:$PATH"
 
 if [[ ! -d "$REPO_ROOT/.venv" ]]; then
   run_as_user python3 -m venv "$REPO_ROOT/.venv"
