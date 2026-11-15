@@ -21,6 +21,7 @@
 - Replace Python CSV, snapshot/extraction and legacy-conversion tools with package-local TypeScript; use complete CSV/tar parsers and verified SQLite online snapshots.
 - Reject unsafe/truncated archives and unknown currency scales; normalize pre-cutover cent-based backups in private restore staging without replacing live files.
 - CSV imports commit valid rows atomically, report failures with nonzero status, and keep dry runs/template generation nonmutating.
+- Normalize missing legacy POS-mode preferences in private conversion staging, preserving the reader selection, timestamps and existing manual mode.
 
 ### Typed NFC tools
 - Replace the Python reader and diagnostic programs with TypeScript and native libnfc; preserve authenticated sends, reader/lane identity, debounce and independent reader/network recovery.

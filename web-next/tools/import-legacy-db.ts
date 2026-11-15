@@ -7,6 +7,7 @@ import Database from 'better-sqlite3';
 import { Command } from 'commander';
 import { backupDatabase } from './sqlite-snapshot';
 import { assertCustomerSchema } from '../lib/customer-schema';
+import { DEFAULT_POS_MODE } from '../lib/pos-preferences';
 import { restoreDatabase } from '../app/cli/db-commands';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -78,6 +79,9 @@ export async function convertLegacySnapshot(sourcePath: string, stagedPath: stri
           const schema = input.prepare<[string], { sql: string }>("SELECT sql FROM sqlite_schema WHERE type='table' AND name=?").get(table);
           if (!schema) throw new Error('Missing user preferences definition');
           output.exec(schema.sql);
+          if (!columns(output, destination).includes('pos_default_mode')) {
+            output.exec(`ALTER TABLE user_preferences ADD COLUMN pos_default_mode TEXT NOT NULL DEFAULT '${DEFAULT_POS_MODE}' CHECK(pos_default_mode IN ('tap-first', 'manual'))`);
+          }
         }
         const allowed = columns(output, destination);
         if (!allowed.length) throw new Error(`Unsupported legacy table: ${table}`);

@@ -58,10 +58,30 @@ for (const scale of [undefined, '10', '100']) test(`preserves ledger/auth and sc
       assert.equal(db.prepare('SELECT status FROM cards').pluck().get(), 'revoked');
       assert.equal(db.prepare('SELECT amount FROM transactions').pluck().get(), 25 * multiplier);
       assert.equal(db.prepare('SELECT previous_description FROM transaction_note_history').pluck().get(), 'old');
-      assert.deepEqual(db.prepare('SELECT * FROM user_preferences').all(), [{user_id:'u',selected_reader:'reader-2',updated_at:'kept'}]);
+      const preferences = spawnSync(process.execPath, ['--import', 'tsx', '--eval', "console.log(JSON.stringify(require('./lib/repositories/user-preferences.ts').getUserPreferencesByUserId('u'))); require('./lib/db.ts').closeDb()"], {
+        cwd: path.join(root, 'web-next'),
+        env: { ...process.env, DATABASE_PATH: f.staged, NODE_ENV: 'test' },
+        encoding: 'utf8',
+      });
+      assert.equal(preferences.status, 0, preferences.stderr);
+      assert.deepEqual(JSON.parse(preferences.stdout), { user_id: 'u', selected_reader: 'reader-2', pos_default_mode: 'tap-first', updated_at: 'kept' });
       assert.equal(db.prepare("INSERT INTO customers(name) VALUES('Next')").run().lastInsertRowid, 91);
       assert.deepEqual(db.pragma('foreign_key_check'), []);
     } finally { db.close(); }
+  } finally { fs.rmSync(f.directory, { recursive: true, force: true }); }
+});
+
+test('preserves an existing manual POS preference during conversion', async () => {
+  const f = fixture('100');
+  try {
+    const source = new Database(f.source);
+    source.exec("ALTER TABLE user_preferences ADD COLUMN pos_default_mode TEXT NOT NULL DEFAULT 'manual'");
+    source.close();
+    await convertLegacySnapshot(f.source, f.staged);
+    const staged = new Database(f.staged);
+    try {
+      assert.deepEqual(staged.prepare('SELECT * FROM user_preferences').all(), [{ user_id: 'u', selected_reader: 'reader-2', updated_at: 'kept', pos_default_mode: 'manual' }]);
+    } finally { staged.close(); }
   } finally { fs.rmSync(f.directory, { recursive: true, force: true }); }
 });
 for (const bad of ['7', 'fraction', 'overflow', 'unknown-user', 'generated-user']) test(`refuses ${bad} without changing source or existing stage`, async () => {
