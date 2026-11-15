@@ -25,7 +25,7 @@ From a repository owned by the intended service user, with sudo access:
 
 The shell bootstrap only handles Debian/Node availability, pinned pnpm/dependency installation and OS/native-build packages needed to invoke TypeScript. Its Python package is for native-addon compilation, not application execution. Reader-host utilities include `libnfc-bin`, `usbutils`, `lsof` and `udev`; backups need `sqlite3`, `zstd` and `rclone`.
 
-The typed `web-next/tools/ops/setup-debian.ts` stage:
+The typed `web-next/tools/ops/setup-host.ts` stage:
 
 1. Creates/restricts `web-next/.env.local`, sets the canonical quoted database path and generates a missing Better Auth secret without logging its value. A new environment uses port 38173 and matching localhost URL/origin; an existing environment retains its settings.
 2. Initializes both core and auth schemas **only if the database does not exist**; otherwise preserves it and requires explicit legacy migration.

@@ -1,5 +1,5 @@
 # Render __RUN_USER__, __REPO_ROOT__, __NODE_EXEC__ and __RUN_PATH__ with
-# tools/ops/setup-debian.ts before installing this unit.
+# tools/ops/setup-host.ts before installing this unit.
 
 [Unit]
 Description=NFC Tap Broadcaster Reader 2 for SCPS POS (WebSocket)

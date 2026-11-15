@@ -15,7 +15,7 @@ const loader = pathToFileURL(createRequire(import.meta.url).resolve("tsx")).href
 async function fixture(t: TestContext) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "scps setup ' % "));
   t.after(() => fs.rm(root, { recursive: true, force: true }));
-  for (const name of ["web-next/tools/ops/setup-debian.ts", "web-next/lib/database-path.ts", "migrations/schema.sql", "web-next/migrations/better_auth_schema.sql", "web-next/.env.local.example", "systemd/stuco-web.service", "systemd/tap-broadcaster.service", "systemd/tap-broadcaster-reader2.service"]) {
+  for (const name of ["web-next/tools/ops/setup-host.ts", "web-next/lib/database-path.ts", "migrations/schema.sql", "web-next/migrations/better_auth_schema.sql", "web-next/.env.local.example", "systemd/stuco-web.service", "systemd/tap-broadcaster.service", "systemd/tap-broadcaster-reader2.service"]) {
     const destination = path.join(root, name);
     await fs.mkdir(path.dirname(destination), { recursive: true });
     await fs.copyFile(path.join(sourceRoot, name), destination);
@@ -40,7 +40,7 @@ test("user commands retain the pinned tool path even when sudo strips PATH", asy
   const f = await fixture(t);
   await fs.writeFile(path.join(f.binaries, "sudo"), "#!/bin/sh\nshift; shift\nexec env -i PATH=/usr/bin:/bin \"$@\"\n", { mode: 0o700 });
   await fs.writeFile(path.join(f.binaries, "scps-runtime-probe"), "#!/bin/sh\nprintf pinned-tool\n", { mode: 0o700 });
-  const result = await probe(f.web, 'import { runAsUser } from "./ops/setup-debian"; runAsUser("scps-runtime-probe", []);', f.root, { ...f.env, PATH: `${f.binaries}:${f.env.PATH ?? ""}` });
+  const result = await probe(f.web, 'import { runAsUser } from "./ops/setup-host"; runAsUser("scps-runtime-probe", []);', f.root, { ...f.env, PATH: `${f.binaries}:${f.env.PATH ?? ""}` });
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.stdout, "pinned-tool");
 });
@@ -51,7 +51,7 @@ test("setup from either cwd keeps one quoted canonical database and preserves cu
   const target = path.join(f.web, "private dir/ledger.db");
   await fs.writeFile(envFile, 'DATABASE_PATH="private dir/ledger.db"\nEXAMPLE=old\nEXAMPLE=second\n');
   for (const [index, cwd] of [f.root, f.web].entries()) {
-    const result = await probe(f.web, 'import { configureDatabase, ensureEnvValue } from "./ops/setup-debian"; configureDatabase(); ensureEnvValue("EXAMPLE", "updated");', cwd, f.env);
+    const result = await probe(f.web, 'import { configureDatabase, ensureEnvValue } from "./ops/setup-host"; configureDatabase(); ensureEnvValue("EXAMPLE", "updated");', cwd, f.env);
     assert.equal(result.status, 0, result.stderr);
     assert.equal(parse(await fs.readFile(envFile)).DATABASE_PATH, target);
     assert.match(await fs.readFile(envFile, "utf8"), /EXAMPLE=updated\nEXAMPLE=second\n/);
@@ -87,7 +87,7 @@ else if(args[0]!=='systemctl')throw new Error('Unexpected privileged command: '+
   await fs.writeFile(path.join(f.binaries, "pnpm"), `#!${process.execPath}\nrequire(${JSON.stringify(path.join(f.web, "node_modules/dotenv"))}).config({path:${JSON.stringify(path.join(f.web, ".env.local"))},quiet:true});\nif(!process.env.BETTER_AUTH_SECRET||process.env.BETTER_AUTH_SECRET==='replace-with-a-random-secret'){console.error('Build inherited a stale auth secret');process.exit(41);}\nrequire('node:fs').appendFileSync(${JSON.stringify(log)},JSON.stringify(['pnpm',...process.argv.slice(2)])+'\\n');\n`, { mode: 0o700 });
   const result = await probe(f.web, `import fs from 'node:fs';
 const read=fs.readFileSync;fs.readFileSync=((file,...args)=>String(file)==='/etc/os-release'?'ID=ubuntu\\n':Reflect.apply(read,fs,[file,...args])) as typeof fs.readFileSync;
-import { main } from './ops/setup-debian';
+import { main } from './ops/setup-host';
 Promise.resolve().then(()=>main(["--systemd"])).then(code=>{process.exitCode=code??0}).catch(error=>{console.error(error);process.exitCode=1});`, f.root, { ...f.env, PATH: `${f.binaries}:${f.env.PATH ?? ""}` });
   assert.equal(result.status, 0, result.stderr);
   const env = parse(await fs.readFile(path.join(f.web, ".env.local")));
@@ -119,7 +119,7 @@ test("setup without systemd builds without installing or restarting services", a
   await fs.writeFile(path.join(f.binaries, "pnpm"), "#!/bin/sh\nexit 0\n", { mode: 0o700 });
   const result = await probe(f.web, `import fs from 'node:fs';
 const read=fs.readFileSync;fs.readFileSync=((file,...args)=>String(file)==='/etc/os-release'?'ID=ubuntu\\n':Reflect.apply(read,fs,[file,...args])) as typeof fs.readFileSync;
-import { main } from './ops/setup-debian';
+import { main } from './ops/setup-host';
 process.exitCode=main(["--no-systemd"]);`, f.root, { ...f.env, PATH: `${f.binaries}:${f.env.PATH ?? ""}` });
   assert.equal(result.status, 0, result.stderr);
   const env = parse(await fs.readFile(path.join(f.web, ".env.local")));

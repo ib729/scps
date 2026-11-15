@@ -38,4 +38,4 @@ PATH="$PREFIX/node_modules/.bin:$PATH"
 export PATH
 sudo -u "$APP_USER" env PATH="$PATH" pnpm --dir "$ROOT/web-next" install --frozen-lockfile
 cd "$ROOT/web-next"
-exec sudo -u "$APP_USER" env -u SUDO_USER PATH="$PATH" node --import tsx tools/ops/setup-debian.ts "$@"
+exec sudo -u "$APP_USER" env -u SUDO_USER PATH="$PATH" node --import tsx tools/ops/setup-host.ts "$@"
