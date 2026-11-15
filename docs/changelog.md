@@ -8,6 +8,7 @@
 ### Typed web runtime
 - Run the custom server, CLI and shared SQLite/NFC modules with `node --import tsx`; the web bundle and server share one tap broadcaster.
 - Keep configured relative database paths rooted at `web-next`, independent of the launch directory.
+- Close HTTP/NFC sockets and Next resources on SIGTERM/SIGINT so the custom server stops cleanly as a container's PID 1.
 
 ### Customer domain
 - Rename financial tables, owned payloads and roles to customer terminology; retain money, IDs, card ownership, payment states and login identities.

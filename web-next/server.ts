@@ -377,6 +377,25 @@ app.prepare().then(() => {
     handleWebSocketConnection(ws, request);
   });
 
+  let shuttingDown = false;
+  const shutdown = () => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    for (const client of wss.clients) client.terminate();
+    wss.close();
+    server.close(() => {
+      app.close().then(() => {
+        // Next's dev watchers can outlive close(); requests and sockets are drained first.
+        process.exit(process.exitCode ?? 0);
+      }).catch(error => {
+        console.error('Error closing Next server', error);
+        process.exit(1);
+      });
+    });
+  };
+  process.once('SIGTERM', shutdown);
+  process.once('SIGINT', shutdown);
+
   server.listen(port, hostname, () => {
     console.log(`> Ready on http://${hostname}:${port}`);
     console.log(`> WebSocket server ready on ws://${hostname}:${port}/api/nfc/ws`);

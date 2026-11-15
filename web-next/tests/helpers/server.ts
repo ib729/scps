@@ -72,14 +72,20 @@ export async function startTestServer(): Promise<TestServer> {
   async function close() {
     if (closed) return;
     closed = true;
-    if (child.exitCode === null && child.signalCode === null) {
-      const exited = once(child, "exit");
-      child.kill("SIGTERM");
-      const timer = setTimeout(() => child.kill("SIGKILL"), 10_000);
-      try { await exited; } finally { clearTimeout(timer); }
+    try {
+      if (child.exitCode === null && child.signalCode === null) {
+        const exited = once(child, "exit");
+        child.kill("SIGTERM");
+        const timer = setTimeout(() => child.kill("SIGKILL"), 10_000);
+        try { await exited; } finally { clearTimeout(timer); }
+        if (child.exitCode !== 0 || child.signalCode !== null) {
+          throw new Error(`Test server failed graceful shutdown (${child.exitCode ?? child.signalCode}): ${output}`);
+        }
+      }
+    } finally {
+      database.close();
+      fs.rmSync(directory, { recursive: true, force: true });
     }
-    database.close();
-    fs.rmSync(directory, { recursive: true, force: true });
   }
   try {
     const deadline = Date.now() + 120_000;
