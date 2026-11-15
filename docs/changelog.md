@@ -10,6 +10,7 @@
 - Resolve all configured relative SQLite paths against `web-next`, including installer initialization; preserve existing ledgers. Verify with `cd web-next && node --import tsx --test lib/database-path.test.ts` and root `python3 -m unittest discover -s tests -p test_setup_paths.py`.
 - Backups now archive a validated SQLite snapshot, not independently copied WAL files. R2 restoration requires `--writers-stopped`, stages and validates the archive, saves old state, and calls `scps-cli import-db <source> --yes`. Migration failures retain a snapshot rather than copying files over an active ledger.
 - Currency startup conversion now locks before reading the scale marker and commits all cent values and metadata together. Unknown markers, invalid amounts and overflow roll back. Historical ledger usage is not rewritten.
+- Protected HTTP requests always check the database session, including old cache cookies. CLI password resets atomically revoke only that user's sessions; failed revocation rolls back the credential change.
 
 ## 2026-11-06
 

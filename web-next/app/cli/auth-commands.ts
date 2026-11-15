@@ -37,6 +37,7 @@ export async function resetCliPassword(database: Database.Database, userId: stri
         VALUES (?, ?, ?, 'credential', ?, ?, ?)
       `).run(crypto.randomBytes(16).toString("hex"), userId, userId, hashedPassword, now, now);
     }
+    database.prepare("DELETE FROM session WHERE userId = ?").run(userId);
   })();
 }
 

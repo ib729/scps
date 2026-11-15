@@ -34,8 +34,7 @@ export const auth = betterAuth({
   trustedOrigins: getTrustedOrigins(),
   session: {
     cookieCache: {
-      enabled: true,
-      maxAge: 60 * 60 * 2, // 2 hours - reduces session check frequency and page refresh frequency
+      enabled: false,
     },
     // Increase updateAge to reduce session refresh frequency
     updateAge: 60 * 60 * 24, // 1 day - only update session expiration once per day
