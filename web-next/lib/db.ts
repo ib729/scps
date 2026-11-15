@@ -1,28 +1,13 @@
 import fs from "node:fs";
-import path from "node:path";
 
 import Database from "better-sqlite3";
 import { DEFAULT_NFC_READER, DEFAULT_POS_MODE } from "./pos-preferences";
 
-const envDbPath = process.env.DATABASE_PATH?.trim();
-const fallbackDbLocations = [
-  path.resolve(process.cwd(), "stuco.db"),
-  path.resolve(process.cwd(), "..", "stuco.db"),
-];
+import { resolveDatabasePath } from "./database-path.cjs";
 
-const dbPathCandidates = envDbPath
-  ? [envDbPath]
-  : fallbackDbLocations;
-
-export const dbPath = dbPathCandidates.find((candidate) => fs.existsSync(candidate));
-
-if (!dbPath) {
-  const triedPaths = envDbPath ? dbPathCandidates : fallbackDbLocations;
-  throw new Error(
-    `SQLite database not found. ${envDbPath ? "DATABASE_PATH points to a missing file" : "Set DATABASE_PATH or place stuco.db in the project root"} (looked in ${triedPaths.join(
-      ", ",
-    )}).`,
-  );
+export const dbPath = resolveDatabasePath();
+if (!fs.existsSync(dbPath)) {
+  throw new Error(`SQLite database not found at ${dbPath}. Set DATABASE_PATH or place stuco.db in the project root.`);
 }
 
 let db: Database.Database | null = null;

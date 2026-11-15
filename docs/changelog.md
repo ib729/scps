@@ -7,6 +7,7 @@
 - TypeScript 7 checks the application; ESLint compiler-API consumers resolve isolated TypeScript 6.0.3. Workspace policy explicitly permits native builds and denies unused Prisma client generation and telemetry scripts.
 - Remove unreachable TanStack tables; keep the live customer and transaction interfaces. Forward Next development upgrades so browser hydration works alongside NFC sockets.
 - Run `cd web-next && pnpm test` for account/payment regressions and CLI self-checks. HTTP fixtures use temporary databases and test credentials, never an operator ledger.
+- Resolve all configured relative SQLite paths against `web-next`, including installer initialization; preserve existing ledgers. Verify with `cd web-next && node --import tsx --test lib/database-path.test.ts` and root `python3 -m unittest discover -s tests -p test_setup_paths.py`.
 
 ## 2026-11-06
 

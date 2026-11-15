@@ -10,22 +10,6 @@ ENV_TEMPLATE="$WEB_NEXT_DIR/.env.local.example"
 ENV_FILE="$WEB_NEXT_DIR/.env.local"
 DEFAULT_DB_PATH="$REPO_ROOT/stuco.db"
 
-if [[ ! -f /etc/os-release ]]; then
-  echo "This script only supports Debian-based Linux hosts."
-  exit 1
-fi
-
-. /etc/os-release
-
-if [[ "${ID:-}" != "debian" && "${ID_LIKE:-}" != *"debian"* ]]; then
-  echo "This script only supports Debian-based Linux hosts."
-  exit 1
-fi
-
-if ! command -v sudo >/dev/null 2>&1; then
-  echo "sudo is required."
-  exit 1
-fi
 
 APP_USER="${SUDO_USER:-$USER}"
 
@@ -86,16 +70,37 @@ ensure_package() {
   sudo apt-get install -y "$@"
 }
 
-node_major_version() {
-  if ! command -v node >/dev/null 2>&1; then
-    echo 0
-    return
-  fi
 
-  node -p "Number(process.versions.node.split('.')[0])"
+configure_database() {
+  local resolved_database_path
+  resolved_database_path="$(run_as_user node "$WEB_NEXT_DIR/lib/database-path.cjs")"
+  [[ "$resolved_database_path" == /* ]] || { echo "Database resolver did not return an absolute path" >&2; return 1; }
+  ensure_env_value "DATABASE_PATH" "$(node -p 'JSON.stringify(process.argv[1])' "$resolved_database_path")"
+  run_as_user mkdir -p "$(dirname "$resolved_database_path")"
+  if [[ ! -f "$resolved_database_path" ]]; then
+    echo "Initializing SQLite database at $resolved_database_path"
+    run_as_user sqlite3 "$resolved_database_path" ".read '$REPO_ROOT/migrations/schema.sql'" ".read '$WEB_NEXT_DIR/migrations/better_auth_schema.sql'"
+  fi
 }
 
+main() {
 echo "Preparing SCPS on Debian for user: $APP_USER"
+if [[ ! -f /etc/os-release ]]; then
+  echo "This script only supports Debian-based Linux hosts."
+  exit 1
+fi
+
+. /etc/os-release
+
+if [[ "${ID:-}" != "debian" && "${ID_LIKE:-}" != *"debian"* ]]; then
+  echo "This script only supports Debian-based Linux hosts."
+  exit 1
+fi
+
+if ! command -v sudo >/dev/null 2>&1; then
+  echo "sudo is required."
+  exit 1
+fi
 echo "Repository root: $REPO_ROOT"
 
 ensure_package git curl sqlite3 zstd rclone python3 python3-venv python3-pip build-essential ca-certificates gnupg openssl
@@ -126,11 +131,7 @@ if [[ ! -f "$ENV_FILE" ]]; then
   echo "Created $ENV_FILE from template."
 fi
 
-current_database_path="$(read_env_value "DATABASE_PATH")"
-if [[ -z "$current_database_path" || "$current_database_path" == "/absolute/path/to/stuco.db" ]]; then
-  ensure_env_value "DATABASE_PATH" "$DEFAULT_DB_PATH"
-  echo "Configured DATABASE_PATH=$DEFAULT_DB_PATH"
-fi
+configure_database
 
 current_auth_secret="$(read_env_value "BETTER_AUTH_SECRET")"
 if [[ -z "$current_auth_secret" || "$current_auth_secret" == "replace-with-a-random-secret" ]]; then
@@ -160,11 +161,6 @@ if [[ -z "$current_trusted_origins" || "$current_trusted_origins" == "http://loc
   ensure_env_value "TRUSTED_ORIGINS" "$(read_env_value "NEXT_PUBLIC_APP_URL")"
 fi
 
-resolved_database_path="$(read_env_value "DATABASE_PATH")"
-if [[ ! -f "$resolved_database_path" ]]; then
-  echo "Initializing SQLite database at $resolved_database_path"
-  run_as_user sqlite3 "$resolved_database_path" ".read '$REPO_ROOT/migrations/schema.sql'" ".read '$WEB_NEXT_DIR/migrations/better_auth_schema.sql'"
-fi
 
 run_as_user pnpm --dir "$WEB_NEXT_DIR" build
 
@@ -196,3 +192,8 @@ echo "   ./scripts/deploy-vps.sh"
 echo
 echo "Service status:"
 sudo systemctl --no-pager --full status stuco-web.service || true
+}
+
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  main "$@"
+fi

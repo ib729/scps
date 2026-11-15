@@ -13,7 +13,7 @@ const next = require('next');
 const { WebSocketServer } = require('ws');
 const crypto = require('crypto');
 const fs = require('fs');
-const path = require('path');
+const { resolveDatabasePath } = require('./lib/database-path.cjs');
 const Database = require('better-sqlite3');
 
 const dev = process.env.NODE_ENV !== 'production';
@@ -60,19 +60,10 @@ let connectionCounter = 0;
 let authDb = null;
 
 function resolveDbPath() {
-  const envDbPath = process.env.DATABASE_PATH?.trim();
-  const candidates = envDbPath
-    ? [envDbPath]
-    : [
-        path.resolve(process.cwd(), 'stuco.db'),
-        path.resolve(process.cwd(), '..', 'stuco.db'),
-      ];
-
-  const dbPath = candidates.find((candidate) => fs.existsSync(candidate));
-  if (!dbPath) {
-    throw new Error(`SQLite database not found. Checked: ${candidates.join(', ')}`);
+  const dbPath = resolveDatabasePath();
+  if (!fs.existsSync(dbPath)) {
+    throw new Error(`SQLite database not found at ${dbPath}`);
   }
-
   return dbPath;
 }
 
