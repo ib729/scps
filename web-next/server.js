@@ -152,14 +152,14 @@ function unsignCookieValue(value, secret) {
 
   const signatureStart = value.lastIndexOf('.');
   if (signatureStart < 1) {
-    return value;
+    return null;
   }
 
   const signedValue = value.slice(0, signatureStart);
   const signature = value.slice(signatureStart + 1);
 
   if (signature.length !== 44 || !signature.endsWith('=')) {
-    return value;
+    return null;
   }
 
   const expectedSignature = crypto
@@ -180,6 +180,7 @@ function unsignCookieValue(value, secret) {
 }
 
 function getSessionToken(request) {
+  try {
   const cookies = parseCookieHeader(request.headers.cookie);
   const rawToken = (
     cookies['__Secure-better-auth.session_token'] ||
@@ -192,19 +193,22 @@ function getSessionToken(request) {
   }
 
   return unsignCookieValue(rawToken, process.env.BETTER_AUTH_SECRET);
+  } catch {
+    return null;
+  }
 }
 
-function validateBrowserSession(request) {
+function validateBrowserSession(request, sessionToken = getSessionToken(request)) {
   const origin = request.headers.origin;
   if (!isAllowedOrigin(origin)) {
     return { error: 'Origin not allowed' };
   }
 
-  const sessionToken = getSessionToken(request);
   if (!sessionToken) {
     return { error: 'Missing session token' };
   }
 
+  try {
   const session = getAuthDb()
     .prepare(
       `
@@ -226,11 +230,17 @@ function validateBrowserSession(request) {
     return { error: 'Invalid session' };
   }
 
-  if (Date.parse(session.expiresAt) <= Date.now()) {
-    return { error: 'Expired session' };
+  const expiry = session.expiresAt;
+  const numeric = typeof expiry === 'number' || (typeof expiry === 'string' && /^\d+(?:\.\d+)?$/.test(expiry));
+  const expiresAt = numeric ? Number(expiry) * (Number(expiry) < 1e12 ? 1000 : 1) : typeof expiry === 'string' ? Date.parse(expiry) : NaN;
+  if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
+    return { error: 'Expired or malformed session' };
   }
 
-  return { session };
+  return { session, sessionToken };
+  } catch {
+    return { error: 'Session authorization unavailable' };
+  }
 }
 
 function safeCompareSecret(expected, provided) {
@@ -416,6 +426,10 @@ function handleWebSocketConnection(ws, request) {
 
       // Handle authentication
       if (message.type === 'auth') {
+        if (authenticated) {
+          ws.close(1008, 'Already authenticated');
+          return;
+        }
         await handleAuthentication(ws, message, lane);
         return;
       }
@@ -554,6 +568,7 @@ function handleWebSocketConnection(ws, request) {
         connectedAt,
         userAgent,
         userId: sessionResult.session.userId,
+        sessionToken: sessionResult.sessionToken,
         email: sessionResult.session.email,
       };
 
@@ -585,6 +600,11 @@ function handleWebSocketConnection(ws, request) {
           return;
         }
 
+        if (!validateBrowserSession(request, connectionInfo.sessionToken).session) {
+          if (tapUnsubscribe) tapUnsubscribe();
+          ws.close(1008, 'Session no longer authorized');
+          return;
+        }
         // Send tap to client
         if (ws.readyState === ws.OPEN) {
           console.log(
