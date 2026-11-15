@@ -9,7 +9,13 @@ import Database from "better-sqlite3";
 
 const webDirectory = path.resolve(import.meta.dirname, "../..");
 
-export async function startTestServer(): Promise<{ baseURL: string; database: Database.Database; close(): Promise<void> }> {
+export interface TestServer {
+  baseURL: string;
+  database: Database.Database;
+  close(): Promise<void>;
+}
+
+export async function startTestServer(): Promise<TestServer> {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "scps-http-"));
   const databasePath = path.join(directory, "stuco.db");
   const database = new Database(databasePath);

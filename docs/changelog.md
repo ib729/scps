@@ -30,6 +30,7 @@
 - Move all operational scripts into `web-next/tools/ops`; keep only the two root CLI launchers and Debian toolchain bootstrap in shell. Remove Python runtime requirements; native-addon compilation may still need Python.
 - Preserve backup publication/restore, deployment argument quoting and stopped-reader ownership; reset the selected TTY's real USB ancestor and retain the existing reader timing.
 - Require a verified stopped local web service before destructive reset/restore, preserve existing crypt configuration on failed replacement, and keep configured NFC secrets out of CLI help.
+- Settings backup download and reader repair now invoke the typed tools from the package directory; administrator/origin gates and subprocess failures remain enforced without granting arbitrary Node sudo.
 
 ### Toolchain
 - Pin Node 26.13.1, pnpm 12.21.0 and current stable direct dependencies; use the installed `auth` CLI. Python reader dependencies require Python 3.11 or newer.

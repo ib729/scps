@@ -1,17 +1,18 @@
 /**
  * System Services Restart API
  * 
- * Allows authenticated users to restart the NFC tap broadcaster systemd services.
- * Requires passwordless sudo to be configured for the web UI user.
+ * Allows administrators to restart the NFC tap broadcaster systemd services.
+ * Requires only the tool's fixed native sudo commands, never arbitrary Node sudo.
  */
 
 import { NextResponse } from "next/server";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import path from "node:path";
 
 import { getAuthErrorDetails, requireRole } from "@/lib/auth-session";
 import { requireTrustedRequestOrigin } from "@/lib/origin-guard";
-import { getFixReadersScriptPath } from "@/lib/server-paths";
+import { getFixReadersScriptPath, getProjectRoot } from "@/lib/server-paths";
 
 const execFileAsync = promisify(execFile);
 
@@ -22,7 +23,9 @@ export async function POST(request: Request) {
 
     console.log(`[System] Restarting NFC services - Requested by: ${session.user.email}`);
 
-    await execFileAsync("sudo", [getFixReadersScriptPath()], { timeout: 20000 });
+    await execFileAsync(process.execPath, ["--import", "tsx", getFixReadersScriptPath()], {
+      cwd: path.join(getProjectRoot(), "web-next"), timeout: 60000,
+    });
 
     console.log("[System] Successfully restarted NFC services");
 

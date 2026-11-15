@@ -21,8 +21,8 @@ export async function GET(request: Request) {
     const tempFilePath = path.join(os.tmpdir(), `backup_${Date.now()}_${Math.random().toString(36).substring(7)}.tar.zst`);
 
     try {
-        await execFileAsync(getBackupScriptPath(), [tempFilePath], {
-            cwd: getProjectRoot(),
+        await execFileAsync(process.execPath, ["--import", "tsx", getBackupScriptPath(), tempFilePath], {
+            cwd: path.join(getProjectRoot(), "web-next"),
         });
 
         const fileBuffer = await readFile(tempFilePath);

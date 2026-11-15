@@ -1,32 +1,22 @@
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-function resolveExistingPath(candidates: string[]) {
-  const existingPath = candidates.find((candidate) => fs.existsSync(candidate));
-  if (!existingPath) {
-    throw new Error(`Required file not found. Checked: ${candidates.join(", ")}`);
-  }
-  return existingPath;
+const webDirectory = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+
+function resolveExistingPath(filename: string): string {
+  if (!fs.existsSync(filename)) throw new Error(`Required tool not found: ${filename}`);
+  return filename;
 }
 
-export function getProjectRoot() {
-  return path.resolve(process.cwd(), "..");
+export function getProjectRoot(): string {
+  return path.resolve(webDirectory, "..");
 }
 
-export function getBackupScriptPath() {
-  const configuredPath = process.env.WEB_BACKUP_SCRIPT?.trim();
-  if (configuredPath) {
-    return resolveExistingPath([configuredPath]);
-  }
-
-  return resolveExistingPath([path.join(getProjectRoot(), "scripts", "web_backup.sh")]);
+export function getBackupScriptPath(): string {
+  return resolveExistingPath(path.resolve(webDirectory, process.env.WEB_BACKUP_SCRIPT?.trim() || "tools/ops/web_backup.ts"));
 }
 
-export function getFixReadersScriptPath() {
-  const configuredPath = process.env.FIX_READERS_SCRIPT_PATH?.trim();
-  if (configuredPath) {
-    return resolveExistingPath([configuredPath]);
-  }
-
-  return resolveExistingPath([path.join(getProjectRoot(), "scripts", "fix-readers.sh")]);
+export function getFixReadersScriptPath(): string {
+  return resolveExistingPath(path.resolve(webDirectory, process.env.FIX_READERS_SCRIPT_PATH?.trim() || "tools/ops/fix-readers.ts"));
 }
