@@ -1,6 +1,6 @@
 # Authentication Guide
 
-This project uses [Better Auth](https://www.better-auth.com/) for email/password authentication. Microsoft OAuth remains unfinished: the login/signup buttons are disabled. Provider configuration below is reference material, not a supported end-to-end sign-in feature.
+This project uses [Better Auth](https://www.better-auth.com/) for email/password authentication. Microsoft login and signup buttons are disabled.
 
 ## Overview
 
@@ -36,11 +36,11 @@ BETTER_AUTH_SECRET=your_secret_key_here
 # Trusted Origins (comma-separated list of allowed origins for CSRF protection)
 # Must include all domains where your app is accessible
 TRUSTED_ORIGINS=http://localhost:3000,http://localhost:3333
-
-# Microsoft OAuth (optional)
-MICROSOFT_CLIENT_ID=your_microsoft_client_id_here
-MICROSOFT_CLIENT_SECRET=your_microsoft_client_secret_here
 ```
+
+`TRUSTED_ORIGINS`, `BETTER_AUTH_TRUSTED_ORIGINS` and `NEXT_PUBLIC_APP_URL`
+add origins to the two built-in origins (`http://localhost:3000` and
+`http://192.168.50.195:3000`); they do not replace them.
 
 ### Generating Secrets
 
@@ -164,34 +164,6 @@ schemas, unknown user columns and orphan references; it never promotes a first u
 The command checks the local web service but cannot detect arbitrary external writers.
 Never renumber displayed pending amounts or repair ownership links automatically.
 
-
-## Microsoft OAuth Setup
-
-### Azure AD Configuration
-
-1. Go to [Azure Portal](https://portal.azure.com/)
-2. Navigate to "Azure Active Directory" > "App registrations"
-3. Click "New registration"
-4. Configure application:
-   - **Name**: Stuco Management System
-   - **Supported account types**: Accounts in this organizational directory only
-   - **Redirect URI**: 
-     - Type: Web
-     - URI: `http://localhost:3000/api/auth/callback/microsoft`
-5. Click "Register"
-6. Copy the **Application (client) ID** to `MICROSOFT_CLIENT_ID`
-7. Navigate to "Certificates & secrets"
-8. Create a new client secret
-9. Copy the secret value to `MICROSOFT_CLIENT_SECRET`
-
-### Production Configuration
-
-For production deployment:
-
-1. Add production redirect URI:
-   - `https://your-domain.com/api/auth/callback/microsoft`
-2. Configure trusted domains in Azure AD
-3. Set up proper app permissions
 
 ## Authentication Routes
 

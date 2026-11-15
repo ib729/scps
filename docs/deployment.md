@@ -100,7 +100,7 @@ It uses `ssh -t`; default repository is the remote user's `$HOME/scps`. `SCPS_RE
 
 ### Reader services
 
-Readers may run on a separate Pi while web/SQLite live on the VPS. Install matching Node/package dependencies and native libnfc tools on that host. Supported scope is PN532 UART/I2C and libnfc-supported USB; unsupported or ambiguous explicit selectors fail. Configure exact devices for two readers. See [NFC Setup](nfc-setup.md) and [Dual Readers](dual-reader-setup.md) for wiring, calibration and remote-reader setup.
+Readers may run on a separate Pi while web/SQLite live on the VPS. Install matching Node/package dependencies and native libnfc tools on that host. Supported scope is PN532 UART/I2C and libnfc-supported USB; unsupported or ambiguous explicit selectors fail. Configure exact devices for two readers. See [NFC Setup](nfc-setup.md) and [Dual readers](nfc-setup.md#dual-readers) for wiring, calibration and remote-reader setup.
 
 Create a restricted repository-root `.env.broadcaster` with the matching server secret and deployment URL:
 

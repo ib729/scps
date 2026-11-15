@@ -16,6 +16,10 @@ pnpm lint
 pnpm build
 ```
 
+The last full lint run reported 41 warnings and a separate Node module-type
+warning. Physical reader and cloud acceptance remain unverified. Administrator
+timestamp hydration remains a known application issue.
+
 `pnpm test` explicitly discovers `lib`, `tests`, `tools` and `hardware`
 `**/*.test.ts`, runs them sequentially, then runs the CLI self-check.
 For a focused run, name test files explicitly:
@@ -112,7 +116,7 @@ UID input to check deduplication; do not infer physical card-presence behavior f
 simulation. Stop/restart only the disposable server to check reconnect/authentication,
 network retry backoff and no replay of disconnected taps.
 
-## Physical reader and service acceptance — separate, unverified until performed
+## Physical reader and service acceptance, separate and unverified until performed
 
 Supported scope is documented PN532 UART/I2C and libnfc-supported USB devices.
 Install native libnfc tools (`libnfc-bin` on Debian), grant the service user serial

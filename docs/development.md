@@ -104,7 +104,7 @@ node --import tsx tools/ops/run-nfc.ts --simulate
 node --import tsx tools/ops/test-nfc.ts --url http://localhost:3000 --lane reader-1
 ```
 
-The test command sends `DEADBEEF`; simulation does not prove physical reader acceptance. Exact device selection, native calibration, dual-reader services and safe stop/reset/start procedures are in [NFC Setup](nfc-setup.md) and [Dual Reader Setup](dual-reader-setup.md).
+The test command sends `DEADBEEF`; simulation does not prove physical reader acceptance. Exact device selection, native calibration, dual-reader services and safe stop/reset/start procedures are in [NFC Setup](nfc-setup.md).
 
 The native adapter owns its child through close. Cancellation must terminate/reap it before another read and must never publish an old generation's UID. Preserve the 100ms spacing, 1.5-second debounce and independent network/hardware backoffs.
 
@@ -143,6 +143,24 @@ See [Deployment Guide](deployment.md) for nonroot writable mounts, runtime secre
 
 Prefer the surrounding house components/helpers and one implementation over wrappers or aliases. Use type imports, strict message/row types and validated trust boundaries; do not add untyped compatibility modules.
 
+## UI components
+
+Shared controls are in `web-next/components/ui/`; project components are in
+`web-next/components/`. The protected operator layout mounts `TapAlert` inside
+`NFCReaderProvider`; outside POS, taps open a drawer. The customer layout is
+separate. The admin POS `PosForm` accepts `customerIdsWithTransactions`,
+`userName` and `initialMode`; `TopupForm` accepts `customerIdsWithTransactions`
+and `userName`.
+
+`WeeklyTopupChart` is a named export from
+`web-next/components/weekly-topup-chart.tsx`. It renders an area chart from
+its `data` input. Use the existing currency helpers in `web-next/lib/` for
+money display and input. Forms use the patterns of their surrounding code;
+not all forms use React Hook Form.
+
+The root layout uses `components/theme-provider.tsx`, a theme cookie and
+`lib/theme-bootstrap.ts` to initialize the theme before hydration.
+
 Keep commit subjects short, lowercase and prefix-free like the existing history. Commit each verified implementation chunk.
 
 ## Further Reading
@@ -150,7 +168,7 @@ Keep commit subjects short, lowercase and prefix-free like the existing history.
 - [Testing Guide](testing.md)
 - [Scripts Reference](scripts.md)
 - [Authentication Guide](authentication.md)
-- [UI Components Guide](ui-components.md)
+- [UI components](#ui-components)
 - [Security Guide](security-guide.md)
 
 **Last updated: November 15, 2026**

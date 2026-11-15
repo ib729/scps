@@ -180,10 +180,16 @@ The argument must be a basename ending `.tar.zst`, not a path. Restore refuses
 unknown/unavailable or active local service state, downloads to private staging,
 validates extraction, and saves a verified pre-restore archive in `db_backups`.
 Validated old **cent-based** domain backups are normalized only in staging before
-final-schema checks. Non-cent backups need explicit legacy conversion, not implicit
-restore scaling. Contents are restored through SQLite, never by replacing live
-database/WAL files; no service is started or stopped for you. Test restoration
-against disposable data and a local rclone alias before relying on remote storage.
+final-schema checks. This is forward recovery, not rollback to the old schema.
+Non-cent backups need explicit legacy conversion, not implicit restore scaling.
+Contents are restored through SQLite, never by replacing live database/WAL files;
+no service is started or stopped for you. Test restoration against disposable
+data and a local rclone alias before relying on remote storage.
+
+The local CLI `./scps-cli import-db` does not create an automatic pre-backup or
+check that services are stopped. Stop all writers and make a verified snapshot
+first. Keep crypt password, salt and rclone configuration, plus environment,
+service and proxy backups, separate from the ledger.
 
 ## SQL migrations and destructive reset
 
@@ -224,4 +230,4 @@ Integrity should return `ok`; foreign-key check should return no rows. Schedule
 instead of deleting WAL/SHM files. Give only the service user/trusted group access
 to the containing directory, database and sidecars; never make a ledger world-writable.
 See [Security Guide](security-guide.md), [Troubleshooting](troubleshooting.md) and
-[Batch Import Customers](batch-import-customers.md).
+[Customer import](scripts.md#customer-import-snapshots-and-schema-cutover).

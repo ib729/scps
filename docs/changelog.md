@@ -1,6 +1,13 @@
 # Change Log
 
+Historical commands and names describe their releases, not current instructions.
+Use the current guides for operations.
+
 ## 2026-11-15
+
+### Repository cleanup
+- Remove local AI skill artifacts and consolidate the guides. The lock only
+  pinned a shadcn AI skill and was not an application dependency.
 
 ### Payment review
 - Keep the mounted administrator queue polling when empty; resolved history shows the newest decisions regardless of status, while pending claims retain priority.
@@ -88,7 +95,7 @@
   - Persistent reader selection in browser localStorage.
   - Reader identification (reader-1, reader-2, etc.).
   - Lane-based WebSocket routing for isolated tap events.
-  - See [Dual Reader Setup Guide](dual-reader-setup.md) for configuration.
+  - See [Dual readers](nfc-setup.md#dual-readers) for current configuration.
 
 - **Batch Student Import**:
   - CSV import script (`batch_import_students.py`) for bulk student enrollment.
@@ -97,7 +104,7 @@
   - Dry-run mode to preview imports before execution.
   - Automatic account creation for imported students.
   - Duplicate detection and validation.
-  - See [Batch Import Guide](batch-import-students.md) for usage.
+  - See [Customer import](scripts.md#customer-import-snapshots-and-schema-cutover) for current usage.
 
 - **Enhanced Account Settings**:
   - Redesigned account settings dialog with tabs.
@@ -110,7 +117,7 @@
   - Fixed issue where Better Auth tables were deleted during database reset.
   - Enhanced `init_db.py` and `reset_db.py` scripts.
   - Added documentation for safe database reset procedures.
-  - See [Database Reset Fix](database-reset-fix.md) for details.
+  - See [Database reset](database.md#sql-migrations-and-destructive-reset) for current procedures.
 
 ### Changed
 - **Multi-Reader Architecture**:
@@ -264,7 +271,7 @@
   - Consolidated duplicate NFC documentation into single guide
   - Added [Deployment Guide](deployment.md) for production setup
   - Added [Security Guide](security-guide.md) for hardening recommendations
-  - Added [UI Components Guide](ui-components.md) for custom components
+  - Added UI component guidance, now in [Development](development.md#ui-components)
   - Added [Scripts Reference](scripts.md) for utility scripts
   - Enhanced existing guides with missing information
   - Removed redundant web-ui.md
@@ -272,4 +279,3 @@
 
 For full history, see git log.
 
-**Last updated: November 18, 2025**

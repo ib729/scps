@@ -306,21 +306,8 @@ those separately before enabling readers.
 
 ### File System Security
 
-#### Read-Only Partitions
-
-Consider mounting `/boot` as read-only:
-
-```bash
-# Add to /etc/fstab
-/boot vfat defaults,ro 0 2
-```
-
-#### Secure Temporary Directories
-
-```bash
-# Add to /etc/fstab for /tmp
-tmpfs /tmp tmpfs defaults,noexec,nosuid,nodev 0 0
-```
+Review mount options against the actual host and recovery requirements before
+changing them. Keep temporary files private and protect sensitive logs.
 
 ## Monitoring and Logging
 
@@ -340,8 +327,9 @@ journalctl -u tap-broadcaster -f
 # View logs from last hour
 journalctl -u stuco-web --since "1 hour ago"
 
-# Export logs
-journalctl -u stuco-web --since "2025-11-01" > /tmp/stuco-logs.txt
+# Export only to a private location, then redact before sharing.
+umask 077
+journalctl -u stuco-web --since "1 hour ago" > "$HOME/stuco-logs.txt"
 ```
 
 #### Log Rotation

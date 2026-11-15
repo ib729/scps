@@ -113,7 +113,7 @@ Before destructive maintenance stop web, development processes, CLI writers and 
 
 ### Reader lifecycle and diagnostics
 
-Install native `libnfc-bin`, `usbutils`, `lsof` and `udev` on reader hosts. Support is PN532 UART/I2C and libnfc-supported USB; unsupported or ambiguous explicit devices fail, rather than choosing another reader. See [NFC Setup](nfc-setup.md) and [Dual Readers](dual-reader-setup.md) for wiring and native calibration.
+Install native `libnfc-bin`, `usbutils`, `lsof` and `udev` on reader hosts. Support is PN532 UART/I2C and libnfc-supported USB; unsupported or ambiguous explicit devices fail, rather than choosing another reader. See [NFC Setup](nfc-setup.md) and [Dual readers](nfc-setup.md#dual-readers) for wiring and native calibration.
 
 | Basename | Invocation from `web-next` | Capability and side effects |
 |---|---|---|
@@ -156,46 +156,121 @@ These respectively provide interactive single-reader USB/TTY/kernel diagnosis, s
 
 ## Customer import, snapshots and schema cutover
 
-From `web-next`:
+Back up the configured ledger before importing. Run the commands below from
+`web-next`. For snapshot, migration and rollback procedures, see the
+[Database Guide](database.md).
 
-```bash
-node --import tsx tools/batch-import-customers.ts --template --with-uid customers.csv
+Customer names must be unique; financial accounts start at zero cents. Importing
+a customer does not create or approve a website login. Administrators link
+registrations in `/admin/users`.
+
+### CSV format
+
+Use UTF-8 with a `name` header and an optional `uid` header:
+
+```csv
+name,uid
+"Doe, Jane",AB12CD34
+John Doe,DEADBEEF
+Alice Johnson,
+```
+
+Names-only CSV:
+
+```csv
+name
+Jane Smith
+John Doe
+```
+
+Quoted multiline record:
+
+```csv
+name,uid
+"Alice
+Johnson",ABCD
+```
+
+The full CSV parser supports quoted commas, escaped quotes and multiline fields.
+Names are trimmed. Leave the UID empty for customers without cards; nonempty UIDs
+are normalized to uppercase and must contain 4–20 hexadecimal characters.
+Obtain them by tapping the reader on `/admin/pos`. Never assign one card to two
+customers. Reimporting a duplicate name can attach a new, unowned active card.
+
+### CSV import
+
+Run the typed importer from `web-next`; it loads the package environment and resolves
+relative `DATABASE_PATH` values against that package, independently of the caller's cwd.
+
+```sh
+# From web-next; DATABASE_PATH may also be configured in .env.local.
+node --import tsx tools/batch-import-customers.ts --template customers.csv
+node --import tsx tools/batch-import-customers.ts --template --with-uid customers-with-cards.csv
 node --import tsx tools/batch-import-customers.ts --dry-run customers.csv
 node --import tsx tools/batch-import-customers.ts customers.csv
 node --import tsx tools/batch-import-customers.ts --no-skip-duplicates customers.csv
-node --import tsx tools/sqlite-snapshot.ts snapshot /absolute/path/to/ledger.db /absolute/path/to/snapshot.db
-node --import tsx tools/sqlite-snapshot.ts extract /absolute/path/to/backup.tar.zst /empty/private/staging
 ```
 
-UTF-8 CSV requires `name`, optionally `uid`; quoted/multiline fields work. UIDs normalize to uppercase hexadecimal, length 4–20. Each valid row atomically creates a zero-balance customer/account or attaches an unowned card to an existing customer. Bad rows do not prevent later valid rows, but any row failure returns nonzero. Dry run is read-only; template generation never opens the ledger. See [Batch Import Customers](batch-import-customers.md).
+Check the exit status and row errors. Each valid row commits atomically; invalid
+field/column counts and failed inserts are reported while later valid rows continue,
+and any row error makes the command fail. Structurally malformed CSV (for example,
+an unclosed quote) fails parsing before imports; it cannot be safely split into rows.
+A dry run opens an existing ledger read-only, including schema, and checks planned
+within-file duplicates/card ownership without persisting them. Default duplicate
+handling skips existing names and may attach an unowned card;
+`--no-skip-duplicates` makes duplicates errors.
+Template generation never opens a database and writes the requested CSV file
+(replacing that file if it exists). Keep source CSV files for audit.
+
+### Direct SQL import
+
+For controlled one-time imports, stop competing writers and use a transaction:
+
+```sql
+PRAGMA foreign_keys=ON;
+BEGIN IMMEDIATE;
+INSERT INTO customers(name) VALUES ('John Doe'),('Jane Smith');
+INSERT INTO accounts(customer_id,balance,max_overdraft_week)
+SELECT id,0,0 FROM customers
+WHERE id NOT IN (SELECT customer_id FROM accounts);
+COMMIT;
+```
+
+Apply this to the configured database, not a cwd-dependent `stuco.db`:
+
+```sh
+sqlite3 /absolute/path/to/stuco.db < import-customers.sql
+```
+
+Do not use `INSERT OR REPLACE`: it can delete an existing customer and change
+ownership. Prefer the importer for UID validation and card-conflict handling.
+
+### Verify import
+
+```sql
+SELECT COUNT(*) FROM customers;
+SELECT * FROM customers ORDER BY id DESC LIMIT 10;
+SELECT c.* FROM customers c
+LEFT JOIN accounts a ON a.customer_id=c.id
+WHERE a.customer_id IS NULL;
+SELECT c.name,k.card_uid FROM customers c
+JOIN cards k ON k.customer_id=c.id ORDER BY c.name;
+```
+
+Missing accounts should be investigated before linking registrations. Duplicate
+names, invalid hexadecimal UIDs, conflicting card owners and malformed CSV rows
+need correction in the source file. Export Excel/Sheets data as UTF-8 CSV, retain
+quoted names, preview with `--dry-run`, then try a small batch first.
 
 Snapshot uses SQLite's online backup API and verifies integrity/FKs. Extraction accepts only root regular `stuco.db` plus optional legacy WAL/SHM, rejects unsafe/duplicate/truncated members, and folds staged WAL without touching a live ledger. Extraction stdout is the verified staged database path only.
 
 ### Existing installations
 
-**Do not run fresh initialization/reset against an existing ledger.** Ordinary startup rejects old/mixed/non-cent schemas and never silently converts money.
-
-1. Stop every writer; record the matching application revision and preserve environment/crypt credentials.
-2. Create/verify a pre-upgrade snapshot with `sqlite-snapshot.ts snapshot`.
-3. For an already-cent-based pre-cutover schema, run:
-
-   ```bash
-   node --import tsx tools/migrate-customer.ts --writers-stopped
-   ```
-
-   This creates another verified pre-migration backup, then atomically renames the domain and converts roles. It refuses detected active local web service state; if systemd is unavailable it warns, so the stopped-writer assertion still matters.
-
-4. For older currency schemas, use a **separate source copy**, not in-place renaming:
-
-   ```bash
-   node --import tsx tools/import-legacy-db.ts --source /absolute/path/to/legacy-copy.db --target /absolute/path/to/ledger.db --writers-stopped
-   ```
-
-   Defaults, if omitted, are repository `IMPORTTHIS/stuco.db` and root `stuco.db`, not the configured database path. Specify both explicitly. Marker 10 or absent means exact ×10 to cents; marker 100 keeps values. Other scales/unsafe amounts refuse. Conversion validates privately and backs up an existing target before SQLite replacement. This command requires known stopped local web state.
-
-5. Start the matching new application and check roles, login links, balances, payments and owned customer history.
-
-Supported pre-cutover **cent-schema** backups normalize privately during restore; that is not permission to guess an old currency scale. For rollback, stop writers and restore the **matching old application and pre-upgrade database together**. Never run old SQL callers against customer schema. Snapshot rollback loses later ledger writes; preserve/reconcile those separately rather than promising they survive.
+Do not run fresh initialization or reset against an existing ledger. Stop all
+writers, preserve credentials and a verified snapshot, and follow the
+[upgrade and rollback procedure](database.md#customer-domain-upgrade).
+Rollback requires the matching old application and pre-upgrade database and
+loses later writes. Restore normalization is forward recovery, not rollback.
 
 ## Operational checks and troubleshooting
 

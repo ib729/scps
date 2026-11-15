@@ -165,7 +165,7 @@ node --import tsx tools/batch-import-customers.ts --dry-run customers.csv
 node --import tsx tools/batch-import-customers.ts customers.csv
 ```
 
-Dry run is read-only; template generation does not open the database. Valid rows are atomic; later valid rows can succeed after an earlier bad row, but any row failure returns nonzero. See [Batch Import Customers](batch-import-customers.md).
+Dry run is read-only; template generation does not open the database. Valid rows are atomic; later valid rows can succeed after an earlier bad row, but any row failure returns nonzero. See [Customer import](scripts.md#customer-import-snapshots-and-schema-cutover).
 
 For remote administration configure local `SCPS_VPS_HOST`, `SCPS_VPS_USER`, `SCPS_VPS_DIR`, `SCPS_VPS_PORT`, `SCPS_VPS_SSH_KEY` in `web-next/.env.local`, then run `./scps-remote-cli` from the repository root. It uses `ssh -t` with quoted remote directory/arguments. Defaults and separate remote deployment behavior are in [Remote management](deployment.md#remote-management).
 
@@ -205,7 +205,7 @@ node --import tsx tools/ops/run-nfc.ts --device pn532_i2c:/dev/i2c-1
 
 CLI device wins over `PN532_DEVICE`, then deterministic native discovery, then the legacy AMA0 default. Multiple readers need exact per-reader device/lane settings. Legacy UART/I2C selectors are normalized; USB bus/device selectors must resolve uniquely to supported native devices. Native libnfc owns UART baud/I2C timing, not an application serial driver.
 
-Follow [NFC Setup](nfc-setup.md), [Dual Readers](dual-reader-setup.md) and [Deployment reader services](deployment.md#reader-services) before enabling services. Device permissions and noninteractive USB-reset privileges are not installed automatically. A connected/authenticated reader service or existing TTY does not establish hardware health.
+Follow [NFC Setup](nfc-setup.md), [Dual readers](nfc-setup.md#dual-readers) and [Deployment reader services](deployment.md#reader-services) before enabling services. Device permissions and noninteractive USB-reset privileges are not installed automatically. A connected/authenticated reader service or existing TTY does not establish hardware health.
 
 ## Backups, maintenance and upgrades
 

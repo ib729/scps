@@ -31,9 +31,7 @@ HMR failure proves the reader socket is broken. See [Deployment](deployment.md).
   origin checks to make an unexpected host work.
 - Missing auth tables require the documented initialization/upgrade procedure,
   not applying arbitrary SQL to an active ledger. See [Database](database.md).
-- Microsoft sign-in requires both `MICROSOFT_CLIENT_ID` and
-  `MICROSOFT_CLIENT_SECRET`, an unexpired Azure credential and matching
-  `/api/auth/callback/microsoft` redirect URI on the public origin.
+- Microsoft sign-in and signup buttons are disabled; credentials alone do not enable them.
 
 Public signup grants only the `customer` role. A customer stays at
 `/customer/pending` until an administrator verifies and links an active customer
@@ -198,7 +196,7 @@ for primary libnfc sources and exact native connstrings.
 - A held card can be emitted again after the 1.5-second debounce interval.
   Do not interpret that alone as two physical readers sending the same event.
 
-See [Dual Reader Setup](dual-reader-setup.md).
+See [Dual readers](nfc-setup.md#dual-readers).
 
 ### Idle failure, unplug/replug or dev-server restart
 

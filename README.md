@@ -9,7 +9,7 @@ A complete NFC-based payment system for managing snack bar customer purchases. T
 - **NFC Card Payments** - Fast, cashless transactions with contactless cards
 - **Customer Account Management** - Track balances, cards, and transaction history
 - **Modern Web Dashboard** - Built with Next.js, TypeScript, and Tailwind CSS
-- **CLI Tools** - Quick command-line utilities for POS, top-ups, and enrollment
+- **CLI Tools** - Manage accounts, ledger adjustments, CSV imports, database restore and diagnostics
 - **Real-time Updates** - Live tap notifications in the web interface
 - **Dual Reader Support** - Run multiple NFC readers simultaneously
 
@@ -19,14 +19,17 @@ A complete NFC-based payment system for managing snack bar customer purchases. T
 
 The Student Council Payment System is split into a central server and client tap nodes:
 
-*   **Primary Server:** Hosted on a standard **Linux Cloud VPS (Debian 12 / Ubuntu 22.04+)**. This runs the central Next.js server, hosts the SQLite database, and handles authentication.
-*   **IoT NFC Client Node:** Hosted on a **Raspberry Pi 4 Model B** running **Raspberry Pi OS (64-bit)**. This acts as the physical tap reader node, running a background service to stream card scans over WebSockets to the server.
+For example, a Linux VPS can run the server and SQLite database, while a
+Raspberry Pi runs the reader service and sends taps over WebSockets.
 
 ---
 
 ## Quick Start
 
 Requires Node.js >=26.13.1 <27, pnpm 12.21.0 and `sqlite3`. Native-addon compilation may need a C/C++ toolchain and Python >=3.11; application and reader logic do not run Python. Reader hosts also need native libnfc tools.
+
+For a fresh installation only. Keep existing environment files and ledgers;
+follow [Getting Started](docs/getting-started.md) for full prerequisites.
 
 ### 1. Install Dependencies and Configure the Environment
 
@@ -108,15 +111,17 @@ Reader and diagnostic programs live in `web-next/hardware/`; CSV, SQLite and mig
 ### Configuration
 - [Authentication](docs/authentication.md) - Set up Better Auth for the web interface
 - [NFC Setup](docs/nfc-setup.md) - Configure PN532 card readers on client nodes
+- [Dual readers](docs/nfc-setup.md#dual-readers) and [Raspberry Pi pinout](docs/nfc-setup.md#raspberry-pi-4-pinout)
 - [Database Guide](docs/database.md) - Schema details and migrations
 
 ### Usage
 - [User Guide](docs/user-guide.md) - Day-to-day operations
 - [Scripts Reference](docs/scripts.md) - Administrative CLI reference and utilities
+- [Customer import](docs/scripts.md#customer-import-snapshots-and-schema-cutover)
 
 ### Development
 - [Development Guide](docs/development.md) - Architecture and extending the system
-- [UI Components Guide](docs/ui-components.md) - Custom components and animations
+- [UI components](docs/development.md#ui-components)
 - [Testing Guide](docs/testing.md) - Running tests
 
 ### Support
