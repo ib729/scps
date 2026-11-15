@@ -12,6 +12,7 @@ const { createServer } = require('http');
 const next = require('next');
 const { WebSocketServer } = require('ws');
 const crypto = require('crypto');
+const { isIP } = require('node:net');
 const fs = require('fs');
 const { resolveDatabasePath } = require('./lib/database-path.cjs');
 const Database = require('better-sqlite3');
@@ -262,11 +263,16 @@ function safeCompareSecret(expected, provided) {
  * Get client IP address from request
  */
 function getClientIP(request) {
-  const forwarded = TRUST_PROXY ? request.headers['x-forwarded-for'] : null;
-  if (forwarded) {
-    return forwarded.split(',')[0].trim();
+  const peer = request.socket.remoteAddress?.toLowerCase().replace(/^::ffff:/, '') || '';
+  const loopback = peer === '::1' || (isIP(peer) === 4 && peer.startsWith('127.'));
+  const forwarded = request.headers['x-forwarded-for'];
+  if (TRUST_PROXY && loopback && typeof forwarded === 'string') {
+    const addresses = forwarded.split(',').map(value => value.trim().toLowerCase());
+    for (let index = addresses.length - 1; index >= 0; index--) {
+      if (isIP(addresses[index])) return addresses[index];
+    }
   }
-  return request.socket.remoteAddress || 'unknown';
+  return isIP(peer) ? peer : 'unknown';
 }
 
 /**
@@ -338,6 +344,7 @@ app.prepare().then(() => {
   tapBroadcaster = require('./lib/tap-events-node').default;
   
   const server = createServer(async (req, res) => {
+    req.headers['x-scps-client-ip'] = getClientIP(req);
     try {
       const requestUrl = new URL(
         req.url,

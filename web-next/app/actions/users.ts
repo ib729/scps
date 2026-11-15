@@ -12,11 +12,7 @@ import {
   getUserRoleById,
   requireRole,
 } from "@/lib/auth-session";
-import {
-  clearSignupAttempts,
-  isSignupRateLimited,
-  recordSignupAttempt,
-} from "@/lib/signup-rate-limit";
+import { consumeSignupAttempt } from "@/lib/signup-rate-limit";
 
 const signupSchema = z.object({
   name: z.string().trim().min(1).max(255),
@@ -31,17 +27,8 @@ const updateProfileSchema = z.object({
   image: z.string().trim().url().nullable().optional(),
 });
 
-function getSignupRateLimitKey(email: string, headerList: Headers) {
-  const clientIp =
-    headerList.get("x-real-ip") ||
-    headerList
-      .get("x-forwarded-for")
-      ?.split(",")
-      .map((part) => part.trim())
-      .find(Boolean) ||
-    "unknown";
-
-  return `${clientIp}:${email.toLowerCase()}`;
+function getSignupRateLimitKey(headerList: Headers): string {
+  return headerList.get("x-scps-client-ip")?.trim().toLowerCase() || "unknown";
 }
 
 export async function signupAction(data: unknown) {
@@ -55,16 +42,16 @@ export async function signupAction(data: unknown) {
   }
 
   try {
-    const validated = signupSchema.parse(data);
     const requestHeaders = await headers();
-    const rateLimitKey = getSignupRateLimitKey(validated.email, requestHeaders);
+    const rateLimitKey = getSignupRateLimitKey(requestHeaders);
 
-    if (isSignupRateLimited(rateLimitKey)) {
+    if (!consumeSignupAttempt(rateLimitKey)) {
       return {
         success: false,
         error: "Too many signup attempts. Please wait and try again.",
       };
     }
+    const validated = signupSchema.parse(data);
 
     if (validated.signupCode !== signupCode) {
       recordSignupAttempt(rateLimitKey);
@@ -73,7 +60,6 @@ export async function signupAction(data: unknown) {
         error: "Unable to create account with the provided details.",
       };
     }
-
     await auth.api.signUpEmail({
       headers: requestHeaders,
       body: {
@@ -82,8 +68,6 @@ export async function signupAction(data: unknown) {
         password: validated.password,
       },
     });
-
-    clearSignupAttempts(rateLimitKey);
 
     return { success: true };
   } catch (error) {

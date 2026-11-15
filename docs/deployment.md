@@ -2,6 +2,10 @@
 
 This guide covers production deployment options for the Student Council Payment System, including Docker, systemd services, SSL configuration, and environment management.
 
+Use the custom server (`pnpm dev` / `pnpm start`), not `next dev/start` directly: it supplies NFC and overwrites signup client identity. Default `TRUST_PROXY=false` uses the socket peer. Set `TRUST_PROXY=true` only behind the documented single loopback Nginx hop; Nginx must append `$remote_addr` to `X-Forwarded-For` (or overwrite it), and the app port must not be publicly exposed. Only a loopback immediate peer's rightmost valid forwarded address is trusted. Caller `X-Real-IP` and `x-scps-client-ip` are ignored. Remote/multi-hop proxy topologies are unsupported without separate trust configuration.
+
+Signup allows five attempts per client in ten minutes, including successes and validation/auth failures. Budgets reset with this single web process; shared storage is required before adding workers.
+
 ## Prerequisites
 
 - Production-ready server (Standard Linux Cloud VPS: Debian 12 / Ubuntu 22.04+)
