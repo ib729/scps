@@ -43,14 +43,11 @@ export function deleteOverdraftWeek(studentId: number, weekStartUtc: string): vo
 }
 
 // Helper to calculate the current week start in UTC (Monday 00:00 Asia/Shanghai)
-export function getCurrentWeekStartUtc(): string {
-  // This is a simplified version. In production, you'd use a proper timezone library
-  const now = new Date();
-  const dayOfWeek = now.getUTCDay(); // 0 = Sunday, 1 = Monday
-  const daysToSubtract = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-  const monday = new Date(now);
-  monday.setUTCDate(monday.getUTCDate() - daysToSubtract);
-  monday.setUTCHours(0, 0, 0, 0);
-  return monday.toISOString();
+export function getCurrentWeekStartUtc(now: Date = new Date()): string {
+  const shanghai = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+  const daysToSubtract = (shanghai.getUTCDay() + 6) % 7;
+  shanghai.setUTCDate(shanghai.getUTCDate() - daysToSubtract);
+  shanghai.setUTCHours(0, 0, 0, 0);
+  return new Date(shanghai.getTime() - 8 * 60 * 60 * 1000).toISOString();
 }
 
