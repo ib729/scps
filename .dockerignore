@@ -23,3 +23,13 @@
 **/db_backups
 .superpowers
 .local
+**/.agent
+**/.agents
+**/.claude
+**/skills-lock.json
+**/AGENTS.md
+**/CLAUDE.md
+**/.mcp.json
+**/.rclone
+**/rclone.conf
+**/*.pem

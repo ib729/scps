@@ -244,12 +244,35 @@ CLAUDE.md
 
 # Agents / skills
 .agents/
-**/.agents/
 AGENTS.md
-**/AGENTS.md
 **/SKILL.md
 
 # Agent frameworks & Antigravity CLI
 .agent/
 .antigravitycli/
 .claude/
+
+# Dependencies and local tools
+node_modules/
+/.local/
+/.superpowers/
+
+# Environment files and examples
+.env.*
+!.env.example
+!.env.*.example
+
+# SQLite journals and alternate database names
+*.db-journal
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+*.sqlite-journal
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
+*.sqlite3-journal
+
+# Local backups and skill installation records
+*.tar.zst
+skills-lock.json

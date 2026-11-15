@@ -22,7 +22,7 @@ RUN pnpm install --frozen-lockfile
 FROM base AS builder
 
 COPY --from=deps /app/web-next/node_modules ./node_modules
-COPY web-next/package.json web-next/pnpm-lock.yaml web-next/pnpm-workspace.yaml web-next/tsconfig.json web-next/next-env.d.ts web-next/next.config.ts web-next/proxy.ts web-next/server.ts ./
+COPY web-next/package.json web-next/pnpm-lock.yaml web-next/pnpm-workspace.yaml web-next/tsconfig.json web-next/next.config.ts web-next/proxy.ts web-next/server.ts ./
 COPY web-next/app ./app
 COPY web-next/components ./components
 COPY web-next/hooks ./hooks
