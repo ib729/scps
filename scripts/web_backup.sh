@@ -11,7 +11,7 @@ STAGING="$(mktemp -d)"
 PENDING=""
 trap 'rm -rf "$STAGING"; [[ -z "$PENDING" ]] || rm -f "$PENDING"' EXIT
 PENDING="$(mktemp "$(dirname "$OUTPUT_FILE")/.scps-backup.XXXXXX")"
-python3 "$SCRIPT_DIR/sqlite_snapshot.py" snapshot "$DB_FILE" "$STAGING/stuco.db"
+(cd "$SCRIPT_DIR/../web-next" && node --import tsx tools/sqlite-snapshot.ts snapshot "$DB_FILE" "$STAGING/stuco.db")
 export ZSTD_CLEVEL="${ZSTD_CLEVEL:-15}"
 export ZSTD_NBTHREADS="${ZSTD_NBTHREADS:-0}"
 tar --zstd -cf "$PENDING" -C "$STAGING" stuco.db

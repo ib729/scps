@@ -17,6 +17,11 @@
 - Share operator pages under `/admin` while retaining administrator-only account/payment decisions; customer-owned pages live under `/customer`.
 - Permanently redirect legacy page URLs with detail suffixes/query values preserved; never redirect POST server actions.
 
+### Typed database tools
+- Replace Python CSV, snapshot/extraction and legacy-conversion tools with package-local TypeScript; use complete CSV/tar parsers and verified SQLite online snapshots.
+- Reject unsafe/truncated archives and unknown currency scales; normalize pre-cutover cent-based backups in private restore staging without replacing live files.
+- CSV imports commit valid rows atomically, report failures with nonzero status, and keep dry runs/template generation nonmutating.
+
 ### Toolchain
 - Pin Node 26.13.1, pnpm 12.21.0 and current stable direct dependencies; use the installed `auth` CLI. Python reader dependencies require Python 3.11 or newer.
 - TypeScript 7 checks the application; ESLint compiler-API consumers resolve isolated TypeScript 6.0.3. Workspace policy explicitly permits native builds and denies unused Prisma client generation and telemetry scripts.

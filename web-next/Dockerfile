@@ -27,6 +27,7 @@ COPY web-next/app ./app
 COPY web-next/components ./components
 COPY web-next/hooks ./hooks
 COPY web-next/lib ./lib
+COPY web-next/tools ./tools
 COPY web-next/public ./public
 COPY web-next/migrations ./migrations
 COPY migrations /app/migrations
@@ -59,6 +60,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/web-next/.next ./.next
 COPY --from=builder --chown=nextjs:nodejs /app/web-next/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/web-next/package.json /app/web-next/pnpm-lock.yaml /app/web-next/pnpm-workspace.yaml /app/web-next/tsconfig.json /app/web-next/next.config.ts /app/web-next/server.ts ./
 COPY --from=builder --chown=nextjs:nodejs /app/web-next/lib ./lib
+COPY --from=builder --chown=nextjs:nodejs /app/web-next/tools ./tools
 COPY --from=builder --chown=nextjs:nodejs /app/web-next/app ./app
 COPY --from=builder --chown=nextjs:nodejs /app/web-next/components ./components
 COPY --from=builder --chown=nextjs:nodejs /app/web-next/migrations ./migrations

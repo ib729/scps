@@ -114,12 +114,11 @@ async function main() {
     }
     const csvPath = path.join(directory, "customers.csv");
     fs.writeFileSync(csvPath, "name,uid\nCSV CLI Check,AB12CD34\n");
-    const importer = path.resolve(root, "../hardware-pi/batch_import_students.py");
+    const { importCustomers } = await import("../../tools/batch-import-customers");
     const options = { cwd: directory, env: { ...process.env, DATABASE_PATH: activePath }, encoding: "utf8" as const };
-    assert.equal(spawnSync("python3", [importer, csvPath, "--dry-run"], options).status, 0);
+    assert.equal(await importCustomers(csvPath, { skipDuplicates: true, dryRun: true }), true);
     assert.equal(active.prepare("SELECT id FROM customers WHERE name = 'CSV CLI Check'").get(), undefined);
-    const imported = spawnSync("python3", [importer, csvPath], options);
-    assert.equal(imported.status, 0, imported.stdout + imported.stderr);
+    assert.equal(await importCustomers(csvPath, { skipDuplicates: true, dryRun: false }), true);
     assert.ok(active.prepare("SELECT id FROM customers WHERE name = 'CSV CLI Check'").get());
     assert.equal(fs.existsSync(path.join(directory, "stuco.db")), false);
     for (const args of [["--yes"], [path.join(directory, "missing.db"), "--yes"], [invalidPath, "--yes"]]) {

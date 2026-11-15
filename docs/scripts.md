@@ -379,98 +379,53 @@ rclone ls r2-crypt:
 
 Stop every writer before invoking this command. It refuses a detected active web service; the flag acknowledges that other writers are also stopped. Downloads and extraction use private staging. Only root regular SQLite backup members are accepted; SQLite validates integrity, foreign keys, schema and cent scale before copying through its backup API. A consistent pre-restore archive remains in `db_backups`. Services and live sidecars are never silently stopped, replaced or removed.
 
-## Student Management Scripts
+## Customer Import
 
-### batch_import_students.py
+### batch-import-customers.ts
 
-**Location**: `hardware-pi/batch_import_students.py`
+Run from `web-next`:
 
-**Purpose**: Batch import multiple students from a CSV file with validation and error handling.
-
-**Usage:**
-```bash
-# Generate template CSV
-python hardware-pi/batch_import_students.py --template students.csv
-
-# Preview import (dry run)
-python hardware-pi/batch_import_students.py --dry-run students.csv
-
-# Import students
-python hardware-pi/batch_import_students.py students.csv
-
-# Fail on duplicates instead of skipping
-python hardware-pi/batch_import_students.py --no-skip-duplicates students.csv
+```sh
+node --import tsx tools/batch-import-customers.ts --template --with-uid customers.csv
+node --import tsx tools/batch-import-customers.ts --dry-run customers.csv
+node --import tsx tools/batch-import-customers.ts customers.csv
+node --import tsx tools/batch-import-customers.ts --no-skip-duplicates customers.csv
 ```
 
-**Options:**
-- `--template` - Generate a template CSV file
-- `--dry-run` - Preview import without making changes
-- `--no-skip-duplicates` - Fail on duplicate names instead of skipping them
+UTF-8 CSV requires `name` and optionally `uid`; quoted/multiline names are supported.
+UIDs are uppercase hexadecimal, 4–20 characters. Each valid row atomically creates
+a zero-balance account or attaches an unowned card to an existing customer.
+Bad rows do not prevent later valid rows, but any error produces a nonzero exit.
+Dry runs are read-only; template generation does not open the ledger.
 
-**CSV Format:**
+### sqlite-snapshot.ts
 
-Basic (names only):
-```csv
-name
-John Doe
-Jane Smith
-Alice Johnson
+```sh
+node --import tsx tools/sqlite-snapshot.ts snapshot /path/to/ledger.db /path/to/snapshot.db
+node --import tsx tools/sqlite-snapshot.ts extract /path/to/backup.tar.zst /empty/private/staging
 ```
 
-With NFC card UIDs:
-```csv
-name,uid
-Ivan Belousov,0E39E996
-John Doe,DEADBEEF
-Jane Smith,AB12CD34
-Alice Johnson,
+Snapshots use SQLite's online backup API and verify integrity/foreign keys.
+Extraction accepts only the main database and optional legacy WAL/SHM, rejects
+unsafe or truncated archives, and folds staged WAL without touching a live ledger.
+Extraction stdout contains only the verified staged database path.
+
+### import-legacy-db.ts
+
+```sh
+node --import tsx tools/import-legacy-db.ts --source /path/to/old.db --target /path/to/ledger.db --writers-stopped
 ```
 
-**Features:**
-- ✓ Validates CSV format before importing
-- ✓ Optional NFC card UID import (associate cards with students)
-- ✓ Skips duplicate students (or fails if preferred)
-- ✓ Creates student accounts automatically
-- ✓ Can add cards to existing students
-- ✓ Validates UID format (hexadecimal)
-- ✓ Prevents duplicate card assignments
-- ✓ Detailed error reporting
-- ✓ Dry-run mode to preview changes
-- ✓ Transaction safety (all-or-nothing)
-- ✓ UTF-8 support for international names
+Stop every writer first. The command refuses an active local web service, takes a
+verified pre-target backup, validates conversion in staging, then restores through
+SQLite. Marker 10 or an absent legacy marker means exact ×10 conversion to cents;
+marker 100 preserves values. Other scales and unsafe amounts refuse conversion.
+Credentials, roles, login links and financial IDs remain intact; there is no first-admin promotion.
+Pre-cutover cent-based student-schema backups also normalize in private restore staging.
+The local service check cannot detect arbitrary external writers.
 
-**Output (with UIDs):**
-```
-UID column detected - will import cards with students
-Found 5 students in CSV file
+See [Batch Import Customers](batch-import-customers.md) for CSV/SQL examples.
 
-✓ Imported: Ivan Belousov (ID: 42) → 0E39E996
-✓ Imported: John Doe (ID: 43) → DEADBEEF
-⊘ Skipping duplicate: Alice Johnson (ID: 12)
-⊕ Added card to existing student: Bob Wilson (ID: 15) → AB12CD34
-✓ Imported: Charlie Brown (ID: 44)
-
-Changes committed to database
-
-============================================================
-Import Summary:
-  Imported: 4
-  Cards created: 3
-  Skipped (duplicates): 1
-  Validation errors: 0
-  Import errors: 0
-============================================================
-```
-
-**When to Use:**
-- Importing class rosters at start of year
-- Bulk student enrollment
-- Migrating from another system
-- Adding multiple students at once
-- Testing with sample data
-
-**See Also:**
-- [Batch Import Customers Guide](batch-import-customers.md) - Comprehensive guide with examples and SQL import methods
 
 ## NFC Scripts
 

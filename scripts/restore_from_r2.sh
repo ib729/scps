@@ -18,7 +18,7 @@ STAGING="$(mktemp -d)"
 trap 'rm -rf "$STAGING"' EXIT
 mkdir "$STAGING/extracted"
 rclone copyto "${RCLONE_CRYPT_REMOTE}:$1" "$STAGING/archive.tar.zst"
-SOURCE="$(python3 "$SCRIPT_DIR/sqlite_snapshot.py" extract "$STAGING/archive.tar.zst" "$STAGING/extracted")"
+SOURCE="$(cd "$PROJECT_ROOT/web-next" && node --import tsx tools/sqlite-snapshot.ts extract "$STAGING/archive.tar.zst" "$STAGING/extracted")"
 mkdir -p "$PROJECT_ROOT/db_backups"
 PRE_RESTORE="$PROJECT_ROOT/db_backups/pre_restore_backup_$(date +%Y%m%d_%H%M%S)_$$.tar.zst"
 "$SCRIPT_DIR/web_backup.sh" "$PRE_RESTORE"

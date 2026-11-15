@@ -1,5 +1,5 @@
 import { getDb, closeDb, dbPath } from "../../lib/db";
-import { assertCustomerSchema } from "../../lib/customer-schema";
+import { assertCustomerSchema, migrateCustomerSchema } from "../../lib/customer-schema";
 import { formatCurrency, toDbValue } from "../../lib/currency";
 import Database from "better-sqlite3";
 import * as p from "@clack/prompts";
@@ -7,6 +7,9 @@ import pc from "picocolors";
 import { spawn } from "child_process";
 import path from "path";
 import fs from "fs";
+import os from "node:os";
+import { backupDatabase } from "../../tools/sqlite-snapshot";
+import { importCustomers } from "../../tools/batch-import-customers";
 
 interface CustomerRow {
   id: number;
@@ -51,38 +54,29 @@ export async function restoreDatabase(sourcePath: string, activePath: string, ac
   if (sourceStat.dev === activeStat.dev && sourceStat.ino === activeStat.ino) {
     throw new Error("Backup and active database must be different files");
   }
-  const source = new Database(sourcePath, { readonly: true, fileMustExist: true });
+  if (active.inTransaction) throw new Error("Active database is busy in a transaction");
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "scps-restore-"));
   try {
-    // Pin validation and copying to the same SQLite snapshot, including its WAL.
-    source.exec("BEGIN");
-    assertCustomerSchema(source);
-    const foreignKeyErrors = source.pragma("foreign_key_check");
-    if (source.pragma("integrity_check", { simple: true }) !== "ok" || !Array.isArray(foreignKeyErrors) || foreignKeyErrors.length > 0) {
-      throw new Error("Backup failed SQLite integrity or foreign-key checks");
-    }
-    const quote = (name: string) => `"${name.replaceAll('"', '""')}"`;
-    const tables = active.prepare("SELECT name FROM sqlite_schema WHERE type = 'table' AND name NOT LIKE 'sqlite_%'").all() as { name: string }[];
-    for (const { name } of tables) {
-      const columns = active.pragma(`table_info(${quote(name)})`) as { name: string }[];
-      const sourceColumns = new Set((source.pragma(`table_info(${quote(name)})`) as { name: string }[]).map((column) => column.name));
-      if (columns.some((column) => !sourceColumns.has(column.name))) {
-        throw new Error(`Backup schema is incompatible with ${name}; migrate a copy first`);
-      }
-    }
-    const scale = source.prepare("SELECT value FROM app_meta WHERE key = 'currency_scale'").get() as { value: string } | undefined;
-    if (scale?.value !== "100") throw new Error("Backup must use the current cent-based schema; migrate a copy first");
-    const deadline = Date.now() + 30_000;
-    const result = await source.backup(activePath, {
-      progress: () => {
-        if (Date.now() > deadline) throw new Error("Database remained busy; restore rolled back");
-        return 100;
-      },
-    });
-    // better-sqlite3 can report zero pages on an initial SQLITE_BUSY without copying.
-    if (result.totalPages === 0) throw new Error("Active database is busy; no data was restored");
-  } finally {
-    source.close();
-  }
+    const stagedPath = path.join(directory, "snapshot.db");
+    await backupDatabase(sourcePath, stagedPath);
+    const source = new Database(stagedPath, { fileMustExist: true });
+    try {
+      source.pragma("foreign_keys=ON");
+      if (source.prepare("SELECT 1 FROM sqlite_schema WHERE type='table' AND name='students'").get()) migrateCustomerSchema(source);
+      assertCustomerSchema(source);
+      if (source.pragma("integrity_check", { simple: true }) !== "ok") throw new Error("Backup failed SQLite integrity checks");
+      source.exec("BEGIN");
+      const deadline = Date.now() + 30_000;
+      const result = await source.backup(activePath, {
+        progress: () => {
+          if (Date.now() > deadline) throw new Error("Database remained busy; restore rolled back");
+          return 100;
+        },
+      });
+      // SQLite can report zero pages on initial SQLITE_BUSY without copying.
+      if (result.totalPages === 0) throw new Error("Active database is busy; no data was restored");
+    } finally { source.close(); }
+  } finally { fs.rmSync(directory, { recursive: true, force: true }); }
 }
 
 export async function handleLedgerAdjustments() {
@@ -189,30 +183,17 @@ export async function handleCSVImport() {
 
   if (p.isCancel(dryRun)) return;
 
-  getDb(); // Ensure the active database is initialized before the Python writer opens it.
-  const args = [path.resolve(__dirname, "../../../hardware-pi/batch_import_students.py"), path.resolve(csvPath.trim())];
-  if (dryRun) args.push("--dry-run");
-
   const s = p.spinner();
-  s.start("Executing import script...");
-
-  // Spawn Python script
-  const child = spawn("python3", args, {
-    stdio: "inherit", // Pipe directly into the stdout/stderr so the user sees python's rich print outputs!
-    env: { ...process.env, DATABASE_PATH: path.resolve(dbPath!) },
-  });
-
-  await new Promise<void>((resolve) => {
-    child.on("error", (error) => {
-      s.stop("Import could not start");
-      p.log.error(error.message);
-      resolve();
-    });
-    child.on("close", (code) => {
-      s.stop(code === 0 ? "✓ Import process finished" : `Import failed (Exit code: ${code})`);
-      resolve();
-    });
-  });
+  s.start("Importing customers...");
+  try {
+    const success = await importCustomers(path.resolve(csvPath.trim()), { skipDuplicates: true, dryRun });
+    s.stop(success ? "✓ Import finished" : "Import failed; inspect row errors");
+    if (!success) process.exitCode = 1;
+  } catch (error) {
+    s.stop("Import failed");
+    p.log.error(error instanceof Error ? error.message : "Unknown import error");
+    process.exitCode = 1;
+  }
 }
 
 export async function handleHardwareDiagnostics() {
@@ -294,7 +275,7 @@ export async function handleImportDatabase(sourcePath?: string, confirmed?: bool
   if (p.isCancel(selectedSource) || !selectedSource.trim()) return false;
 
   const confirm = confirmed ?? await p.confirm({
-    message: pc.red(pc.bold("CRITICAL WARNING: All active data will be replaced. Stop the app and other writers first to avoid losing new work. Only current-schema backups are accepted. Continue?")),
+    message: pc.red(pc.bold("CRITICAL WARNING: All active data will be replaced. Stop every writer first. Verified pre-cutover customer-domain backups are normalized in private staging. Continue?")),
   });
 
   if (!confirm || p.isCancel(confirm)) return false;

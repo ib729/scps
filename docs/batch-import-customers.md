@@ -21,22 +21,23 @@ customers. Reimporting a duplicate name can attach a new, unowned card.
 
 ## CSV import
 
-The existing importer honors `DATABASE_PATH`. Use its explicit path until the
-TypeScript tooling cutover; never run a different script against the current schema.
+Run the typed importer from `web-next`; it loads the package environment and resolves
+relative `DATABASE_PATH` values against that package, independently of the caller's cwd.
 
 ```sh
-# From the repository root; use the actual configured database path.
-export DATABASE_PATH=/absolute/path/to/stuco.db
-python3 hardware-pi/batch_import_students.py --template customers.csv
-python3 hardware-pi/batch_import_students.py --template --with-uid customers-with-cards.csv
-python3 hardware-pi/batch_import_students.py --dry-run customers.csv
-python3 hardware-pi/batch_import_students.py customers.csv
-python3 hardware-pi/batch_import_students.py --no-skip-duplicates customers.csv
+# From web-next; DATABASE_PATH may also be configured in .env.local.
+node --import tsx tools/batch-import-customers.ts --template customers.csv
+node --import tsx tools/batch-import-customers.ts --template --with-uid customers-with-cards.csv
+node --import tsx tools/batch-import-customers.ts --dry-run customers.csv
+node --import tsx tools/batch-import-customers.ts customers.csv
+node --import tsx tools/batch-import-customers.ts --no-skip-duplicates customers.csv
 ```
 
-Check the exit status and row errors. A dry run must not change the ledger.
-Default duplicate handling skips names already present; `--no-skip-duplicates`
-makes duplicates errors. Keep the source CSV for reconciliation and audit.
+Check the exit status and row errors. Each valid row commits atomically; bad rows
+are reported while later valid rows continue, and any error makes the command fail.
+A dry run is read-only, including schema. Default duplicate handling skips existing
+names and may attach an unowned card; `--no-skip-duplicates` makes duplicates errors.
+Template generation never opens a database. Keep source CSV files for audit.
 
 ## Direct SQL import
 

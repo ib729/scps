@@ -14,7 +14,7 @@ export function resolveDatabasePath(): string {
   return fs.existsSync(webDatabase) ? webDatabase : path.resolve(webDirectory, '..', 'stuco.db');
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
+if (process.argv[1] && fs.existsSync(process.argv[1]) && import.meta.url === pathToFileURL(fs.realpathSync(process.argv[1])).href) {
   const result = config({ path: path.join(webDirectory, '.env.local'), override: false, quiet: true });
   if (result.error && result.error.code !== 'ENOENT') throw result.error;
   console.log(resolveDatabasePath());

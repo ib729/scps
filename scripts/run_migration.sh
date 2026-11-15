@@ -17,7 +17,7 @@ else
 fi
 DB_FILE="$(cd "$PROJECT_ROOT/web-next" && node --import tsx lib/database-path.ts)"
 BACKUP_FILE="${DB_FILE}.backup.$(date +%Y%m%d_%H%M%S).$$"
-python3 "$SCRIPT_DIR/sqlite_snapshot.py" snapshot "$DB_FILE" "$BACKUP_FILE"
+(cd "$PROJECT_ROOT/web-next" && node --import tsx tools/sqlite-snapshot.ts snapshot "$DB_FILE" "$BACKUP_FILE")
 echo "Validated pre-migration snapshot: $BACKUP_FILE"
 sqlite3 -bail "$DB_FILE" < "$MIGRATION_FILE"
 echo "Migration complete. For deliberate recovery, stop writers and use scps-cli import-db."
