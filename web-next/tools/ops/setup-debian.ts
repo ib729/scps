@@ -67,7 +67,7 @@ function unitValue(value: string): string {
 
 export function main(args = process.argv.slice(2)): number {
   if (args.includes("--help") || args.includes("-h")) {
-    console.log("Usage: ./scripts/setup-debian.sh [--systemd|--no-systemd]\nConfigures env/database and builds; service installation is optional. Existing ledgers are preserved.");
+    console.log("Usage: ./scripts/setup.sh [--systemd|--no-systemd]\nConfigures env/database and builds; service installation is optional. Existing ledgers are preserved.");
     return 0;
   }
   if (args.length !== 1 || !["--systemd", "--no-systemd"].includes(args[0])) throw new Error("Specify --systemd or --no-systemd");

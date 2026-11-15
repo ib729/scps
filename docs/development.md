@@ -35,7 +35,7 @@ The custom server and bundled Next handlers share one `Symbol.for`-anchored tap 
 ## Source Map
 
 - `scps-cli`, `scps-remote-cli`: minimal package-cwd launchers.
-- `scripts/setup-debian.sh`: only the OS/Node/pnpm/native-build bootstrap.
+- `scripts/setup.sh`: OS/Node/pnpm/native-build bootstrap.
 - `migrations/schema.sql`, `web-next/migrations/better_auth_schema.sql`: final ledger/auth schemas.
 - `web-next/server.ts`: HTTP, Next handler, authenticated WebSockets and shutdown.
 - `web-next/app/(app)/admin/`: protected operator pages/layout.

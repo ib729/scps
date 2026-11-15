@@ -37,6 +37,7 @@ Use the current guides for operations.
 
 ### Typed operational workflows
 - Remove the optional Docker build and container deployment instructions. Native deployment remains available.
+- Rename the Debian and Ubuntu bootstrap to `scripts/setup.sh`.
 - Detect Debian and Ubuntu, offer optional systemd services, and use port 38173 for new automated installations without changing existing environments.
 - Move all operational scripts into `web-next/tools/ops`; keep only the two root CLI launchers and Debian toolchain bootstrap in shell. Remove Python runtime requirements; native-addon compilation may still need Python.
 - Preserve backup publication/restore, deployment argument quoting and stopped-reader ownership; reset the selected TTY's real USB ancestor and retain the existing reader timing.

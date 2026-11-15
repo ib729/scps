@@ -9,7 +9,7 @@ From the repository root, the only shell entrypoints are:
 ```bash
 ./scps-cli
 ./scps-remote-cli
-./scripts/setup-debian.sh
+./scripts/setup.sh
 ```
 
 The first two only resolve the package directory and launch TypeScript. The Debian bootstrap installs OS/Node/pnpm/native-build dependencies and invokes the typed setup stage. All other examples below run **from `web-next/`**, after `pnpm install --frozen-lockfile`:
@@ -75,7 +75,7 @@ Each of the following is a distinct entrypoint under `web-next/tools/ops/`; reti
 | `deploy-remote` | `node --import tsx tools/ops/deploy-remote.ts user@server.example.com [branch]` | Runs typed VPS deploy over `ssh -t`. Default remote directory expands the **remote** `$HOME/scps`; `SCPS_REMOTE_PATH` overrides with a literal POSIX-quoted directory. Branch defaults to `main`; SSH exit/signal propagates. |
 | `auto-update` | `sudo node --import tsx tools/ops/auto-update.ts` | OS maintenance, not application deployment: apt update, upgrade, autoremove and autoclean; appends `/var/log/auto-update.log`, records consecutive failures in `/var/tmp/auto-update-failures`, and refuses after three. Review/fix the cause before deliberately removing that counter. |
 
-For first-time Debian or Ubuntu setup run `./scripts/setup-debian.sh` from the repository root as the intended service user with sudo access. It offers systemd installation; `--systemd` and `--no-systemd` select explicitly, and noninteractive runs without a flag skip services. Reader units are installed inactive when selected: configure reader environment, serial access and noninteractive reset privileges before enabling them. See [Deployment](deployment.md).
+For first-time Debian or Ubuntu setup run `./scripts/setup.sh` from the repository root as the intended service user with sudo access. It offers systemd installation; `--systemd` and `--no-systemd` select explicitly, and noninteractive runs without a flag skip services. Reader units are installed inactive when selected: configure reader environment, serial access and noninteractive reset privileges before enabling them. See [Deployment](deployment.md).
 
 ### Backup, restore and database maintenance
 

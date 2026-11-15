@@ -3,7 +3,7 @@ set -eu
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 APP_USER=${SUDO_USER:-${USER:-$(id -un)}}
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  printf '%s\n' 'Usage: ./scripts/setup-debian.sh [--systemd|--no-systemd]' 'Bootstrap Debian/Ubuntu dependencies and configure SCPS. Prompts before installing systemd services.'
+  printf '%s\n' 'Usage: ./scripts/setup.sh [--systemd|--no-systemd]' 'Bootstrap Debian/Ubuntu dependencies and configure SCPS. Prompts before installing systemd services.'
   exit 0
 fi
 if [ "$#" -gt 1 ] || { [ "$#" -eq 1 ] && [ "$1" != "--systemd" ] && [ "$1" != "--no-systemd" ]; }; then printf '%s\n' 'Unexpected setup argument' >&2; exit 2; fi

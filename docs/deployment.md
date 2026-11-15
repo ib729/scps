@@ -20,7 +20,7 @@ From a repository owned by the intended service user, with sudo access:
 
 ```bash
 # Repository root
-./scripts/setup-debian.sh
+./scripts/setup.sh
 ```
 
 The shell bootstrap only handles Debian/Node availability, pinned pnpm/dependency installation and OS/native-build packages needed to invoke TypeScript. Its Python package is for native-addon compilation, not application execution. Reader-host utilities include `libnfc-bin`, `usbutils`, `lsof` and `udev`; backups need `sqlite3`, `zstd` and `rclone`.

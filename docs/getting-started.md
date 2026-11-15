@@ -42,7 +42,7 @@ On a Pi hosting the whole stack, allow enough memory for native compilation and 
 From the repository root, as the intended service user with sudo access:
 
 ```bash
-./scripts/setup-debian.sh
+./scripts/setup.sh
 ```
 
 This bootstrap detects Debian, Ubuntu and derivatives, installs OS/Node/native-build prerequisites, pins pnpm and installs package dependencies, then invokes `web-next/tools/ops/setup-debian.ts`. The typed stage configures the private env file, creates a missing auth secret without printing it, initializes core+auth only for a **missing** ledger, and builds. A new environment defaults to port **38173** and matching localhost URL and trusted origin. Existing environment settings and ledgers are preserved.

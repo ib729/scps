@@ -97,7 +97,7 @@ If your database is hosted on a remote production VPS, run the secure SSH-tunnel
 ./scps-remote-cli
 ```
 
-Reader and diagnostic programs live in `web-next/hardware/`; CSV, SQLite and migration tools in `web-next/tools/`; operational workflows in `web-next/tools/ops/`. Run typed entrypoints from `web-next` with `node --import tsx`. Only the two root CLI launchers and `scripts/setup-debian.sh` remain in shell.
+Reader and diagnostic programs live in `web-next/hardware/`; CSV, SQLite and migration tools in `web-next/tools/`; operational workflows in `web-next/tools/ops/`. Run typed entrypoints from `web-next` with `node --import tsx`. Only the two root CLI launchers and `scripts/setup.sh` remain in shell.
 
 ---
 
