@@ -1,13 +1,13 @@
 # Student Council Payment System (SCPS)
 
-A complete NFC-based payment system for managing student snack bar purchases. Tap contactless cards for instant payments with real-time dashboard monitoring.
+A complete NFC-based payment system for managing snack bar customer purchases. Tap contactless cards for payments with real-time dashboard monitoring.
 
 ---
 
 ## Features
 
 - **NFC Card Payments** - Fast, cashless transactions with contactless cards
-- **Student Account Management** - Track balances, cards, and transaction history
+- **Customer Account Management** - Track balances, cards, and transaction history
 - **Modern Web Dashboard** - Built with Next.js, TypeScript, and Tailwind CSS
 - **CLI Tools** - Quick command-line utilities for POS, top-ups, and enrollment
 - **Real-time Updates** - Live tap notifications in the web interface
@@ -26,7 +26,7 @@ The Student Council Payment System is split into a central server and client tap
 
 ## Quick Start
 
-Requires Node.js >=26.13.1 <27, pnpm 12.21.0, Python >=3.11, and `sqlite3`.
+Requires Node.js >=26.13.1 <27, pnpm 12.21.0 and `sqlite3`. Native-addon compilation may need a C/C++ toolchain and Python >=3.11; application and reader logic do not run Python. Reader hosts also need native libnfc tools.
 
 ### 1. Install Dependencies and Configure the Environment
 
@@ -49,7 +49,7 @@ sqlite3 /absolute/path/to/stuco.db < web-next/migrations/better_auth_schema.sql
 ./scps-cli users
 ```
 
-Existing installations should keep their database and environment files.
+Existing installations must keep their ledger and environment files and follow the stopped-writer [migration and rollback procedure](docs/database.md) before upgrading. Startup refuses legacy/mixed schemas and non-cent ledgers rather than converting them automatically.
 
 ### 3. Run the Web Interface
 
@@ -68,7 +68,7 @@ pnpm build
 pnpm start
 ```
 
-Open http://localhost:3000 to log in to the dashboard.
+Open http://localhost:3000. Staff/admin use `/admin`; buyers use `/customer` and remain pending until an administrator links their ledger account. Account grants and payment decisions remain administrator-only.
 
 ### 4. Next Steps
 
@@ -94,7 +94,7 @@ If your database is hosted on a remote production VPS, run the secure SSH-tunnel
 ./scps-remote-cli
 ```
 
-NFC broadcaster, CSV import, and hardware diagnostics live in `hardware-pi/`. The old Python POS, enrollment, top-up, and database-management entry points have been replaced by the web interface and administrative CLI.
+Reader and diagnostic programs live in `web-next/hardware/`; CSV, SQLite and migration tools in `web-next/tools/`; operational workflows in `web-next/tools/ops/`. Run typed entrypoints from `web-next` with `node --import tsx`. Only the two root CLI launchers and `scripts/setup-debian.sh` remain in shell.
 
 ---
 

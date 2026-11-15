@@ -4,7 +4,9 @@ This guide covers security best practices, hardening recommendations, and secret
 
 ## Overview
 
-The Student Council Payment System handles student financial data and requires proper security measures. This guide focuses on the Raspberry Pi 4 Model B deployment, which is the tested and supported platform.
+The Student Council Payment System handles customer financial data and requires
+secrets, access controls and careful recovery procedures. Raspberry Pi guidance
+below is operational advice, not a claim of physical or production acceptance.
 
 ## Secrets Management
 
@@ -15,8 +17,8 @@ All sensitive configuration should be stored in environment variables, never com
 #### Web UI Secrets (`web-next/.env.local`)
 
 ```bash
-# Database location (use absolute path)
-DATABASE_PATH=$PROJECT_ROOT/stuco.db
+# Database location (literal absolute path; do not rely on dotenv shell expansion)
+DATABASE_PATH=/absolute/path/to/scps/stuco.db
 
 # Better Auth secret (generate with: openssl rand -base64 32)
 BETTER_AUTH_SECRET=<your-generated-secret>
@@ -24,7 +26,8 @@ BETTER_AUTH_SECRET=<your-generated-secret>
 # NFC tap authentication (generate with: openssl rand -hex 32)
 NFC_TAP_SECRET=<your-nfc-secret>
 
-# Optional: Trusted origins for Better Auth
+# Public HTTPS origin and optional additional trusted origins
+NEXT_PUBLIC_APP_URL=https://your-domain.com
 BETTER_AUTH_TRUSTED_ORIGINS=https://your-domain.com
 ```
 
@@ -41,7 +44,7 @@ NEXTJS_URL=http://localhost:3000
 POS_LANE_ID=default
 
 # NFC device
-PN532_DEVICE=tty:AMA0:pn532
+PN532_DEVICE=pn532_uart:/dev/ttyAMA0
 ```
 
 **Important**: Both `.env.local` and `.env.broadcaster` are in `.gitignore` and should never be committed.
@@ -62,25 +65,20 @@ Protect environment files:
 
 ```bash
 # Restrict access to environment files
-chmod 600 $PROJECT_ROOT/web-next/.env.local
-chmod 600 $PROJECT_ROOT/.env.broadcaster
+chmod 600 "$PROJECT_ROOT/web-next/.env.local"
+chmod 600 "$PROJECT_ROOT/.env.broadcaster"
 
-# Verify ownership
-chown $USER:$USER $PROJECT_ROOT/web-next/.env.local
-chown $USER:$USER $PROJECT_ROOT/.env.broadcaster
+# Verify ownership matches the configured service user, not necessarily your shell user.
+ls -l "$PROJECT_ROOT/web-next/.env.local" "$PROJECT_ROOT/.env.broadcaster"
 ```
 
 ### Database Security
 
-```bash
-# Set appropriate database permissions
-chmod 664 $PROJECT_ROOT/stuco.db
-chmod 664 $PROJECT_ROOT/stuco.db-wal
-chmod 664 $PROJECT_ROOT/stuco.db-shm
-
-# Verify ownership
-chown $USER:$USER $PROJECT_ROOT/stuco.db*
-```
+Restrict the ledger directory and all database/WAL/SHM files to the service user
+and, only if necessary, a trusted operator group. Prefer `0700` directories and
+`0600` files for a single service user; use `0770`/`0660` for an intentional shared
+group. Never use world-write permissions. SQLite needs directory write permission
+to create sidecars; changing only the main file's mode is insufficient.
 
 ## Network Security
 
@@ -89,6 +87,8 @@ chown $USER:$USER $PROJECT_ROOT/stuco.db*
 Use UFW (Uncomplicated Firewall) on Raspberry Pi OS:
 
 ```bash
+# First allow your actual SSH port before enabling UFW, to avoid locking yourself out.
+sudo ufw allow 22/tcp
 # Enable firewall
 sudo ufw enable
 
@@ -141,25 +141,33 @@ sudo systemctl restart ssh
 
 #### Strong Password Requirements
 
-Better Auth is configured with:
-- Minimum 8 characters
-- Password hashing with bcrypt
-- Session-based authentication
-- CSRF protection
+Email/password authentication is enabled with Better Auth. Its database stores
+sessions and credentials; production configuration enables secure cookies and
+disables the cookie cache. Do not assume the presence of a bcrypt dependency means
+every authentication path uses bcrypt; preserve credential formats during upgrades.
+Use strong unique passwords and HTTPS, and review current library defaults when upgrading.
 
-#### Student registration and operator access
+#### Customer registration and operator access
 
-Public registration creates an unlinked student login, not an operator or financial account.
-Provision the first administrator with `./scps-cli users`; administrators use **Accounts**
-to verify people, link existing student balances, and grant later staff/admin roles.
-Email addresses identify logins but are not verified proof of identity.
+Public registration creates an unlinked customer login, not an operator or financial account.
+Provision the first administrator with repository-root `./scps-cli users`.
+Administrators verify identity and link existing customer balances at `/admin/users`;
+email addresses are identifiers, not verified proof of identity. Signup cannot grant
+staff/admin access, and last-administrator protection must remain enabled.
+
+Staff/admin share `/admin/*` operator pages, but `/admin/users` and `/admin/payments`
+and their protected mutations are administrator-only. Customers use `/customer`
+or `/customer/pending` and see only owned history/balance, never another customer's
+data, card UID or internal notes. A payment claim never credits money; only confirmed
+administrator approval credits base cents once. Hiding navigation is not authorization.
 
 #### Session Security
 
-Sessions are stored in the database with:
-- Secure cookie flags (HttpOnly, SameSite)
-- Session expiration
-- Token rotation on login
+Sessions and credentials are stored in the authentication tables. Treat database
+backups as secrets too. Keep the public HTTPS origin and trusted-origin configuration
+aligned with the reverse proxy; secure cookies require the production HTTPS setup.
+Do not infer session invalidation merely from changing a secret: review active
+sessions during incident recovery.
 
 ### NFC Tap Authentication
 
@@ -173,10 +181,10 @@ The tap broadcaster authenticates with the web server using a shared secret:
 
 All user inputs are validated:
 
-- **Server-side**: Zod schemas validate all form data
-- **Database**: SQLite constraints prevent invalid data
-- **Amount validation**: Currency amounts validated as positive decimals
-- **UID validation**: Card UIDs must match expected format
+- **Server-side**: Validate form/action/API inputs and recheck authorization.
+- **Database**: SQLite constraints and foreign keys protect ledger relationships.
+- **Amount validation**: Integer cents, safe ranges and permitted decimal precision.
+- **UID validation**: The CSV importer accepts 4–20 hexadecimal characters and checks ownership.
 
 ## Reverse Proxy (Production)
 
@@ -184,7 +192,12 @@ All user inputs are validated:
 
 Use Nginx as a reverse proxy for SSL termination and security headers:
 
+`limit_req_zone` belongs in Nginx's `http` context, not inside `server`:
+
 ```nginx
+# Inside http { ... }
+limit_req_zone $binary_remote_addr zone=api_limit:10m rate=10r/s;
+
 server {
     listen 443 ssl http2;
     server_name stuco.yourdomain.com;
@@ -204,7 +217,6 @@ server {
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
 
     # Rate Limiting
-    limit_req_zone $binary_remote_addr zone=api_limit:10m rate=10r/s;
     limit_req zone=api_limit burst=20 nodelay;
 
     # Proxy to Next.js
@@ -281,14 +293,16 @@ sudo systemctl disable avahi-daemon
 #### User Account Security
 
 ```bash
-# Create dedicated user for stuco (if not already done)
-sudo useradd -r -s /bin/bash -d $HOME $USER
-sudo mkdir -p $HOME
-sudo chown -R $USER:$USER $HOME
-
-# Never run services as root
-# systemd services should specify User=$USER
+# Inspect the deployment account and rendered service user.
+id
+systemctl cat stuco-web tap-broadcaster tap-broadcaster-reader2
 ```
+
+Use a dedicated unprivileged service account with only required directory/device
+access. Do not turn an existing login into a system account or grant blanket sudo.
+Reader reset operations need narrowly scoped noninteractive privileges; validate
+those separately before enabling readers.
+
 
 ### File System Security
 
@@ -368,45 +382,44 @@ journalctl -u tap-broadcaster | grep -i "error\|fail"
 
 ### Encrypted Backups
 
-For cloud backups (Cloudflare R2), consider encrypting before upload:
+Use the typed backup workflow and `rclone crypt`, not plaintext uploads of database
+files. From `web-next`:
 
-```bash
-# Encrypt backup
-gpg --symmetric --cipher-algo AES256 stuco_backup_20251110.tar.gz
-
-# Upload encrypted version
-rclone copy stuco_backup_20251110.tar.gz.gpg r2:stuco-db-backups/
-
-# Restore and decrypt
-rclone copy r2:stuco-db-backups/stuco_backup_20251110.tar.gz.gpg .
-gpg --decrypt stuco_backup_20251110.tar.gz.gpg > stuco_backup_20251110.tar.gz
+```sh
+node --import tsx tools/ops/setup-r2-crypt.ts
+node --import tsx tools/ops/cloud_backup_r2.ts
 ```
+
+Keep R2 credentials scoped to the backup bucket. Restrict rclone configuration
+permissions, and preserve crypt passwords/salts in a separate secure recovery
+location: new passwords do not decrypt old objects. Do not log credentials or
+put them in command-line arguments. No retention deletion is enabled automatically.
 
 ### Backup Access Control
 
 Restrict access to backup directory:
 
 ```bash
-chmod 700 $PROJECT_ROOT/db_backups
-chown -R $USER:$USER $PROJECT_ROOT/db_backups
+chmod 700 "$PROJECT_ROOT/db_backups"
+# Verify this directory belongs to the configured backup/service user.
+ls -ld "$PROJECT_ROOT/db_backups"
 ```
 
 ### Automated Backup Verification
 
-Test restore process regularly:
+Regularly rehearse recovery using disposable ledgers and local rclone aliases.
+For archive inspection, create an empty private staging directory and run from
+`web-next`:
 
-```bash
-#!/bin/bash
-# backup-verify.sh
-BACKUP_FILE=$(ls -t db_backups/*.tar.gz | head -1)
-TEST_DIR="/tmp/backup-test-$$"
-
-mkdir -p "$TEST_DIR"
-tar -xzf "$BACKUP_FILE" -C "$TEST_DIR"
-sqlite3 "$TEST_DIR/stuco.db" "PRAGMA integrity_check;" || exit 1
-rm -rf "$TEST_DIR"
-echo "Backup verification successful"
+```sh
+node --import tsx tools/sqlite-snapshot.ts extract \
+  /absolute/path/to/backup.tar.zst /absolute/path/to/empty-staging
 ```
+
+The extractor accepts only root regular database/WAL/SHM members, rejects unsafe,
+duplicate and truncated archives, checks decompressor completion, and folds staged
+WAL through SQLite into an integrity/FK-checked snapshot. Never extract over a live
+ledger. Verify expected balances/history as well as structural integrity.
 
 ## Incident Response
 
@@ -417,11 +430,10 @@ If you suspect a security breach:
 1. **Immediately**:
    ```bash
    # Stop services
-   sudo systemctl stop stuco-web
-   sudo systemctl stop tap-broadcaster
-   
-   # Backup current state
-   tar -czf incident-backup-$(date +%Y%m%d-%H%M%S).tar.gz stuco.db* logs/
+   sudo systemctl stop stuco-web tap-broadcaster tap-broadcaster-reader2
+   # Stop every other writer too; preserve logs separately with restricted permissions.
+   # From web-next, preserve a consistent ledger snapshot:
+   node --import tsx tools/ops/web_backup.ts /absolute/path/to/incident.tar.zst
    ```
 
 2. **Investigate**:
@@ -450,13 +462,23 @@ If you suspect a security breach:
 Regularly verify database integrity:
 
 ```bash
-# Check integrity
-sqlite3 stuco.db "PRAGMA integrity_check;"
-
-# If corruption detected, restore from backup
-cp stuco.db stuco.db.corrupted
-tar -xzf db_backups/latest-backup.tar.gz
+# Use the actual configured absolute database path.
+sqlite3 /absolute/path/to/stuco.db "PRAGMA integrity_check; PRAGMA foreign_key_check;"
 ```
+
+Do not copy a live database/WAL or unpack an archive onto it. Stop all writers
+before restore. From `web-next`, the remote restore command is:
+
+```sh
+node --import tsx tools/ops/restore_from_r2.ts backup.tar.zst --writers-stopped
+```
+
+Restore requires known inactive/failed web service state, private staging and a
+verified pre-restore snapshot; the flag also covers undetectable external writers.
+Old cent-based domain backups are normalized only in staging. Non-cent legacy
+money requires explicit conversion. See [Database Guide](database.md) for migration
+and recovery: rollback requires the matching application and database together,
+and restoring a snapshot loses later ledger writes.
 
 ## Security Checklist
 
@@ -464,7 +486,7 @@ tar -xzf db_backups/latest-backup.tar.gz
 
 - [ ] All secrets generated with strong randomness
 - [ ] `.env.local` and `.env.broadcaster` have 600 permissions
-- [ ] Database files have appropriate permissions (664)
+- [ ] Ledger directory/database/sidecars restricted to service user or trusted group
 - [ ] Firewall configured and enabled
 - [ ] SSH key authentication enabled, password auth disabled
 - [ ] Nginx reverse proxy with SSL configured
@@ -496,11 +518,4 @@ tar -xzf db_backups/latest-backup.tar.gz
 - [Database Guide](database.md) - Backup and maintenance
 - [NFC Setup](nfc-setup.md) - Secure NFC configuration
 
-## Reporting Security Issues
-
-For vulnerability reports, see root [SECURITY.md](../SECURITY.md) file.
-
-**Never discuss security vulnerabilities in public issues or pull requests.**
-
-**Last updated: November 12, 2025**
 

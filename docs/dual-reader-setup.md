@@ -1,375 +1,169 @@
 # Dual NFC Reader Setup Guide
 
-> [!IMPORTANT]
-> **Architectural Alignment:** This guide covers configuring physical **dual card reader connections** on a local **Raspberry Pi POS client register node**. The central Next.js server and database backend are hosted remotely on your **Cloud VPS**, which listens for and routes the WebSocket tap broadcasts coming from both connected readers.
+Two local readers send authenticated WebSocket taps to the Student Council
+Payment System server. Staff choose their reader in Settings and use
+`/admin/pos`; customers use `/customer`. The remote server needs no NFC hardware.
+See [NFC Setup](nfc-setup.md) for wiring, voltage, mode switches and native
+libnfc requirements.
 
-This guide explains how to run two NFC readers simultaneously with per-staff filtering on your local Raspberry Pi POS registers.
+## Assign devices explicitly
 
-## Overview
+Never start two unconfigured broadcasters and assume they choose different
+readers. Native discovery uses intrusive `nfc-scan-device -i` probing and sorted
+selection, not an interprocess “first free reader” allocator. Stop all reader
+owners before discovery or direct probes. Unsupported explicit devices fail;
+there is no arbitrary reader fallback.
 
-The system now supports multiple NFC readers working simultaneously:
-- **Auto-detection**: Each broadcaster automatically detects which USB port it's using
-- **Reader identification**: Readers are labeled as `reader-1` (ttyUSB0), `reader-2` (ttyUSB1), etc.
-- **Per-client filtering**: Each staff member selects their reader in Settings, and only sees taps from that reader
-- **Persistent selection**: Reader choice is saved in browser localStorage
+For two PN532 boards on USB-to-UART adapters, establish this mapping:
 
-## Architecture
+| Service | Device | Lane | Reported reader ID |
+|---|---|---|---|
+| `tap-broadcaster.service` | `pn532_uart:/dev/ttyUSB0` | `reader-1` | `reader-1` |
+| `tap-broadcaster-reader2.service` | `pn532_uart:/dev/ttyUSB1` | `reader-2` | `reader-2` |
 
-```
-┌─────────────────┐
-│  NFC Reader 1   │
-│  (ttyUSB0)      │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────────────┐
-│ tap-broadcaster.py #1   │
-│ Auto-detects: reader-1  │
-└────────┬────────────────┘
-         │
-         │  WebSocket (lane=reader-1)
-         ▼
-┌──────────────────────────────┐
-│      server.ts (WebSocket)   │
-│   Lane-based filtering       │
-└────────┬─────────────────────┘
-         │
-         ├─────────────────────────┐
-         │                         │
-         ▼                         ▼
-  ┌─────────────┐         ┌─────────────┐
-  │  Staff A    │         │  Staff B    │
-  │  Web UI     │         │  Web UI     │
-  │ reader-1    │         │ reader-2    │
-  └─────────────┘         └─────────────┘
-```
-
-## Setup Instructions
-
-### 1. Hardware Setup
-
-1. Connect both NFC readers to different USB ports
-2. Verify both appear as `/dev/ttyUSB*` devices:
-   ```bash
-   ls -l /dev/ttyUSB*
-   ```
-   Expected output:
-   ```
-   /dev/ttyUSB0
-   /dev/ttyUSB1
-   ```
-
-### 2. Start First Broadcaster (Reader 1)
-
-The broadcaster will auto-detect ttyUSB0 and identify as `reader-1`:
+From `web-next`, in separate terminals with `NEXTJS_URL` and `NFC_TAP_SECRET`
+already exported:
 
 ```bash
-python hardware-pi/tap-broadcaster.py --url http://localhost:3000 --secret YOUR_SECRET
+node --import tsx hardware/tap-broadcaster.ts --device pn532_uart:/dev/ttyUSB0 --lane reader-1
+node --import tsx hardware/tap-broadcaster.ts --device pn532_uart:/dev/ttyUSB1 --lane reader-2
 ```
 
-Expected output:
-```
-[DEVICE] Detected: /dev/ttyUSB0 -> tty:USB0:pn532 (reader-1)
-[DEVICE] Successfully opened tty:USB0:pn532 as reader-1
-╔═══════════════════════════════════════════════════════════════╗
-║         NFC Tap Broadcaster for SCPS POS System              ║
-║                    WebSocket Version                         ║
-╠═══════════════════════════════════════════════════════════════╣
-║ Server:  http://localhost:3000                               ║
-║ Lane:    default                                             ║
-║ Reader:  reader-1                                            ║
-║ Device:  tty:USB0:pn532                                      ║
-║ Secret:  [SET]                                               ║
-║ Mode:    HARDWARE                                            ║
-╚═══════════════════════════════════════════════════════════════╝
-[WS] Connecting to ws://localhost:3000/api/nfc/ws...
-[WS] Connected successfully
-[WS] ✓ Broadcaster authenticated successfully (lane: reader-1)
-[NFC] Starting card reader loop on tty:USB0:pn532
-[NFC] Reader ID: reader-1
-[NFC] Waiting for card tap...
-```
+USB0/USB1 derive `reader_id` as reader-1/reader-2; `--lane` still controls the
+authentication/routing lane. Keep these paired. Other device paths use the lane
+as reader identity. GPIO UART (`pn532_uart:/dev/ttyAMA0`), I2C
+(`pn532_i2c:/dev/i2c-1`) and libnfc-supported native USB can be configured with
+distinct exact devices and lanes too. Do not point both processes at the same
+hardware under different aliases.
 
-### 3. Start Second Broadcaster (Reader 2)
+USB enumeration can change after reboot/replug. Record the physical adapter,
+TTY and lane mapping and recheck it after changes. Persistent udev names can
+help, but must be configured for the actual adapter identity; identical cheap
+adapters may lack unique serials. A fixed physical socket alone is no guarantee
+of a stable ttyUSB number.
 
-In a new terminal, start the second broadcaster. It will auto-detect ttyUSB1:
+## Install and configure services
 
-```bash
-python hardware-pi/tap-broadcaster.py --url http://localhost:3000 --secret YOUR_SECRET
-```
+Use [Deployment](deployment.md)'s setup procedure. It renders the repository's
+`systemd/tap-broadcaster.service` and `systemd/tap-broadcaster-reader2.service`
+with run user, repository root, Node executable and PATH placeholders.
+**Do not copy the unrendered templates directly into systemd.**
 
-Expected output:
-```
-[DEVICE] Detected: /dev/ttyUSB1 -> tty:USB1:pn532 (reader-2)
-[DEVICE] Successfully opened tty:USB1:pn532 as reader-2
-...
-║ Reader:  reader-2                                            ║
-...
-[WS] ✓ Broadcaster authenticated successfully (lane: reader-2)
-[NFC] Reader ID: reader-2
-```
+Both units run from the package working directory:
 
-### 4. Web UI Configuration
-
-#### Staff A (Using Reader 1):
-1. Open web UI at `http://localhost:3000/pos`
-2. When prompted, select **Reader 1** (ttyUSB0)
-3. Or later: Click avatar → Settings → Select "Reader 1" → Save
-
-#### Staff B (Using Reader 2):
-1. Open web UI in different browser/tab at `http://localhost:3000/pos`
-2. When prompted, select **Reader 2** (ttyUSB1)
-3. Or later: Click avatar → Settings → Select "Reader 2" → Save
-
-### 5. Testing
-
-1. **Test Reader 1 isolation**:
-   - Staff A should have Reader 1 selected
-   - Staff B should have Reader 2 selected
-   - Tap a card on Reader 1
-   - **Expected**: Only Staff A sees the tap
-
-2. **Test Reader 2 isolation**:
-   - Tap a card on Reader 2
-   - **Expected**: Only Staff B sees the tap
-
-3. **Verify server logs**:
-   ```bash
-   # In web server logs, you should see:
-   [WS #1] Sending tap event to client: <UID> (lane: reader-1)
-   [WS #2] Skipping tap <UID> - client lane='reader-2' event lane='reader-1'
-   ```
-
-## Troubleshooting
-
-### Issue: Broadcaster can't detect readers
-
-**Symptom**:
-```
-[DEVICE] No /dev/ttyUSB* devices found
-```
-
-**Solution**:
-1. Check USB connections:
-   ```bash
-   lsusb | grep 1a86:7523  # Look for CH340 adapters
-   ```
-2. Check kernel driver:
-   ```bash
-   dmesg | grep ttyUSB
-   ```
-3. Verify device permissions:
-   ```bash
-   ls -l /dev/ttyUSB*
-   sudo chmod 666 /dev/ttyUSB*  # If needed
-   ```
-
-### Issue: Both broadcasters detect same reader
-
-**Symptom**:
-```
-[DEVICE] Successfully opened tty:USB0:pn532 as reader-1  # Both instances
-```
-
-**Solution**:
-The first broadcaster that successfully opens a reader "locks" it. Start broadcasters sequentially:
-1. Start first broadcaster, wait for "Reader ID: reader-1"
-2. Then start second broadcaster
-
-### Issue: Staff sees taps from wrong reader
-
-**Symptom**: Staff A (reader-1) sees taps from Reader 2
-
-**Solution**:
-1. Check selected reader in Settings (avatar → Settings)
-2. Verify broadcaster is sending correct reader_id:
-   ```bash
-   # In broadcaster logs:
-   [OK] Tap broadcast: <UID> (reader: reader-1)
-   ```
-3. Clear localStorage and reselect:
-   ```javascript
-   // In browser console:
-   localStorage.removeItem('nfc_reader_lane')
-   location.reload()
-   ```
-
-### Issue: Reader auto-detects as wrong ID
-
-**Symptom**: ttyUSB1 detected as reader-1 instead of reader-2
-
-**Explanation**: Reader IDs are assigned based on the order broadcasters successfully connect, not the USB port number. This is intentional for flexibility.
-
-**Solution**: If you need consistent mapping:
-1. Always start broadcasters in the same order
-2. Or manually specify device and lane:
-   ```bash
-   # Broadcaster 1:
-   python hardware-pi/tap-broadcaster.py --device tty:USB0:pn532 --lane reader-1
-
-   # Broadcaster 2:
-   python hardware-pi/tap-broadcaster.py --device tty:USB1:pn532 --lane reader-2
-   ```
-
-## Running as Services
-
-For production, run both broadcasters as systemd services:
-
-### Reader 1 Service
-
-Create `/etc/systemd/system/nfc-broadcaster-1.service`:
 ```ini
-[Unit]
-Description=NFC Tap Broadcaster (Reader 1)
-After=network.target
-
-[Service]
-Type=simple
-User=$USER
-WorkingDirectory=$PROJECT_ROOT
-Environment="NEXTJS_URL=http://localhost:3000"
-Environment="NFC_TAP_SECRET=your-secret-here"
-ExecStart=/usr/bin/python3 $PROJECT_ROOT/hardware-pi/tap-broadcaster.py
-Restart=always
-RestartSec=10
-
-[Install]
-WantedBy=multi-user.target
+ExecStart=/absolute/path/to/node --import tsx hardware/tap-broadcaster.ts
 ```
 
-### Reader 2 Service
+The rendered units load the repository-root `.env.broadcaster`. Restrict its
+permissions to the service account/administrators; keep it out of Git:
 
-Create `/etc/systemd/system/nfc-broadcaster-2.service`:
-```ini
-[Unit]
-Description=NFC Tap Broadcaster (Reader 2)
-After=network.target nfc-broadcaster-1.service
-
-[Service]
-Type=simple
-User=$USER
-WorkingDirectory=$PROJECT_ROOT
-Environment="NEXTJS_URL=http://localhost:3000"
-Environment="NFC_TAP_SECRET=your-secret-here"
-ExecStart=/usr/bin/python3 $PROJECT_ROOT/hardware-pi/tap-broadcaster.py
-Restart=always
-RestartSec=10
-# Add 5 second delay to ensure reader-1 connects first
-ExecStartPre=/bin/sleep 5
-
-[Install]
-WantedBy=multi-user.target
+```dotenv
+NEXTJS_URL=https://your-server.example
+NFC_TAP_SECRET=replace-with-the-server-shared-secret
 ```
 
-Enable and start:
+The template's per-unit settings are:
+
+| Setting | First unit | Second unit |
+|---|---|---|
+| `POS_LANE_ID` | `reader-1` | `reader-2` |
+| `PN532_DEVICE` | `tty:USB0:pn532` | `tty:USB1:pn532` |
+| USB pre-start reset selector | `USB0` | `USB1` |
+| Extra pre-start settle | none | 5 seconds |
+| Restart | `always`, after 5 seconds | `always`, after 5 seconds |
+| Stop window | 10 seconds | 10 seconds |
+
+The legacy TTY strings normalize to the native UART strings above. If changing
+the selected device, also review the unit's `ExecStartPre` reset target; a GPIO,
+I2C or native USB reader must not retain an unrelated USB-serial reset command.
+The USB reset invokes `tools/ops/reset-usb-nfc.ts` through Node/tsx.
+Serial access and narrowly authorized noninteractive reset privileges must be
+configured before enabling services; do not grant unrestricted passwordless sudo.
+
+Setup installs but does not enable the reader units. Once configured on the
+reader host:
+
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable nfc-broadcaster-1 nfc-broadcaster-2
-sudo systemctl start nfc-broadcaster-1
-sleep 5
-sudo systemctl start nfc-broadcaster-2
-
-# Check status:
-sudo systemctl status nfc-broadcaster-1
-sudo systemctl status nfc-broadcaster-2
+sudo systemctl enable tap-broadcaster tap-broadcaster-reader2
+sudo systemctl start tap-broadcaster tap-broadcaster-reader2
+systemctl status tap-broadcaster tap-broadcaster-reader2
+journalctl -u tap-broadcaster -u tap-broadcaster-reader2 -f
 ```
 
-## How It Works
+## Staff selection and isolation
 
-### Auto-Detection Algorithm
+1. Sign in as staff/admin and open `/admin/pos`.
+2. In the avatar menu's Settings, choose Reader 1 or Reader 2 and save.
+3. In a separate browser/device, select the other reader.
+4. Tap each physical reader and verify only its matching checkout selects the
+   enrolled customer. Check the broadcaster log's `lane` and `reader_id`.
 
-1. **Device Discovery**:
-   - Scans for `/dev/ttyUSB*` devices using `glob.glob()`
-   - Sorts alphabetically (USB0, USB1, USB2, ...)
+The browser stores selection as `nfc_reader_lane` and subscribes to that lane.
+Selecting the same lane in two browsers intentionally subscribes both; reader
+selection is not an exclusive cashier lock. A connected indicator establishes
+authenticated network presence only, not PN532 health.
 
-2. **Reader Assignment**:
-   - For each device, attempts to open with `nfc.ContactlessFrontend()`
-   - First successful device → `reader-1`
-   - Second successful device → `reader-2`
-   - And so on...
-
-3. **Identifier Propagation**:
-   - `reader_id` included in every tap WebSocket message
-   - `lane` field set to `reader_id` for backward compatibility
-   - Server routes messages based on `lane` parameter
-
-### Client-Side Filtering
-
-1. **Reader Selection**:
-   - Stored in localStorage: `nfc_reader_lane`
-   - Managed by `NFCReaderContext` React context
-   - Persists across page reloads
-
-2. **WebSocket Connection**:
-   - Client connects with `?lane=reader-1` query parameter
-   - Server only sends taps matching that lane
-   - Automatic reconnection when reader selection changes
-
-3. **Settings UI**:
-   - Available in sidebar avatar menu → Settings
-   - Radio buttons for Reader 1 / Reader 2
-   - Shows device path (ttyUSB0, ttyUSB1) for reference
-
-## Example Scenario
-
-**Setup**: School snack bar with 2 NFC readers
-
-**Staff A** (Cashier 1):
-- Opens `/pos` page
-- Selects "Reader 1" when prompted
-- Handles student purchases at register #1
-- Only sees taps from their physical reader
-
-**Staff B** (Cashier 2):
-- Opens `/pos` page on different computer
-- Selects "Reader 2" when prompted
-- Handles student purchases at register #2
-- Only sees taps from their physical reader
-
-**Result**: Both cashiers work independently without interference!
-
-## Advanced Configuration
-
-### Manual Reader Assignment
-
-If auto-detection doesn't work or you need specific mappings:
+For filtering experiments on a disposable server, run from `web-next`:
 
 ```bash
-# Force specific reader assignment:
-python hardware-pi/tap-broadcaster.py \
-  --device tty:USB0:pn532 \
-  --lane reader-1 \
-  --url http://localhost:3000 \
-  --secret YOUR_SECRET
+node --import tsx hardware/tap-broadcaster.ts --simulate --lane reader-1
+# Separate terminal:
+node --import tsx hardware/tap-broadcaster.ts --simulate --lane reader-2
 ```
 
-### Simulation Mode
+These are synthetic events, not hardware tests.
 
-Test filtering without hardware:
+## Diagnosis and safe recovery
+
+Start with USB topology/TTY observations, which do not open readers:
 
 ```bash
-# Terminal 1 (simulate reader-1):
-python hardware-pi/tap-broadcaster.py --simulate --lane reader-1
-> ABC123
-
-# Terminal 2 (simulate reader-2):
-python hardware-pi/tap-broadcaster.py --simulate --lane reader-2
-> DEF456
+cd "$PROJECT_ROOT/web-next"
+node --import tsx tools/ops/check_usb_port.ts
 ```
 
-### Debug Logging
+Before direct probes, stop **both** installed broadcaster services and release
+any manually started readers. Inspect ownership with
+`sudo lsof -- /dev/ttyUSB0 /dev/ttyUSB1`; do not kill unrelated processes or race
+a running service.
+Then choose an appropriate diagnostic:
 
-Enable verbose WebSocket logs in the relevant `server.ts` handler:
-```typescript
-console.log(`[WS #${connectionId}] Sending tap event to client: ${event.card_uid} (lane: ${eventLane})`);
+```bash
+node --import tsx hardware/diagnose-nfc.ts
+node --import tsx hardware/test-readers.ts
+node --import tsx hardware/test-usb-ports.ts
 ```
 
-## Summary
+The interactive general diagnostic accepts an exact reader selection;
+`test-readers.ts` probes USB0 and USB1 sequentially with bounded native reads.
+The port comparison prompts for physical moves. Opening a reader without a
+card proves communication only, not that a physical tap was read.
 
-✅ **Auto-detection** - No manual configuration needed
-✅ **Per-staff filtering** - Each staff member sees only their reader's taps
-✅ **Persistent selection** - Reader choice saved in browser
-✅ **Easy setup** - Just start multiple broadcasters
-✅ **Production ready** - Systemd service configurations included
+For installed services needing coordinated USB-serial recovery:
 
-The system automatically handles reader identification and routing, making it simple to scale from one to multiple NFC readers!
+```bash
+node --import tsx tools/ops/recover-nfc.ts USB0
+```
+
+It stops both installed owners, verifies inactive/failed state and checks
+unmanaged ownership with `lsof`, resets the selected TTY's actual sysfs USB
+ancestor, settles, probes, then starts the installed services. Failures leave
+them stopped for inspection. It never chooses the “first lsusb device”.
+The lower-level `tools/ops/reset-usb-nfc.ts USB0` only resets hardware: it does
+not stop owners for you. Do not use it against a running reader.
+
+After ownership-safe recovery, verify a real tap on each lane. Active services,
+USB enumeration, authentication and simulation are not hardware-health proof.
+
+## Required physical acceptance
+
+Both-reader acceptance remains **unverified here**. On actual deployment hardware
+test repeated taps, card removal, unplug/replug, absent readers, network outage
+and reconnect without replaying old taps, lane isolation, reboot mapping and
+service shutdown in **less than 10 seconds**. The second reader's five-second
+startup settle is not a shutdown allowance. Inspect fresh logs and record
+outcomes instead of assuming restart policy guarantees recovery.
+
+See [Troubleshooting](troubleshooting.md) and [GPIO Reference](raspberry-pi-4-gpio-pinout.md).

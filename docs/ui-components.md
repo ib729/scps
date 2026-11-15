@@ -50,7 +50,7 @@ export default function MyComponent() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Student Balance</CardTitle>
+        <CardTitle>Customer Balance</CardTitle>
       </CardHeader>
       <CardContent>
         <p>¥50.00</p>
@@ -73,38 +73,29 @@ Global component that shows toasts when NFC cards are tapped outside the POS pag
 - Real-time WebSocket connection to tap stream
 - Toast notifications with Sonner
 - "Go to POS" action button
-- Auto-navigation with student pre-selection
+- Auto-navigation with customer pre-selection
 - 10-second auto-dismiss
 
 **Usage:**
-Included in root layout automatically:
+Mounted by `app/(app)/admin/layout.tsx` inside `NFCReaderProvider`, after fresh staff/admin authorization. It is not mounted in the root or customer layout.
 
-```typescript
-// app/layout.tsx
-import TapAlert from '@/components/tap-alert';
+```tsx
+import { TapAlert } from '@/components/tap-alert';
 
-export default function RootLayout({ children }) {
-  return (
-    <html>
-      <body>
-        {children}
-        <TapAlert />
-      </body>
-    </html>
-  );
-}
+// Inside the authenticated operator layout's existing reader provider:
+<TapAlert />
 ```
 
 ### POS Form
 
-**Location**: `web-next/app/pos/pos-form.tsx`
+**Location**: `web-next/app/(app)/admin/pos/pos-form.tsx`
 
 Main point-of-sale interface with NFC integration.
 
 **Features:**
 - Tap Card vs Manual mode toggle
 - Real-time card tap detection via WebSocket
-- Student auto-selection from card UID
+- Customer auto-selection from card UID
 - Balance display with overdraft indicator
 - Amount input with currency formatting
 - Description and staff name fields
@@ -112,17 +103,18 @@ Main point-of-sale interface with NFC integration.
 - Success/error feedback
 
 **Props:**
-- `students`: Array of all students with accounts
-- Initial mode from URL params (e.g., `?mode=tap&uid=ABC123`)
+- `customerIdsWithTransactions`: IDs used by balance/established-account indicators
+- `userName`: Initial staff name
+- `initialMode`: Saved staff POS-mode preference
 
 ### Top-up Form
 
-**Location**: `web-next/app/topup/topup-form.tsx`
+**Location**: `web-next/app/(app)/admin/topup/topup-form.tsx`
 
-Manual or tap-based balance adjustment interface.
+Manual top-up and balance-adjustment interface.
 
 **Features:**
-- Student selection (manual or from NFC tap)
+- Customer selection, manually or preselected by an operator flow
 - Amount input (positive for top-up, negative for adjustment)
 - Description field (required for adjustments)
 - Staff name tracking
@@ -387,7 +379,7 @@ export default function TransactionChart({ data }) {
         <CartesianGrid strokeDasharray="3 3" />
         <XAxis dataKey="date" />
         <YAxis />
-        <Tooltip formatter={(value) => `¥${(value / 10).toFixed(1)}`} />
+        <Tooltip formatter={(value) => `¥${(value / 100).toFixed(2)}`} />
         <Line type="monotone" dataKey="amount" stroke="hsl(var(--primary))" />
       </LineChart>
     </ResponsiveContainer>
@@ -397,7 +389,7 @@ export default function TransactionChart({ data }) {
 
 **Best Practices:**
 - Always use `ResponsiveContainer` for mobile support
-- Format currency in tooltips (convert from tenths)
+- Format currency in tooltips from integer cents (100 cents per yuan)
 - Use theme colors via CSS variables
 - Add loading state while data fetches
 

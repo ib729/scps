@@ -1,578 +1,266 @@
 # Troubleshooting
 
-Common issues and solutions for the Student Council Payment System.
+Practical diagnosis for the Student Council Payment System. Start with logs and
+read-only observations; do not reset a ledger, kill arbitrary processes or make
+database/devices world-writable to bypass an error.
 
-## Page Refresh Issues
+## Page refreshes through a tunnel
 
-### Page Refreshes Every 30-40 Seconds (Cloudflare Tunnels)
-
-**Problem**: When accessing the site through Cloudflare Tunnels, the page automatically refreshes every 30-40 seconds, closing dialogs and interrupting work.
-
-**Cause**: Next.js development mode uses WebSocket for Hot Module Replacement (HMR) at `/_next/webpack-hmr`. Cloudflare Tunnels doesn't proxy this WebSocket properly, so Next.js falls back to full page reloads to keep dev experience working.
-
-**Solution**: **Use production mode when accessing through Cloudflare Tunnels:**
+Development HMR uses WebSockets. If a tunnel/proxy interrupts HMR, development
+pages may reload and close dialogs. Use a production deployment for remote
+operation, and reserve development mode for local work:
 
 ```bash
-cd $PROJECT_ROOT/web-next
+cd "$PROJECT_ROOT/web-next"
 pnpm build
-pnpm start  # Production mode - no HMR, no refreshes
+pnpm start
 ```
 
-For systemd (permanent fix):
-```bash
-# The stuco-web.service already uses production mode
-sudo systemctl enable stuco-web
-sudo systemctl start stuco-web
-```
+Ensure the proxy supports WebSocket upgrades for `/api/nfc/ws`. Do not assume an
+HMR failure proves the reader socket is broken. See [Deployment](deployment.md).
 
-**For local development**: Continue using `pnpm dev` - HMR works fine on localhost.
+## Authentication and approval
 
-**Alternative**: Configure Cloudflare Tunnel to support WebSocket for HMR (more complex, not recommended).
+### Login, signup or session fails
 
-## Authentication Issues
+- Check `DATABASE_PATH`, `NEXT_PUBLIC_APP_URL` and `BETTER_AUTH_SECRET` in
+  `web-next/.env.local`. Restart the server after configuration changes.
+- Use a stable secret and the actual public URL; production cookies require
+  HTTPS. Check browser cookie/CORS errors and server logs without sharing tokens.
+- Verify trusted origins in `web-next/lib/trusted-origins.ts`; do not disable
+  origin checks to make an unexpected host work.
+- Missing auth tables require the documented initialization/upgrade procedure,
+  not applying arbitrary SQL to an active ledger. See [Database](database.md).
+- Microsoft sign-in requires both `MICROSOFT_CLIENT_ID` and
+  `MICROSOFT_CLIENT_SECRET`, an unexpired Azure credential and matching
+  `/api/auth/callback/microsoft` redirect URI on the public origin.
 
-### Login/Signup Not Working
+Public signup grants only the `customer` role. A customer stays at
+`/customer/pending` until an administrator verifies and links an active customer
+ledger account through `/admin/users`. Linking an archived or account-less
+record is not an approval workaround. Linked customers use `/customer`.
+Staff/admin use `/admin`; account administration and `/admin/payments` require
+an administrator. Use `./scps-cli users` from the repository root for
+first-administrator provisioning or password recovery. Signup never makes the
+first user an administrator.
 
-**Problem**: Authentication isn't working after initial setup.
+For diagnosis, reproduce login/signup in a fresh browser session and inspect
+the failing `/api/auth/*` response and server log. Do not dump the `session` or
+credential tables into support messages. See [Authentication](authentication.md).
 
-**Symptoms**:
-- "Invalid credentials" error
-- Page redirects to login immediately
-- Session not persisting
-- Network errors on auth requests
+## Web runtime and native dependencies
 
-**Solutions**:
+### Missing modules or better-sqlite3 bindings
 
-1. **Verify Environment Variables**:
-   
-   Check `web-next/.env.local` contains:
-   ```env
-   DATABASE_PATH=/absolute/path/to/stuco.db
-   NEXT_PUBLIC_APP_URL=http://localhost:3000
-   BETTER_AUTH_SECRET=your_generated_secret
-   ```
-
-2. **Restart Development Server**:
-   
-   Environment variables only load on server start:
-   ```bash
-   # Stop current server (Ctrl+C)
-   cd web-next
-   pnpm dev
-   ```
-
-3. **Check Database Migration**:
-   
-   Verify Better Auth tables exist:
-   ```bash
-   sqlite3 stuco.db "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('user', 'session', 'account', 'verification');"
-   ```
-   
-   If tables are missing, run migration:
-   ```bash
-   cd web-next
-   sqlite3 ../stuco.db < migrations/better_auth_schema.sql
-   ```
-
-4. **Generate Better Auth Secret**:
-   
-   If missing or invalid:
-   ```bash
-   openssl rand -base64 32
-   ```
-   
-   Add to `.env.local`:
-   ```env
-   BETTER_AUTH_SECRET=generated_secret_here
-   ```
-
-5. **Check baseURL Configuration**:
-   
-   Verify `web-next/lib/auth.ts` has correct baseURL:
-   ```typescript
-   baseURL: process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
-   ```
-   
-   And `web-next/lib/auth-client.ts`:
-   ```typescript
-   baseURL: typeof window !== 'undefined' ? window.location.origin : process.env.NEXT_PUBLIC_APP_URL
-   ```
-
-### "Module not found: better-auth"
-
-**Cause**: Dependencies not installed.
-
-**Solution**:
-```bash
-cd web-next
-pnpm install
-```
-
-### Session Not Persisting
-
-**Problem**: User is logged out after page refresh.
-
-**Solutions**:
-
-1. **Check Cookies Enabled**: Ensure browser allows cookies for localhost
-2. **Verify BETTER_AUTH_SECRET**: Must be set and consistent
-3. **Check baseURL**: Must match actual URL (http://localhost:3000)
-4. **Browser Console**: Check for CORS or cookie errors in dev tools
-
-### Microsoft OAuth Not Working
-
-**Problem**: Microsoft sign-in button not working or showing errors.
-
-**Solutions**:
-
-1. **Configure Azure AD Credentials**:
-   
-   Add to `.env.local`:
-   ```env
-   MICROSOFT_CLIENT_ID=your_client_id
-   MICROSOFT_CLIENT_SECRET=your_client_secret
-   ```
-
-2. **Verify Redirect URI**:
-   
-   In Azure Portal, ensure redirect URI matches:
-   - Development: `http://localhost:3000/api/auth/callback/microsoft`
-   - Production: `https://your-domain.com/api/auth/callback/microsoft`
-
-3. **Check Azure AD Configuration**:
-   - Application must be registered in Azure Portal
-   - Client secret must not be expired
-   - Redirect URI must be whitelisted
-
-### Student registration awaiting approval
-
-Registration needs only a name, email and password. Sign in to check approval status.
-An administrator must verify the person and link the login to an existing, active
-student with an account through **Accounts**. An archived or account-less record
-remains unavailable. Use `./scps-cli users` for first-admin provisioning or password recovery.
-
-### "CORS error" or "Origin not allowed"
-
-**Solutions**:
-
-1. **Verify NEXT_PUBLIC_APP_URL**: Must match actual URL
-2. **Check trustedOrigins**: In `web-next/lib/auth.ts`
-3. **Browser Console**: Check exact error message
-
-### "Failed to sign up" Error
-
-**Problem**: Account creation fails with valid registration details.
-
-**Cause**: Better Auth database tables are missing (usually after a database reset).
-
-**Solution**:
-
-Apply the core and Better Auth SQL schemas when creating a database. For an existing database without authentication tables, run:
+Use the pinned Node and pnpm versions, and install dependencies for the host's
+architecture rather than copying another machine's `node_modules`.
+From `web-next`:
 
 ```bash
-cd web-next
-sqlite3 ../stuco.db < migrations/better_auth_schema.sql
-sudo systemctl restart stuco-web
+node --import tsx tools/ops/web-next-check-prereqs.ts
+pnpm install --frozen-lockfile
+pnpm rebuild better-sqlite3
 ```
 
-**Verify tables exist**:
+`tools/ops/web-next-setup.ts` combines prerequisite checks, frozen installation
+and rebuilding. Native addon compilation may need Python >=3.11 and a compiler;
+this is a third-party build dependency, not an application/reader runtime.
+On a Pi use a supported 64-bit OS, adequate memory and the prerequisite guidance
+in [Getting Started](getting-started.md). Do not delete a lockfile as a repair.
+
+### Port in use or 500 response
+
+Identify the existing listener and stop it through its owner/service rather than
+using blanket `kill -9`. The custom server reads `PORT`; for a separate local
+development instance:
+
 ```bash
-sqlite3 stuco.db "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('user', 'session', 'account', 'verification');"
+PORT=3001 pnpm dev
 ```
 
-Should return all 4 table names.
+For a 500 response inspect the server's actual error, environment and selected
+database. A build cannot repair missing ledger tables. Production performance
+should be assessed with a production build, not development compilation.
 
-### "Database error" or "Table not found"
+## Database diagnosis and recovery
 
-**Solutions**:
+`DATABASE_PATH` may be absolute or relative; configured relative paths resolve
+against `web-next`, not the invoking shell's cwd. Without configuration, an
+existing package database wins over the repository-root default. Determine the
+actual selected file before inspecting or repairing anything.
 
-1. **Check Better Auth Tables**: Run the verification command above to ensure auth tables exist
-2. **Initialize a New Database**: Apply `migrations/schema.sql` and `web-next/migrations/better_auth_schema.sql` to the configured database path.
-3. **Check DATABASE_PATH**: Must be absolute path in `.env.local`
-4. **Verify Permissions**: Database file must be readable/writable by the web server user
+- **Connection denied:** check file and parent-directory ownership for the web
+  service user, including access needed for WAL/SHM. Do not use `chmod 666`.
+- **Locked/busy:** identify competing CLI/import/maintenance writers and stop
+  them cleanly. Do not delete journal/WAL files or weaken locking.
+- **Old/mixed schema or noncent ledger:** ordinary startup deliberately refuses
+  it. Stop all writers, create a verified backup and follow the migration
+  procedure in [Database](database.md). Domain migration uses
+  `node --import tsx tools/migrate-customer.ts --writers-stopped` from `web-next`;
+  legacy currency conversion is a separate operation, not a startup side effect.
+- **Foreign-key failure:** investigate related records and the failed action;
+  do not disable foreign keys or blindly run old cascade SQL.
+- **Data appears stale:** check filters, refresh once and inspect whether the
+  action failed/rolled back before attempting it again.
 
-### Testing Authentication
+For read-only integrity inspection, substitute the actual configured path:
 
-After setup, verify authentication works:
-
-1. Navigate to `http://localhost:3000`
-2. Should redirect to `/login`
-3. Click "Sign up" to create account
-4. Fill in name, email, password
-5. Sign in after successful registration.
-6. Confirm pending status until an administrator links the existing student account.
-
-**Success Indicators**:
-- ✅ No errors in browser console
-- ✅ Controlled signup action succeeds; direct email-signup HTTP requests remain blocked
-- ✅ Sign-in routes pending students to `/student/pending` and linked students to `/student`
-- ✅ Only staff/admin have the operator sidebar
-- ✅ Logout works and redirects to `/login`
-
-**Debugging Tips**:
-
-1. **Browser Console** (F12): Check for JavaScript errors
-2. **Network Tab** (F12): Monitor API requests to `/api/auth/*`
-3. **Server Logs**: Check terminal where `pnpm dev` is running
-4. **Database Inspection**:
-   ```bash
-   sqlite3 stuco.db "SELECT * FROM user;"
-   sqlite3 stuco.db "SELECT * FROM session;"
-   ```
-
-## Web UI Issues
-
-### "Could not locate the bindings file" (better-sqlite3)
-
-**Cause**: Native module not compiled for your platform.
-
-**Solutions**:
-1. Run `./scripts/web-next-check-prereqs.sh` to verify tools.
-2. Reinstall: `cd web-next && rm -rf node_modules && pnpm install`.
-3. Approve builds: `cd web-next && pnpm approve-builds better-sqlite3`.
-4. Manual rebuild: `cd web-next && pnpm rebuild better-sqlite3`.
-5. Legacy: `./scripts/web-next-setup.sh`.
-
-**Raspberry Pi Specific**:
-- Increase swap: See Getting Started prerequisites.
-- Use 64-bit OS.
-
-### Database Connection Failed
-
-**Cause**: Wrong path or permissions.
-
-**Solutions**:
-1. Check `.env.local`: `DATABASE_PATH=/absolute/path/to/stuco.db`.
-2. Verify file: `ls -l stuco.db` (readable/writable).
-3. Test: `sqlite3 /absolute/path/to/stuco.db "PRAGMA integrity_check;"`.
-4. Permissions: `chmod 666 stuco.db`.
-
-### "500 Internal Server Error" on Pages
-
-**Cause**: DB query error or env missing.
-
-**Solutions**:
-1. Check browser console/server logs.
-2. Ensure the configured DB has the core and Better Auth schemas; see [Getting Started](getting-started.md).
-3. Run migrations if schema outdated.
-4. Restart: `pnpm dev`.
-
-### Port 3000 in Use
-
-**Solution**: `pnpm dev -- -p 3001` (use 3001).
-
-## Database Issues
-
-### Database Locked / Busy
-
-**Cause**: Concurrent writes (CLI + web).
-
-**Solutions**:
-1. Close other connections (stop pos.py, sqlite3 CLI).
-2. Enable WAL: `sqlite3 stuco.db "PRAGMA journal_mode=WAL;"`
-3. Increase timeout in code (busy_timeout=5000).
-4. Restart apps.
-
-### Foreign Key Constraint Error
-
-**Cause**: Deleting with related data pre-migration.
-
-**Solution**: Run cascade migration: `./scripts/run_migration.sh migrate_cascade_delete.sql`.
-
-### Data Not Updating
-
-**Cause**: Cache or transaction rollback.
-
-**Solutions**:
-1. Refresh page (Ctrl+F5).
-2. Check revalidation in actions.
-3. Verify commit in code.
-4. Query DB directly: `sqlite3 stuco.db "SELECT * FROM transactions;"`.
-
-## NFC Issues
-
-### No Card Detection
-
-**Cause**: Hardware/connection.
-
-**Solutions**:
-1. Check device: `lsusb` (USB) or `ls /dev/ttyAMA*` (UART).
-2. Test CLI: `nfc-list` (libnfc) or `python hardware-pi/tap-broadcaster.py --device <dev>`.
-3. Permissions: `sudo usermod -aG dialout,i2c $USER` (relogin).
-4. Wiring: Verify PN532 pins (UART: TX/RX/GND/3.3V).
-
-### "Disconnected from reader" in UI
-
-**Cause**: WebSocket connection failed.
-
-**Solutions**:
-1. Verify web UI running: `curl http://localhost:3000/api/nfc/tap`.
-2. Check secrets match: NFC_TAP_SECRET in envs.
-3. Browser: Dev tools > Console > Check for WebSocket errors.
-4. Restart broadcaster: `systemctl restart tap-broadcaster`.
-
-### Taps Not Auto-Selecting
-
-**Cause**: Enrollment or mode.
-
-**Solutions**:
-1. Check card enrolled: `sqlite3 stuco.db "SELECT * FROM cards WHERE card_uid='UID';"`
-2. POS mode: Select "Tap Card".
-3. Lane: Match ?lane= in URL.
-4. Enrolled but wrong student: Revoke duplicates.
-
-### Broadcaster Not Broadcasting
-
-**Cause**: Network or auth.
-
-**Solutions**:
-1. Logs: `journalctl -u tap-broadcaster -f`.
-2. Test: `python hardware-pi/tap-broadcaster.py --test`.
-3. URL: Verify NEXTJS_URL reachable.
-4. Secret: Matches web UI.
-
-### Service Won't Start
-
-**Solutions**:
-1. `systemctl status tap-broadcaster`: Check errors.
-2. Paths: Verify WorkingDirectory, ExecStart in service file.
-3. Dependencies: Activate venv in ExecStart.
-4. Reload: `systemctl daemon-reload`.
-
-### NFC Reader Stops Working After Idle Period
-
-**Problem**: NFC reader stops detecting cards after sitting idle for a while, requiring manual intervention.
-
-**Symptoms**:
-- Reader works initially, then stops after being idle
-- No cards detected even when tapped
-- Requires running fix-readers.sh to recover
-- Staff reports "scanner stopped working"
-
-**Root Causes**:
-1. **USB Autosuspend**: OS puts USB devices to sleep to save power
-2. **Hardware Lockup**: Device becomes unresponsive and needs reset
-3. **Driver Issues**: USB serial driver loses connection
-
-**Solution - Multi-Layer Auto-Recovery**:
-
-The system now includes three layers of automatic recovery that should prevent this issue:
-
-#### Layer 1: OS-Level (USB Autosuspend Disabled)
-
-**Configuration**: `/boot/firmware/cmdline.txt` includes `usbcore.autosuspend=-1`
-
-**Verification**:
 ```bash
-cat /sys/module/usbcore/parameters/autosuspend
-# Should show: -1
+sqlite3 /absolute/path/to/stuco.db "PRAGMA integrity_check; PRAGMA foreign_key_check;"
 ```
 
-If not disabled, the parameter was added but system needs reboot:
+Never copy a live main file without accounting for WAL. Use the typed snapshot
+and documented restore workflows. Restore requires stopped writers, secure
+staging and a pre-restore backup; local service checks cannot detect arbitrary
+external writers. Match application and snapshot versions during rollback.
+Snapshot rollback does not preserve later financial writes.
+
+### Incorrect balance or overdraft
+
+Review the customer's transaction history at `/admin/transactions`, including
+adjustments and top-ups, and check currency-scale/migration history. Values are
+integer cents. Use the authorized ledger adjustment flow with a reason rather
+than editing balances directly or inventing a compensating negative top-up.
+Overdraft weeks use Asia/Shanghai time; investigate week boundaries before
+manual intervention. See [Database](database.md) and [User Guide](user-guide.md).
+
+## NFC: separate network presence from hardware
+
+The POS status and authenticated `/api/nfc/status?reader=reader-1` mean
+**authenticated broadcaster network presence** only. An active unit, USB
+adapter, TTY or successful simulated tap does not prove a PN532 can read cards.
+Do not use a GET to the tap submission endpoint as a hardware health check.
+
+### Broadcaster disconnected or authentication fails
+
+1. Check the configured `NEXTJS_URL`, network/proxy WebSocket upgrades and the
+   custom `server.ts` runtime.
+2. Verify `NFC_TAP_SECRET` matches between server and reader environment without
+   printing the secret into logs or screenshots.
+3. Inspect `journalctl -u tap-broadcaster -u tap-broadcaster-reader2 -f` and
+   browser WebSocket errors. Restart the appropriate owner after changing env.
+4. From `web-next`, test only the network path against a disposable server:
+
 ```bash
-sudo reboot
+node --import tsx hardware/tap-broadcaster.ts --test --lane reader-1
 ```
 
-#### Layer 2: Hardware Reconnection Logic
+This sends synthetic `DEADBEEF`, not a physical read. The broadcaster waits for
+`auth_success`; failed auth is not evidence of a USB problem.
 
-**How it works**: Tap broadcaster automatically detects hardware failures and reconnects.
+### Reader absent, busy or no cards read
 
-**What it does**:
-- Monitors for consecutive read failures
-- Detects timeouts, disconnections, and lockups
-- Automatically reinitializes hardware connection
-- Uses exponential backoff (1s → 2s → 5s → 10s → 30s max)
-- Continues indefinitely until hardware is available
+First observe topology without opening hardware:
 
-**Check if it's working**:
 ```bash
-# View live logs:
-sudo journalctl -u tap-broadcaster -f
-
-# Look for these messages (indicates automatic recovery):
-# [NFC] Hardware connection lost: ...
-# [NFC] Attempting hardware reconnection #N in Xs...
-# [NFC] Hardware reconnection successful! Resuming reader loop...
+cd "$PROJECT_ROOT/web-next"
+node --import tsx tools/ops/check_usb_port.ts
 ```
 
-**Simulate hardware failure** (for testing):
+Inspect USB/TTY/kernel errors, cable, supply and adapter. CH340 enumeration proves
+only the USB serial bridge exists. Check serial/I2C group access and module mode
+switches. Power down before rewiring. Pi GPIO is 3.3 V logic, not 5 V tolerant;
+UART TX/RX must be crossed with common ground. Native libnfc owns UART 115200
+and I2C address 0x24/timing; do not change calibration to hide a wiring error.
+
+Before direct probes, stop both installed reader services and any manual
+broadcasters, then inspect ownership with `sudo lsof -- /dev/ttyUSB0 /dev/ttyUSB1`.
+Do not kill unrelated owners. Run one appropriate diagnostic from `web-next`:
+
 ```bash
-# Unplug USB reader while logs are running
-# Should see automatic reconnection messages
-# Replug USB reader
-# Should see "Hardware reconnection successful!"
+node --import tsx hardware/diagnose-nfc.ts
+node --import tsx hardware/test-readers.ts
+node --import tsx hardware/test-usb-ports.ts
 ```
 
-#### Layer 3: Service Auto-Restart
+The first offers a bounded interactive exact-device probe; the second checks
+USB0/USB1 sequentially; the third compares physical ports. A probe that opens a
+reader but sees no card establishes communication, not completed tap acceptance.
+Present one card; ambiguous multiple targets fail rather than selecting an
+arbitrary customer.
 
-**Configuration**: Systemd service has `Restart=always`
+Supported documented transports are PN532 UART/I2C and libnfc-supported native
+USB, not every NFC reader family. Configure exact `PN532_DEVICE`/`--device`
+values, especially with two readers. Native autodiscovery is intrusive and both
+unconfigured instances can select the same device. Unsupported explicit
+selection fails with no fallback to another reader. See [NFC Setup](nfc-setup.md)
+for primary libnfc sources and exact native connstrings.
 
-**Check if enabled**:
+### Taps reach the wrong checkout or do not select a customer
+
+- Check `/admin/pos` is in Tap Card mode and the card is enrolled/active on the
+  intended customer in `/admin/customers`.
+- Check Settings reader selection and the broadcaster's `lane` and `reader_id`;
+  use reader-1/USB0 and reader-2/USB1 consistently.
+- Different browsers selecting the same lane both receive that lane's taps.
+- Recheck TTY-to-physical-reader mapping after reboot/replug; USB enumeration
+  numbers are not permanent physical port identities.
+- A held card can be emitted again after the 1.5-second debounce interval.
+  Do not interpret that alone as two physical readers sending the same event.
+
+See [Dual Reader Setup](dual-reader-setup.md).
+
+### Idle failure, unplug/replug or dev-server restart
+
+Reader failures back off independently (1–30 seconds); network reconnects use
+1–60 seconds. Disconnect cancels the native child and waits for release before
+replacement. Old-generation results are discarded, not replayed after reconnect.
+This recovery design is not a guarantee that bad power, cables or permissions
+will repair themselves.
+
+Inspect runtime autosuspend state at
+`/sys/module/usbcore/parameters/autosuspend` and kernel events. The typed
+`tools/ops/disable-usb-autosuspend.ts` workflow backs up boot configuration and
+asks about reboot; do not reboot a checkout blindly or assume every idle failure
+is autosuspend. See [Scripts](scripts.md) for operational workflows.
+
+For installed USB-serial services, use coordinated recovery from `web-next`:
+
 ```bash
-sudo systemctl show tap-broadcaster -p Restart
-# Should show: Restart=always
+node --import tsx tools/ops/recover-nfc.ts USB0
 ```
 
-**How it works**: If broadcaster process crashes completely, systemd automatically restarts it.
+This stops both installed owners, verifies release using `lsof`, follows the
+selected TTY's **actual sysfs USB ancestry**, unbinds/rebinds that device, settles,
+probes and then starts services. It does not select an ordinal `lsusb` device.
+Failure leaves services stopped. The lower-level
+`tools/ops/reset-usb-nfc.ts USB0` requires owners already stopped; it is not a
+safe shortcut against an active service.
 
-### NFC Reader Stops Working After Dev Server Restart
+For development coordination, from `web-next`:
 
-**Problem**: PN532 NFC reader stops detecting cards after restarting dev server or making code changes.
-
-**Symptoms**:
-- Reader was working, then suddenly stops
-- Broadcaster logs show connection but no card reads
-- Device appears busy or locked
-- Requires systemd restart or reboot
-
-**Cause**: Serial port file descriptor not properly released by nfcpy library when WebSocket disconnects or exceptions occur.
-
-**Automatic Recovery**: The system now includes auto-recovery mechanisms:
-- USB device auto-reset on service start (systemd `ExecStartPre`)
-- Health monitoring with automatic reset after consecutive failures
-- Proper cleanup handlers on shutdown
-- Hardware reconnection logic (see above section)
-
-**Manual Recovery** (if auto-recovery fails):
-
-1. **Quick Recovery** (recommended):
-   ```bash
-   ./scripts/recover-nfc.sh
-   ```
-   This script stops the broadcaster, kills processes, resets USB, and restarts.
-
-2. **Step-by-step**:
-   ```bash
-   # Stop broadcaster
-   sudo systemctl stop tap-broadcaster
-   
-   # Kill any stale processes
-   sudo pkill -f tap-broadcaster.py
-   
-   # Reset USB device
-   ./scripts/reset-usb-nfc.sh
-   
-   # Wait for device to stabilize
-   sleep 3
-   
-   # Start broadcaster
-   sudo systemctl start tap-broadcaster
-   ```
-
-3. **Check recovery status**:
-   ```bash
-   sudo systemctl status tap-broadcaster
-   sudo journalctl -u tap-broadcaster -n 20
-   ```
-
-**Prevention**: For development with NFC, use the coordinated startup script:
 ```bash
-./scripts/dev-with-nfc.sh
+node --import tsx tools/ops/dev-with-nfc.ts
 ```
 
-This script:
-- Stops broadcaster safely
-- Resets USB device
-- Starts dev server
-- Starts broadcaster after server is ready
-- Coordinates cleanup properly
+It stops installed reader owners, resets selected adapters, waits for the dev
+server, then starts the primary and previously active readers. Ctrl+C stops the
+web child **but leaves reader services running**; stop them explicitly before
+direct probes. Do not run a second manual broadcaster alongside systemd.
+Service templates must be rendered, use the package working directory, have
+serial permissions and narrowly scoped noninteractive reset privileges.
+Reader2 retains a five-second startup settle.
 
-**Available Scripts**:
-- `./scripts/reset-usb-nfc.sh` - Reset USB device only
-- `./scripts/recover-nfc.sh` - Full emergency recovery
-- `./scripts/dev-with-nfc.sh` - Start dev environment with NFC
-- `./scripts/run-nfc.sh` - Manual broadcaster start (development)
+To observe real recovery rather than searching source text for a function:
 
-### Troubleshooting Auto-Recovery
+```bash
+node --import tsx tools/ops/verify-nfc-auto-recovery.ts --observe-seconds 60
+```
 
-**If auto-recovery doesn't seem to be working:**
+This observes service policy, autosuspend/USB state and a fresh bounded journal
+window. During the window physically unplug/replug and tap each active reader;
+the tool requires a reader error followed by a fresh successful tap, with no
+later reader error. It does not itself perform service mutations and does not
+prove overnight stability or shutdown timing.
 
-1. **Check if USB autosuspend is actually disabled**:
-   ```bash
-   cat /sys/module/usbcore/parameters/autosuspend
-   # Must show: -1
-   # If it shows something else, reboot is needed after editing cmdline.txt
-   ```
+## Required deployment acceptance
 
-2. **Verify tap-broadcaster.py has latest code**:
-   ```bash
-   grep -n "nfc_reader_loop_with_reconnection" /home/qiss/scps/tap-broadcaster.py
-   # Should find the function (means auto-reconnection is implemented)
-   ```
+Physical acceptance remains **unverified here**: test both deployed readers,
+repeated taps, card removal, unavailable hardware, unplug/replug, network outage
+and reconnect without stale taps, lane isolation and service stop in **less than
+10 seconds**. `TimeoutStopSec=10` is not a measured graceful-stop result.
+Simulation and authenticated network status cannot replace these checks.
 
-3. **Check logs for recovery attempts**:
-   ```bash
-   sudo journalctl -u tap-broadcaster --since "1 hour ago" | grep -i "reconnection\|hardware"
-   ```
-
-4. **Test hardware manually**:
-   ```bash
-   # Stop the service temporarily:
-   sudo systemctl stop tap-broadcaster tap-broadcaster-reader2
-   
-   # Test hardware directly:
-   nfc-list
-   # Should detect the reader
-   
-   # If nfc-list works, restart services:
-   sudo systemctl start tap-broadcaster tap-broadcaster-reader2
-   ```
-
-5. **Check for persistent hardware issues**:
-   ```bash
-   # View USB errors:
-   dmesg | grep -i "usb\|ttyUSB" | tail -20
-   
-   # If you see lots of errors, the USB cable or reader itself may be faulty
-   ```
-
-**When to manually intervene**:
-
-The auto-recovery should handle 99% of issues. Only manually intervene if:
-- Logs show recovery attempts failing repeatedly for >30 minutes
-- Hardware test (`nfc-list`) fails completely
-- USB device not showing up at all (`ls /dev/ttyUSB*` shows nothing)
-- System logs show hardware errors (`dmesg | grep -i error`)
-
-In these cases, use the fix-readers.sh script or check physical connections.
-
-## CLI Issues
-
-### Unknown or Inactive Card
-
-Enroll the card through the web POS or Students page. Use `./scps-cli ledger` for administrative balance adjustments.
-
-### NFC Import Error
-
-**Solution**: `pip install nfcpy` or `sudo apt install libnfc-bin` (I2C).
-
-## General
-
-### Balances Wrong
-
-1. Check transactions: Filter ADJUST/TOPUP.
-2. Manual adjust: Top-up with negative + reason.
-3. Verify migration ran (decimals).
-
-### Overdraft Not Resetting
-
-**Cause**: Week calculation (Asia/Shanghai).
-
-**Solution**: Manual reset in DB or wait for Monday 00:00 UTC+8.
-
-### UI Slow on Pi
-
-**Solutions**:
-- Use Pi 4B 8GB.
-- Close other processes.
-- Production build: `pnpm build && pnpm start`.
-
-### Linter/TS Errors
-
-**Solution**: `pnpm lint --fix` or `pnpm build` (catches TS).
-
-For persistent issues, check logs, git revert, or ask for help.
-
-See specific guides for more details.
-
-**Last updated: November 11, 2025**
+For unresolved failures collect redacted errors, exact device/lane configuration
+and timestamps. Keep secrets, session tokens, card UIDs and customer financial
+data out of shared diagnostics. See [Security Guide](security-guide.md).

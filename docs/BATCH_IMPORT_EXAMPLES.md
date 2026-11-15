@@ -26,11 +26,23 @@ John Doe,05D4E5F6
 Alice Johnson,
 ```
 
-The importer trims names and uppercases hexadecimal UIDs. Duplicate names are
-skipped by default; reimporting a name can attach an unowned card. Use
-`--no-skip-duplicates` to report duplicate names as errors. Each valid row commits
-atomically; other rows continue after an error, but the overall exit status fails.
-Dry runs perform no schema or data writes.
+Quoted multiline name (one CSV record, not two customers):
+
+```csv
+name,uid
+"Alice
+Johnson",ABCD
+```
+
+The full CSV parser handles commas, escaped quotes and multiline fields. The importer
+trims names and uppercases UIDs, which must be 4–20 hexadecimal characters when present.
+Duplicate names are skipped by default; reimporting a name can attach an unowned
+active card. Use `--no-skip-duplicates` to report duplicate names as errors.
+Each valid row commits atomically; validation/insert errors allow later rows to
+continue but fail the overall exit status. Broken CSV quoting fails parsing before
+import. Dry runs require an existing ledger and perform no schema or data writes,
+including when checking within-file conflicts. Template generation needs no database
+and replaces its requested output file.
 
 Controlled direct SQL import:
 
@@ -53,4 +65,4 @@ LEFT JOIN cards k ON k.customer_id=c.id ORDER BY c.name;
 ```
 
 - [Full documentation](batch-import-customers.md)
-- [Script reference](scripts.md#batch-import-customersts)
+- [Script reference](scripts.md#customer-import-snapshots-and-schema-cutover)

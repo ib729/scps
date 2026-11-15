@@ -1,900 +1,177 @@
 # NFC Card Tap Integration
 
-> [!IMPORTANT]
-> **Architectural Alignment:** This guide covers configuring the **Raspberry Pi IoT reader client nodes** and serial PN532 card-broadcasting services. The main database backend, web application, and administrative systems are hosted remotely on your production **Cloud VPS**, which listens for real-time card tap events broadcasted by these localized Pi daemons over secure WebSocket connections.
+The Student Council Payment System uses a local reader host to send card UIDs to
+the custom Node server at `/api/nfc/ws`. Staff use `/admin/pos`; enrolled cards
+select a customer, then staff enter and confirm the charge. Top-ups use manual
+customer selection at `/admin/topup`. Customer accounts use `/customer`, not the
+operator NFC interface. The server/database may be remote; it needs no USB reader.
 
-This guide sets up NFC tap support for the Student Council Payment System POS, enabling card taps on local client registers to auto-select students in the remote web UI.
+## Requirements and supported readers
 
-The POS indicator and authenticated `/api/nfc/status?reader=reader-1` report the selected lane's authenticated broadcaster network presence. “Broadcaster connected; hardware health unknown” does not prove PN532 health. Reader sockets answer WebSocket protocol ping/pong automatically; missing the next heartbeat removes readiness. No USB device or systemd service is required on the central server.
+- Node `>=26.13.1 <27`, pinned pnpm and the dependencies in `web-next`.
+- Debian reader hosts need `libnfc-bin` (including `nfc-list` and
+  `nfc-scan-device`), `usbutils`, `lsof` and `udev`.
+- Documented hardware: PN532 UART, PN532 I2C and USB readers supported by the
+  installed libnfc drivers. A CH340 USB-to-serial adapter is a UART transport,
+  **not** a native USB NFC reader. Other reader families are not promised support.
+- Application/runtime code is TypeScript; third-party native addon compilation
+  may still require Python, but no reader runtime or virtual environment does.
 
-## Overview
-
-**NFC Flow (POS Only)**:
-1. Student taps card on PN532 reader.
-2. `tap-broadcaster.py` detects UID and sends via WebSocket to `/api/nfc/ws`.
-3. Next.js broadcasts via WebSocket to connected browsers.
-4. POS UI auto-selects student.
-5. Staff enters amount and charges.
-
-**Top-ups**: Manual selection only (no taps).
-
-**Architecture**:
-- **WebSocket-based**: Lower latency, bidirectional communication
-- **Card presence tracking**: Prevents duplicate tap detections
-- **Auto-reconnection**: Both broadcaster and clients reconnect automatically
-- **Server-side deduplication**: Additional protection against duplicates
-
-**Recent Updates**:
-- **WebSocket upgrade**: Replaced HTTP POST + SSE with full WebSocket architecture
-- POS modes: "Tap Card" (NFC) vs "Manual".
-- Global toasts: Alerts on non-POS pages guide to POS.
-- Unenrolled cards: Options to enroll + POS/Top-up/Only.
-
-## Requirements
-
-- **Hardware**: PN532 NFC reader (UART/USB), Raspberry Pi 4B+.
-- **Software**: Python >=3.11, nfcpy (TTY/USB) or libnfc-bin (I2C).
-- **Web UI**: Running Next.js with NFC endpoints.
-
-## WebSocket Server Setup (Self-Hosted Node.js)
-
-Since you're self-hosting on Node.js (not Vercel), a custom server is required for WebSocket support.
-
-### What is Required
-
-1. **Custom Server** (`web-next/server.ts`):
-   - Node.js HTTP server with WebSocket support using `ws` package.
-   - Handles Next.js requests and WebSocket connections at `ws://localhost:3000/api/nfc/ws`.
-
-2. **Shared Typed Broadcaster** (`web-next/lib/tap-events.ts`):
-   - Shares one process-wide event broadcaster between Next.js and the custom server.
-   - Includes deduplication logic.
-
-3. **Dependencies**: Pinned `ws` and runtime `tsx` in `web-next/package.json`.
-
-### Installation Steps
-
-1. **Install Package Dependencies**:
-   ```bash
-   cd $PROJECT_ROOT/web-next
-   pnpm install --frozen-lockfile
-   ```
-
-2. **Install Python WebSocket Library**:
-   ```bash
-   cd $PROJECT_ROOT
-   source .venv/bin/activate
-   pip install websockets==13.1
-   ```
-
-3. **Update package.json Scripts** (if not already):
-   - `dev`: Uses custom server for development.
-   - `start`: For production.
-
-4. **Start the Server**:
-
-   **Development:**
-   ```bash
-   cd $PROJECT_ROOT/web-next
-   pnpm dev
-   ```
-
-   You should see:
-   ```
-   > Ready on http://localhost:3000
-   > WebSocket server ready on ws://localhost:3000/api/nfc/ws
-   ```
-
-   **Production:**
-   ```bash
-   cd $PROJECT_ROOT/web-next
-   pnpm build
-   pnpm start
-   ```
-
-5. **Configure Shared Secret**:
-   Generate and set `NFC_TAP_SECRET` in `web-next/.env.local`:
-   ```bash
-   openssl rand -hex 32
-   ```
-   ```
-   NFC_TAP_SECRET=your-generated-secret
-   ```
-
-6. **Test Connection**:
-   ```bash
-   cd $PROJECT_ROOT
-   source .venv/bin/activate
-   python hardware-pi/tap-broadcaster.py --test --secret your-generated-secret
-   ```
-
-   Expected:
-   ```
-   [WS] Connected successfully
-   [WS] Authenticated successfully (lane: default)
-   [OK] Tap broadcast: DEADBEEF
-   [TEST] Test tap sent successfully
-   ```
-
-### Systemd Service for Web UI (Production)
-
-Update `stuco-web.service` to use custom server:
-
-```ini
-[Service]
-...
-WorkingDirectory=$PROJECT_ROOT/web-next
-ExecStart=/usr/bin/node --import tsx server.ts
-...
-```
-
-Or with pnpm:
-```ini
-ExecStart=/usr/bin/pnpm start
-```
-
-## Installation
-
-1. **Python Dependencies**:
-
-   ```bash
-   source .venv/bin/activate
-   pip install -r requirements.txt  # Includes websockets, nfcpy
-   ```
-
-   For I2C (libnfc):
-   ```bash
-   sudo apt install libnfc-bin libnfc-dev
-   ```
-
-2. **Permissions** (Raspberry Pi):
-
-   ```bash
-   sudo usermod -aG dialout $USER  # For serial devices
-   sudo usermod -aG i2c $USER      # For I2C
-   # Logout/login
-   ```
-
-3. **Web UI Config**:
-
-   In `web-next/.env.local`:
-   ```
-   NFC_TAP_SECRET=your-strong-secret  # Shared with broadcaster
-   ```
-
-## NFC Device Configuration
-
-### USB Device Setup
-
-- **Default**: `tty:USB0:pn532` for USB-connected PN532 with CH340 serial converter.
-- **Detect Device**:
-  ```bash
-  lsusb | grep -i ch340  # Or similar serial converter
-  ls -l /dev/ttyUSB*
-  ```
-- **Update Broadcaster**:
-  ```bash
-  PN532_DEVICE=tty:USB0:pn532 python hardware-pi/tap-broadcaster.py
-  ```
-
-### UART Device Setup
-
-- **Default**: `tty:AMA0:pn532` for GPIO UART.
-- **Enable UART** (Raspberry Pi):
-  ```bash
-  sudo raspi-config  # Interface Options → Serial Port → No login shell, Yes hardware
-  sudo reboot
-  ```
-
-## Tap Broadcaster Setup
-
-`tap-broadcaster.py` reads cards and broadcasts to web UI via WebSocket.
-
-### Features
-
-- **WebSocket connection**: Persistent connection with automatic reconnection
-- **Card presence tracking**: Detects when cards are removed, prevents duplicates
-- **Async operation**: Non-blocking, efficient resource usage
-- **Graceful error handling**: Exponential backoff on connection failures
-- **Simulation mode**: Test without hardware
-- **Test mode**: Send single test tap
-
-### Environment Variables
-
-- `NEXTJS_URL`: Web server (default: http://localhost:3000).
-- `NFC_TAP_SECRET`: Auth secret (matches web UI).
-- `POS_LANE_ID`: For multi-lane (default: "default").
-- `PN532_DEVICE`: Reader device (default: tty:AMA0:pn532 for UART).
-
-### Usage
-
-#### Simulation (No Hardware)
+Install the package dependencies from `web-next`:
 
 ```bash
-python hardware-pi/tap-broadcaster.py --simulate
-# Type UID hex (e.g., DEADBEEF) or 'quit'
+cd "$PROJECT_ROOT/web-next"
+pnpm install --frozen-lockfile
 ```
 
-#### Hardware (TTY/USB - nfcpy)
+See [Deployment](deployment.md) for system installation and pinned tooling.
+The remaining examples run from this same package directory.
+
+## Wiring and native calibration
+
+Disconnect power before changing wiring or the module's UART/I2C mode switches;
+switch positions vary by board, so follow its markings/datasheet. Check the
+module's supply voltage separately from its logic voltage. Raspberry Pi GPIO is
+3.3 V logic and is not 5 V tolerant; do not feed a 5 V adapter TX signal into it.
+Use a common ground, short reliable wires and a suitable power supply.
+
+| PN532 UART | Raspberry Pi physical pin |
+|---|---|
+| RX | 8, GPIO14/TXD |
+| TX | 10, GPIO15/RXD |
+| GND | 6 (or another ground) |
+| Supply | Board-specified compatible supply; verify before connecting |
+
+For GPIO UART, enable serial hardware and disable the serial login console in
+the Pi's interface configuration. Confirm the actual device node: it is not
+identical across every Pi/OS configuration.
+
+| PN532 I2C | Raspberry Pi physical pin |
+|---|---|
+| SDA | 3, GPIO2/SDA1 |
+| SCL | 5, GPIO3/SCL1 |
+| GND | 6 |
+| Supply | Board-specified compatible supply |
+
+Enable the I2C interface and verify `/dev/i2c-1` exists. Check pull-ups and logic
+levels; never pull Pi I2C lines up to 5 V. See the
+[GPIO reference](raspberry-pi-4-gpio-pinout.md).
+
+The native [UART driver](https://github.com/nfc-tools/libnfc/blob/master/libnfc/drivers/pn532_uart.c)
+owns PN532 initialization and its default **115200 baud** calibration.
+The native [I2C driver](https://github.com/nfc-tools/libnfc/blob/master/libnfc/drivers/pn532_i2c.c)
+owns address **0x24**, readiness and timing. Do not replace those with serial
+fallbacks or ad hoc timing changes. A USB serial adapter must also use the
+PN532's UART mode with crossed TX/RX.
+
+Give the service account appropriate serial (`dialout`) or I2C (`i2c`) group
+access, then establish a new login/service session. For native USB use appropriate
+device permissions/udev rules. Do not make devices world-writable.
+
+## Exact device selection
 
 ```bash
-python hardware-pi/tap-broadcaster.py --device tty:AMA0:pn532  # UART
-python hardware-pi/tap-broadcaster.py --device tty:USB0:pn532  # USB
+# GPIO UART
+node --import tsx hardware/tap-broadcaster.ts --device pn532_uart:/dev/ttyAMA0 --lane reader-1
+# USB-to-UART PN532
+node --import tsx hardware/tap-broadcaster.ts --device pn532_uart:/dev/ttyUSB0 --lane reader-1
+# I2C PN532
+node --import tsx hardware/tap-broadcaster.ts --device pn532_i2c:/dev/i2c-1 --lane reader-1
 ```
 
-#### Hardware (I2C - libnfc)
+Supply the URL and secret as described below. An exact native USB connstring
+must come from the installed libnfc discovery output, not from a guessed USB
+serial path.
 
-Uses `nfc-list` CLI; auto-detects.
+Selection precedence is `--device`, `PN532_DEVICE`, sorted native discovery,
+then the legacy AMA0 default if discovery reports no devices. Discovery runs
+`nfc-scan-device -i`: **this is an intrusive scan**, including UART probing.
+Stop reader owners before scanning; for multiple readers always configure exact
+devices rather than letting both processes select the first discovered reader.
+
+Legacy selectors such as `tty:USB0:pn532` and
+`i2c:/dev/i2c-1:pn532` are normalized to the native strings above. A legacy
+`usb:BUS:DEVICE` selector must resolve to exactly one supported native reader.
+Missing, ambiguous or unsupported explicit selections fail; the application
+does not silently substitute another reader.
+
+Each read invokes `nfc-list -v` with the selected `LIBNFC_DEVICE`,
+`LC_ALL=C` and a five-second child deadline. The
+[nfc-list source](https://github.com/nfc-tools/libnfc/blob/master/utils/nfc-list.c)
+defines its output contract. A healthy no-card result requires exactly one
+opened reader and a completed scan. “No NFC device found”, invalid identifiers
+and ambiguous multiple cards are errors, not healthy empty reads. Present one
+card at a time. No invented `nfc-poll` device or timeout flags are needed.
+
+## Server and authentication
+
+The custom entrypoint is `web-next/server.ts`; package scripts already use it:
 
 ```bash
-python hardware-pi/tap-broadcaster.py --device i2c:/dev/i2c-1:pn532
+pnpm dev
+# Production, after deployment configuration:
+pnpm build
+pnpm start
 ```
 
-#### Test
+Configure a strong `NFC_TAP_SECRET` on both server and reader host. Keep secrets
+in restricted environment files, out of version control, terminal recordings and
+logs. On a remote deployment use HTTPS/WSS and a proxy that permits WebSocket
+upgrades at `/api/nfc/ws`; do not expose the development server publicly.
+
+The broadcaster reads `NEXTJS_URL` (default `http://localhost:3000`),
+`NFC_TAP_SECRET`, `POS_LANE_ID` (default `default`) and `PN532_DEVICE`.
+Its flags are `--url`, `--secret`, `--lane`, `--device`, `--simulate`, `--test`.
+Prefer the environment for secrets rather than process-visible `--secret`.
+Standalone hardware commands require these variables in their process environment.
+
+The broadcaster first sends `{type:"auth", role:"broadcaster", secret, lane}`
+and waits for `auth_success`. Taps contain `type:"tap"`, uppercase `card_uid`,
+`lane`, `reader_id` and UTC `reader_ts`. Browsers require an authorized operator
+session and lane selection; the shared secret is not a customer credential.
+
+## Network-only and simulated tests
+
+Against a disposable server/database, with the secret already configured:
 
 ```bash
-python hardware-pi/tap-broadcaster.py --test  # Sends fake UID "DEADBEEF"
+node --import tsx hardware/tap-broadcaster.ts --test --lane reader-1
+node --import tsx hardware/tap-broadcaster.ts --simulate --lane reader-1
 ```
 
-**Output**:
-```
-╔═══════════════════════════════════════════════════════════════╗
-║         NFC Tap Broadcaster for SCPS POS System              ║
-║                    WebSocket Version                         ║
-╠═══════════════════════════════════════════════════════════════╣
-║ Server:  http://localhost:3000                               ║
-║ Lane:    default                                             ║
-║ Device:  tty:AMA0:pn532                                      ║
-║ Secret:  [SET]                                               ║
-║ Mode:    HARDWARE                                            ║
-╚═══════════════════════════════════════════════════════════════╝
-
-[WS] Connecting to ws://localhost:3000/api/nfc/ws...
-[WS] Connected successfully
-[WS] Authenticated successfully (lane: default)
-[NFC] Starting card reader loop on tty:AMA0:pn532
-[NFC] Waiting for card tap...
-[OK] Tap broadcast: DEADBEEF
-```
-
-### Multi-Lane Setup
-
-For multiple checkouts:
-
-- Broadcaster 1: `POS_LANE_ID=lane-a python hardware-pi/tap-broadcaster.py --device tty:AMA0:pn532`
-- Broadcaster 2: `POS_LANE_ID=lane-b python hardware-pi/tap-broadcaster.py --device tty:USB0:pn532`
-- POS URL: `/pos?lane=lane-a` (filters WebSocket events).
-
-## Dual Reader Setup (Two Simultaneous NFC Readers)
-
-### Overview
-
-This setup allows two NFC readers to operate simultaneously, enabling multiple staff members to work at different checkout stations. Each staff member selects their preferred reader via the Web UI Settings dialog, and tap events are routed accordingly.
-
-**Architecture:**
-- Two `tap-broadcaster.py` instances running as systemd services
-- Reader 1: `/dev/ttyUSB0` with lane ID `reader-1`
-- Reader 2: `/dev/ttyUSB1` with lane ID `reader-2`
-- Web UI: Settings dialog for reader selection (persists per staff member in localStorage)
-
-### Hardware Setup
-
-1. **Connect both NFC readers** to USB ports on the Raspberry Pi
-2. **Verify device detection:**
-   ```bash
-   ls /dev/ttyUSB*
-   # Should show: /dev/ttyUSB0  /dev/ttyUSB1
-   ```
-3. **Check device mapping:**
-   ```bash
-   lsusb | grep -i "CH340\|QinHeng"
-   # Should show 2 CH340 devices
-   ```
-
-### Service Installation
-
-1. **Copy service files:**
-   ```bash
-   sudo cp systemd/tap-broadcaster.service /etc/systemd/system/
-   sudo cp systemd/tap-broadcaster-reader2.service /etc/systemd/system/
-   ```
-
-2. **Verify configuration** (already set in service files):
-   - `tap-broadcaster.service`: `POS_LANE_ID=reader-1`, `PN532_DEVICE=tty:USB0:pn532`
-   - `tap-broadcaster-reader2.service`: `POS_LANE_ID=reader-2`, `PN532_DEVICE=tty:USB1:pn532`
-
-3. **Enable and start both services:**
-   ```bash
-   sudo systemctl daemon-reload
-   sudo systemctl enable tap-broadcaster tap-broadcaster-reader2
-   sudo systemctl start tap-broadcaster tap-broadcaster-reader2
-   ```
-
-4. **Check status:**
-   ```bash
-   sudo systemctl status tap-broadcaster
-   sudo systemctl status tap-broadcaster-reader2
-   ```
-
-### Web UI Usage
-
-1. **Open Web UI** and log in
-2. **Click on your avatar** in the sidebar (bottom left)
-3. **Select "Settings"** from the dropdown menu
-4. **Under "NFC Reader Selection":**
-   - Choose **Reader 1** (USB Port 0) or **Reader 2** (USB Port 1)
-   - Click **Save Settings**
-5. **Your selection persists** across page reloads and browser sessions
-
-**Multi-Staff Workflow:**
-- Staff A opens Web UI on Device/Browser 1, selects Reader 1
-- Staff B opens Web UI on Device/Browser 2, selects Reader 2
-- Card taps on Reader 1 only appear on Staff A's screen
-- Card taps on Reader 2 only appear on Staff B's screen
-
-### Service Management
-
-**View logs for both readers:**
-```bash
-# Reader 1 (ttyUSB0)
-sudo journalctl -u tap-broadcaster -f
-
-# Reader 2 (ttyUSB1)
-sudo journalctl -u tap-broadcaster-reader2 -f
-
-# Both together
-sudo journalctl -u tap-broadcaster -u tap-broadcaster-reader2 -f
-```
-
-**Restart a specific reader:**
-```bash
-sudo systemctl restart tap-broadcaster        # Reader 1
-sudo systemctl restart tap-broadcaster-reader2 # Reader 2
-```
-
-**Stop/Start both readers:**
-```bash
-sudo systemctl stop tap-broadcaster tap-broadcaster-reader2
-sudo systemctl start tap-broadcaster tap-broadcaster-reader2
-```
-
-### USB Device Reset
-
-The USB reset script now supports both devices:
-
-```bash
-# Reset all CH340 devices
-./scripts/reset-usb-nfc.sh
-
-# Reset specific device
-./scripts/reset-usb-nfc.sh USB0  # Reset Reader 1 only
-./scripts/reset-usb-nfc.sh USB1  # Reset Reader 2 only
-```
-
-### Troubleshooting Dual Readers
-
-**Problem: Only one reader detected**
-
-Check USB devices:
-```bash
-ls /dev/ttyUSB*
-lsusb | grep -i "CH340\|QinHeng"
-```
-
-If only one device shows:
-- Check physical USB connections
-- Try different USB ports
-- Check `dmesg | tail -20` for USB errors
-
-**Problem: Only one service works**
-
-Check both service statuses:
-```bash
-sudo systemctl status tap-broadcaster tap-broadcaster-reader2
-```
-
-Check logs for errors:
-```bash
-sudo journalctl -u tap-broadcaster-reader2 -n 50
-```
-
-Common issues:
-- Device permission: Add user to `dialout` group
-- Device conflict: Ensure both services use different devices (USB0 vs USB1)
-- Port in use: One service is using the wrong device
-
-**Problem: Taps appear on wrong staff member's screen**
-
-- Verify each staff member selected the correct reader in Settings
-- Check localStorage: `localStorage.getItem('nfc_reader_lane')` in browser console
-- Verify service is broadcasting with correct lane ID:
-  ```bash
-  sudo journalctl -u tap-broadcaster -n 1 | grep "lane:"
-  ```
-
-**Problem: Taps appear on both screens**
-
-This should not happen with proper lane filtering. Check:
-- Each staff member selected different readers in Settings
-- WebSocket connection shows correct lane in browser console
-- Server is properly filtering by lane (check the WebSocket handlers in `server.ts`)
-
-**Problem: Device swap after reboot**
-
-USB device order may change after reboot (USB0 becomes USB1). Solutions:
-1. Use consistent USB port assignment (always plug Reader 1 in the same port)
-2. Create udev rules to assign persistent device names (advanced)
-
-**Verification:**
-```bash
-# Check which physical reader is USB0 vs USB1
-# Tap card on left reader, check logs:
-sudo journalctl -u tap-broadcaster -u tap-broadcaster-reader2 -f
-# See which service shows the tap
-```
-
-## Systemd Service (Production)
-
-1. **Edit Service File**:
-
-   ```bash
-   sudo cp systemd/tap-broadcaster.service /etc/systemd/system/
-   sudo nano /etc/systemd/system/tap-broadcaster.service
-   ```
-
-   Update:
-
-   ```
-   [Service]
-   WorkingDirectory=$PROJECT_ROOT
-   Environment="NEXTJS_URL=http://your-server:3000"
-   Environment="NFC_TAP_SECRET=your-secret"
-   Environment="POS_LANE_ID=default"
-   ExecStart=$PROJECT_ROOT/.venv/bin/python $PROJECT_ROOT/hardware-pi/tap-broadcaster.py
-   Restart=always
-   User=pi  # Or your user
-   ```
-
-2. **Enable and Start**:
-
-   ```bash
-   sudo systemctl daemon-reload
-   sudo systemctl enable tap-broadcaster
-   sudo systemctl start tap-broadcaster
-   ```
-
-3. **Status and Logs**:
-
-   ```bash
-   sudo systemctl status tap-broadcaster
-   journalctl -u tap-broadcaster -f  # Live logs
-   journalctl -u tap-broadcaster -n 50  # Last 50 lines
-   ```
-
-**Auto-start on Boot**: Enabled.
-
-## Web UI Integration
-
-1. **Start Web UI**:
-
-   ```bash
-   cd web-next && pnpm dev
-   ```
-
-2. **Test Tap**:
-
-   - Open POS: http://localhost:3000/pos
-   - Select "Tap Card" mode.
-   - Simulate tap or use hardware.
-   - Student auto-selects if enrolled.
-
-3. **Global Taps**:
-
-   - On Dashboard/Students: Tap shows toast "Card Detected! Go to POS".
-   - Click: Navigates to POS, auto-selects.
-
-4. **Unenrolled Handling**: See User Guide.
-
-## API Endpoints
-
-### WebSocket /api/nfc/ws
-
-Main WebSocket endpoint for bidirectional communication.
-
-**Connection**: `ws://localhost:3000/api/nfc/ws?lane=default`
-
-**Authentication** (Python broadcaster):
-```json
-{
-  "type": "auth",
-  "role": "broadcaster",
-  "secret": "your-secret",
-  "lane": "default"
-}
-```
-
-**Authentication** (Browser client):
-```json
-{
-  "type": "auth",
-  "role": "client"
-}
-```
-*Note: Browser clients authenticate via session cookie*
-
-**Tap Event** (broadcaster → server):
-```json
-{
-  "type": "tap",
-  "card_uid": "DEADBEEF",
-  "lane": "default",
-  "reader_ts": "2025-11-09T12:00:00Z"
-}
-```
-
-**Tap Event** (server → clients):
-```json
-{
-  "card_uid": "DEADBEEF",
-  "lane": "default",
-  "reader_ts": "2025-11-09T12:00:00Z",
-  "timestamp": "2025-11-09T12:00:00.123Z"
-}
-```
-
-**Ping/Pong** (keepalive every 30s):
-```json
-{"type": "ping"}
-{"type": "pong"}
-```
-
-### POST /api/nfc/tap (Legacy)
-
-HTTP POST endpoint maintained for backwards compatibility. 
-Use WebSocket endpoint for new implementations.
-
-## Auto-Recovery Features
-
-The NFC tap broadcaster includes multiple layers of automatic recovery to ensure continuous operation without manual intervention:
-
-### 1. OS-Level Protection (USB Autosuspend Disabled)
-
-**What it does**: Prevents the operating system from automatically suspending idle USB devices to save power.
-
-**Configuration**: Added `usbcore.autosuspend=-1` to `/boot/firmware/cmdline.txt`
-
-**When it helps**: 
-- Prevents readers from "going to sleep" after periods of inactivity
-- Eliminates the most common cause of "reader stopped working" issues
-
-**Verification**:
-```bash
-cat /sys/module/usbcore/parameters/autosuspend
-# Should show: -1
-```
-
-**Note**: Requires a system reboot to take effect after configuration.
-
-### 2. Hardware Reconnection Logic
-
-**What it does**: Automatically detects and recovers from hardware failures by reinitializing the NFC reader connection.
-
-**How it works**:
-- Monitors for consecutive read failures (threshold: 10 failures)
-- Detects hardware timeout, disconnection, or lockup conditions
-- Automatically attempts to reconnect with exponential backoff (1s → 2s → 5s → 10s → 30s max)
-- Continues indefinitely until hardware is available again
-
-**Trigger conditions**:
-- Multiple consecutive timeouts
-- Device disconnection (USB unplugged/replugged)
-- Hardware lockup or unresponsive state
-- Driver errors or resource conflicts
-
-**Log indicators**:
-```
-[NFC] Hardware connection lost: Hardware timeout: Device tty:USB0:pn532 unresponsive
-[NFC] Attempting hardware reconnection #1 in 1s...
-[NFC] Reinitializing hardware connection to tty:USB0:pn532...
-[NFC] Hardware reconnection successful! Resuming reader loop...
-```
-
-### 3. Enhanced Error Detection
-
-**What it does**: Distinguishes between different types of errors and handles them appropriately.
-
-**Error categories**:
-- **Transient errors** (retried immediately): Temporary communication glitches
-- **Timeout errors** (trigger reconnection): Hardware unresponsive
-- **Permission errors** (fatal, logged): User not in dialout group
-- **Device not found** (trigger reconnection): USB disconnected
-- **Device busy** (retried with delay): Another process using the device
-
-**Benefits**:
-- Faster recovery from transient issues
-- Automatic hardware reset for serious problems
-- Clear diagnostic information in logs
-- No manual intervention required
-
-### 4. Service-Level Restart (Systemd)
-
-**What it does**: Final safety net that restarts the entire broadcaster process if it crashes.
-
-**Configuration**: `Restart=always` in systemd service files
-
-**When it helps**: If all other recovery mechanisms fail and the process exits unexpectedly
-
-### Recovery Testing
-
-You can test the auto-recovery by simulating hardware failures:
-
-1. **USB Disconnect Test**:
-   ```bash
-   # While broadcaster is running, check logs:
-   sudo journalctl -u tap-broadcaster -f
-   
-   # Physically unplug the USB NFC reader
-   # You should see: Hardware connection lost messages
-   
-   # Replug the USB reader
-   # You should see: Hardware reconnection successful!
-   ```
-
-2. **Driver Reset Test**:
-   ```bash
-   # Reset the USB driver while broadcaster is running:
-   ./scripts/reset-usb-nfc.sh
-   
-   # Broadcaster should automatically reconnect
-   ```
-
-3. **Long-term Stability Test**:
-   ```bash
-   # Let the system run idle overnight
-   # Check logs the next day:
-   sudo journalctl -u tap-broadcaster --since "24 hours ago" | grep -i "reconnection\|timeout\|error"
-   
-   # Should show minimal or no errors with automatic recovery
-   ```
-
-### What to Do If Recovery Fails
-
-If you still experience issues after the auto-recovery improvements:
-
-1. **Check systemd service status**:
-   ```bash
-   sudo systemctl status tap-broadcaster tap-broadcaster-reader2
-   ```
-
-2. **Review logs for patterns**:
-   ```bash
-   sudo journalctl -u tap-broadcaster -n 100
-   ```
-
-3. **Verify USB autosuspend is disabled**:
-   ```bash
-   cat /sys/module/usbcore/parameters/autosuspend
-   # Must show: -1
-   # If not, check /boot/firmware/cmdline.txt and reboot
-   ```
-
-4. **Check hardware health**:
-   ```bash
-   # Verify USB devices are detected:
-   lsusb | grep -i "CH340\|QinHeng"
-   
-   # Verify device files exist:
-   ls -l /dev/ttyUSB*
-   
-   # Test manual read:
-   nfc-list
-   ```
-
-5. **Manual recovery** (only if auto-recovery fails):
-   ```bash
-   ./scripts/fix-readers.sh
-   ```
-
-## Troubleshooting
-
-### No Taps Detected
-
-- **Hardware**: Check `lsusb` (USB) or `ls /dev/ttyAMA*` (UART).
-- **Permissions**: Add user to dialout/i2c groups.
-- **Test**: `nfc-list` (should detect reader).
-- **Logs**: Check broadcaster output.
-
-### "Disconnected" in UI
-
-- **WebSocket connection**: Check browser console for WS errors
-- **Server running**: Verify Next.js is running on port 3000
-- **Secret mismatch**: Check NFC_TAP_SECRET matches in both .env files
-- **Network**: Test `curl http://localhost:3000/api/nfc/tap` (GET for health)
-- **Broadcaster logs**: Check for `[WS] Authenticated successfully`
-
-### Broadcaster Won't Connect
-
-- **Server URL**: Verify NEXTJS_URL is correct (http://localhost:3000)
-- **WebSocket support**: Ensure custom server is running (shows "WebSocket server ready")
-- **Firewall**: Check if WebSocket port is blocked
-- **Logs**: Look for `[WS] Connection error` or `[WS] Authentication failed`
-- **Test mode**: Run `python hardware-pi/tap-broadcaster.py --test` to verify connection
-
-### Duplicate Taps
-
-Should be prevented by:
-- **Card presence tracking** in Python broadcaster (1.5s debounce)
-- **Server-side deduplication** in Next.js (1s debounce)
-
-If still seeing duplicates:
-- Check logs for `[TapBroadcaster] Duplicate tap ignored` messages
-- Verify `DEBOUNCE_SECONDS` setting in tap-broadcaster.py
-- Card may be making poor contact with reader
-
-### Taps Not Auto-Selecting
-
-- Enrolled? Check cards table: `sqlite3 stuco.db "SELECT * FROM cards;"`
-- Mode: Ensure "Tap Card" selected in POS.
-- Lane: Match ?lane= in URL.
-- **WebSocket**: Check browser console shows "Connected" status
-
-### Service Issues
-
-- `systemctl status tap-broadcaster`: Check if running.
-- `journalctl -u tap-broadcaster -f`: Live logs.
-- Paths: Verify WorkingDirectory, ExecStart in service file.
-- **Restart**: `sudo systemctl restart tap-broadcaster`
-
-### Simulation for Testing
-
-Use `--simulate` to test UI without hardware:
-```bash
-python hardware-pi/tap-broadcaster.py --simulate
-# Type UIDs like: DEADBEEF
-```
-
-### WebSocket Debugging
-
-**Browser console**:
-```javascript
-// Check WebSocket connection
-console.log("WebSocket ready state:", ws.readyState);
-// 0=CONNECTING, 1=OPEN, 2=CLOSING, 3=CLOSED
-```
-
-**Python broadcaster**:
-- Look for `[WS] Connected successfully` and `[WS] Authenticated successfully`
-- Connection errors show as `[WS] Connection error:` with details
-- Reconnection attempts show backoff timing
-
-**Common WebSocket Errors:**
-- "Cannot find module 'ws'": Run `pnpm install` in web-next.
-- TypeScript loader errors: run `node --import tsx server.ts` from `web-next` after a frozen dependency install.
-- Port in use: Kill process `sudo lsof -ti:3000 | xargs kill -9`.
-
-### WebSocket Authentication Troubleshooting
-
-**Problem**: Broadcaster shows "Authentication failed" errors repeatedly.
-
-**Symptoms:**
-```
-[WS] Broadcaster authentication failed - invalid secret provided
-[WS] Connection closed (code: 1008, reason: Authentication failed)
-```
-
-**Solutions:**
-
-1. **Verify Secret Configuration**:
-   
-   The `NFC_TAP_SECRET` must be identical in both locations:
-   
-   - Web server: `web-next/.env.local`
-   - Broadcaster: `.env.broadcaster` (for systemd) or environment variable
-   
-   ```bash
-   # Check web server secret
-   grep NFC_TAP_SECRET web-next/.env.local
-   
-   # Check broadcaster secret
-   grep NFC_TAP_SECRET .env.broadcaster
-   ```
-
-2. **Generate New Secret** (if needed):
-   
-   ```bash
-   # Generate new secret
-   NEW_SECRET=$(openssl rand -hex 32)
-   echo $NEW_SECRET
-   
-   # Add to web-next/.env.local
-   echo "NFC_TAP_SECRET=$NEW_SECRET" >> web-next/.env.local
-   
-   # Add to .env.broadcaster
-   echo "NFC_TAP_SECRET=$NEW_SECRET" > .env.broadcaster
-   chmod 600 .env.broadcaster
-   ```
-
-3. **Restart Services**:
-   
-   After updating secrets, restart both services:
-   ```bash
-   # Restart web server
-   cd web-next
-   pnpm dev  # or restart systemd service
-   
-   # Restart broadcaster
-   sudo systemctl restart tap-broadcaster
-   ```
-
-4. **Check Systemd Service Configuration**:
-   
-   Verify `systemd/tap-broadcaster.service` loads the environment file:
-   ```ini
-   EnvironmentFile=$PROJECT_ROOT/.env.broadcaster
-   ```
-   
-   After editing:
-   ```bash
-   sudo systemctl daemon-reload
-   sudo systemctl restart tap-broadcaster
-   ```
-
-5. **Rate Limiting**:
-   
-   Too many failed auth attempts will trigger rate limiting (5 attempts/minute).
-   If rate limited, wait 5 minutes or restart the web server:
-   ```bash
-   cd web-next
-   # Restart development server (Ctrl+C, then pnpm dev)
-   ```
-
-6. **Check Logs for Details**:
-   
-   The enhanced logging shows connection details:
-   ```bash
-   # Web server logs
-   cd web-next
-   # Check console output
-   
-   # Broadcaster logs
-   sudo journalctl -u tap-broadcaster -f
-   ```
-   
-   Look for:
-   - Connection ID and IP address
-   - Masked secrets (first 4 and last 4 chars)
-   - Auth attempt count
-   - Rate limit warnings
-
-**Security Notes:**
-- Never commit `.env.local` or `.env.broadcaster` to version control
-- Use strong secrets (32+ hex characters)
-- Different secrets for dev/staging/production
-- Rotate secrets periodically
-
-## Security (Production)
-
-- **HTTPS**: Configure Next.js SSL.
-- **Secret**: Strong, unique (e.g., `openssl rand -hex 32`).
-- **Firewall**: Allow only local network to `/api/nfc/*`.
-- **Rate Limit**: Limit POSTs to `/api/nfc/tap`.
-
-## Architecture
-
-```
-PN532 Reader ─USB/UART─ Raspberry Pi ─WebSocket─ Next.js Server (Custom) ─WebSocket─ Browser (POS)
-                          │
-                     tap-broadcaster.py
-```
-
-## Next Steps
-
-1. Enroll student cards: Students → Add Card.
-2. Test full flow: Tap → Select → Charge.
-3. Train staff on modes and unenrolled handling.
-4. Monitor logs: `journalctl -f`.
-5. Backup DB regularly.
-
-See [User Guide](user-guide.md) for workflows, [Troubleshooting](troubleshooting.md) for issues.
-
-**Last updated: November 11, 2025**
+`--test` sends `DEADBEEF` once and exits with success/failure. Simulation accepts
+hex UIDs; `q`, `quit`, `exit` or EOF ends it. These can cause UI tap events:
+do not use a live checkout to experiment.
+
+The POS indicator and authenticated `/api/nfc/status?reader=reader-1` report
+**authenticated broadcaster network presence**, not reader communication.
+“Broadcaster connected; hardware health unknown” is deliberate. A successful
+synthetic tap, existing TTY or active systemd unit does not prove hardware health.
+
+## Runtime recovery and services
+
+The reader loop spaces successful reads by 100 ms and debounces the same UID
+for 1.5 seconds; a held card can therefore be emitted again after that interval.
+Hardware failures back off independently from 1 to 30 seconds; network reconnects
+back off from 1 to 60 seconds. Network disconnect cancels the current native
+child, waits for descriptor release and discards stale results before a new
+generation starts. Disconnected taps are not buffered or replayed. Cancellation
+uses SIGTERM with bounded SIGKILL escalation if needed.
+
+Use the rendered `tap-broadcaster.service` and
+`tap-broadcaster-reader2.service`, not raw repository templates with unresolved
+placeholders. Setup installs reader units but does not enable them before
+configuration. See [Dual Reader Setup](dual-reader-setup.md) for exact mapping,
+environment files, pre-start USB resets and stop/start ownership rules.
+
+## Physical acceptance — still required
+
+No physical hardware acceptance was performed for this documentation cutover.
+On the deployment host, verify **both** readers, repeated taps and card removal,
+unavailable reader, unplug/replug, network outage/reconnect with no stale tap,
+lane isolation and service stop in **less than 10 seconds**. Record actual
+observations; the service's `TimeoutStopSec=10` is a limit, not proof of graceful
+shutdown. Simulation cannot replace these checks.
+
+See [Troubleshooting](troubleshooting.md), [User Guide](user-guide.md) and
+[Security Guide](security-guide.md) for operation and recovery.

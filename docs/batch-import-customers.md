@@ -15,9 +15,11 @@ John Doe,DEADBEEF
 Alice Johnson,
 ```
 
-Leave the UID empty for customers without cards. UIDs are uppercase hexadecimal;
-obtain them by tapping the reader on `/admin/pos`. Never assign one card to two
-customers. Reimporting a duplicate name can attach a new, unowned card.
+The full CSV parser supports quoted commas, escaped quotes and multiline fields.
+Names are trimmed. Leave the UID empty for customers without cards; nonempty UIDs
+are normalized to uppercase and must contain 4–20 hexadecimal characters.
+Obtain them by tapping the reader on `/admin/pos`. Never assign one card to two
+customers. Reimporting a duplicate name can attach a new, unowned active card.
 
 ## CSV import
 
@@ -33,11 +35,16 @@ node --import tsx tools/batch-import-customers.ts customers.csv
 node --import tsx tools/batch-import-customers.ts --no-skip-duplicates customers.csv
 ```
 
-Check the exit status and row errors. Each valid row commits atomically; bad rows
-are reported while later valid rows continue, and any error makes the command fail.
-A dry run is read-only, including schema. Default duplicate handling skips existing
-names and may attach an unowned card; `--no-skip-duplicates` makes duplicates errors.
-Template generation never opens a database. Keep source CSV files for audit.
+Check the exit status and row errors. Each valid row commits atomically; invalid
+field/column counts and failed inserts are reported while later valid rows continue,
+and any row error makes the command fail. Structurally malformed CSV (for example,
+an unclosed quote) fails parsing before imports; it cannot be safely split into rows.
+A dry run opens an existing ledger read-only, including schema, and checks planned
+within-file duplicates/card ownership without persisting them. Default duplicate
+handling skips existing names and may attach an unowned card;
+`--no-skip-duplicates` makes duplicates errors.
+Template generation never opens a database and writes the requested CSV file
+(replacing that file if it exists). Keep source CSV files for audit.
 
 ## Direct SQL import
 

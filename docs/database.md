@@ -1,369 +1,227 @@
 # Database Guide
 
-The system uses a single SQLite database (`stuco.db`) shared between CLI tools and web UI. This guide covers schema, connections, and migrations.
+The Student Council Payment System shares one SQLite ledger between the typed CLI
+and web server. Money is integer **cents**: `550` means ¥5.50, with
+`app_meta.currency_scale=100`. Ordinary startup refuses legacy, mixed or non-cent
+schemas; it never guesses or rescales existing money.
+
+## Paths and connections
+
+Set `DATABASE_PATH` in `web-next/.env.local`. Configured relative paths resolve
+against `web-next`, not the launch directory. Without configuration, an existing
+package database wins over the repository-root `stuco.db` default. Use an absolute
+path in maintenance commands to avoid confusing SQL's working-directory rules with
+the application's resolver.
+
+Web and CLI use `better-sqlite3`, foreign-key enforcement and WAL. Do not copy a
+live database or its WAL files as a backup. Use the SQLite online snapshot tools below.
+
+## Current schema
+
+The authoritative definitions are [`migrations/schema.sql`](../migrations/schema.sql)
+and [Better Auth schema](../web-next/migrations/better_auth_schema.sql).
+For a **new, empty** ledger, from repository root:
+
+```sh
+sqlite3 /absolute/path/to/stuco.db < migrations/schema.sql
+sqlite3 /absolute/path/to/stuco.db < web-next/migrations/better_auth_schema.sql
+./scps-cli users
+```
+
+The last command provisions an administrator; signup never grants operator access.
+Do not initialize an old ledger with these files as a substitute for migration.
+
+| Table | Purpose |
+|---|---|
+| `customers` | Unique name, stable ID and archive flag |
+| `cards` | UID ownership through `customer_id`, active/revoked status |
+| `accounts` | `customer_id`, balance and weekly overdraft limit in cents |
+| `transactions` | Signed cents, overdraft component, payment method, staff, UTC timestamp |
+| `transaction_note_history` | Audit trail of note edits |
+| `overdraft_weeks` | Cents used, keyed by customer and Shanghai Monday converted to UTC |
+| `wechat_topup_requests` | Requested/payable cents and claim/review state |
+| `user_customer_links` | One-to-one login-to-ledger link |
+| `user`, `session`, `account`, `verification` | Authentication, distinct from financial accounts |
+| `app_meta` | Currency marker |
+
+Roles are exactly `admin | staff | customer`. Administrators link registrations
+at `/admin/users`; unlinked customers wait at `/customer/pending`. Linked customers
+see only their own balance/history at `/customer`, not card UIDs or internal notes.
+Staff/admin share `/admin`, `/admin/customers`, `/admin/transactions`, `/admin/pos`
+and `/admin/topup`; `/admin/users` and `/admin/payments` are administrator-only.
+Claiming a payment never credits it. Confirmed administrator approval credits base
+cents once; rejection does not credit.
+
+Archive customers with financial history rather than deleting them. Transaction,
+overdraft and payment references restrict deletion; do not apply obsolete
+cascade-delete SQL to a current ledger.
+
+```sql
+SELECT c.id,c.name,c.archived,a.balance,a.max_overdraft_week
+FROM customers c JOIN accounts a ON a.customer_id=c.id;
+SELECT user_id,customer_id FROM user_customer_links;
+SELECT customer_id,amount,created_at FROM transactions ORDER BY id DESC LIMIT 20;
+```
+
+`idx_tx_customer_time` and the other transaction indexes support customer/time
+queries; see the schema files for complete columns, constraints and indexes.
 
 ## Customer-domain upgrade
 
-Current ledgers use `customers`, `user_customer_links` and `customer_id`; roles are
-exactly `admin`, `staff`, `customer`. Amounts are integer cents (`currency_scale=100`).
-The application refuses legacy/mixed schemas instead of converting them on startup.
-
-Stop **all** writers and verify a backup before upgrading. From `web-next`:
+Try a disposable copy first. Stop **all** writers, preserve and verify a pre-upgrade
+snapshot, then from `web-next`:
 
 ```sh
 node --import tsx tools/migrate-customer.ts --writers-stopped
 ```
 
-The command resolves the configured database independently of the launch directory,
-refuses an active local `stuco-web.service`, creates a verified SQLite online backup,
-and atomically renames the domain and normalizes account roles. It cannot detect
-arbitrary external writers; the flag asserts those are stopped too. Try a copy first.
-Unknown/mixed columns, orphan references or non-cent currency markers refuse conversion.
-Existing IDs, cents, credentials, sessions, links and custom indexes/triggers survive.
-Old no-role operators remain staff; unknown roles become customers, never administrators.
+This command resolves the canonical database, refuses an active local
+`stuco-web.service`, and creates an integrity/FK-checked online backup before
+mutation. If systemd state is unavailable it warns; the flag still asserts that
+every writer, including external processes, has stopped. It cannot detect arbitrary
+external writers.
 
-Restart the new application only after migration. For rollback, stop writers and
-restore the matching pre-upgrade snapshot **and old application together**; later
-ledger writes are not retained by snapshot rollback. Historical student-schema SQL
-below must not be run against the current ledger.
+The migration atomically renames the financial domain to `customers`,
+`customer_id` and `user_customer_links`, and normalizes authentication roles.
+IDs, cents, credentials, sessions, links, archive flags and supported custom
+indexes/triggers are preserved. Old no-role operators remain staff; unknown roles
+become customer, never administrator. Mixed/colliding schemas, unknown user
+columns, orphan references and non-cent markers refuse conversion. Failure rolls
+the transaction back; a validated final schema is a no-op.
 
-## Schema
+### Explicit legacy currency conversion
 
-Initialize a new database with `sqlite3 stuco.db < migrations/schema.sql`, then `sqlite3 stuco.db < web-next/migrations/better_auth_schema.sql`. Substitute the path configured in `DATABASE_PATH`, then run `./scps-cli users` to create an administrator.
+The domain migration does **not** convert tenths. For a genuinely legacy source,
+use the separate converter with explicit paths, after stopping writers:
 
-### Full Schema (schema.sql)
-
-```sql
-PRAGMA foreign_keys = ON;
-
-CREATE TABLE IF NOT EXISTS students (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  name TEXT NOT NULL UNIQUE
-);
-
-CREATE TABLE IF NOT EXISTS cards (
-  card_uid TEXT PRIMARY KEY,              -- hex UID
-  student_id INTEGER NOT NULL,
-  status TEXT NOT NULL DEFAULT 'active',  -- active|revoked
-  issued_at TEXT NOT NULL DEFAULT (datetime('now')),
-  FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE CASCADE
-);
-
-CREATE TABLE IF NOT EXISTS accounts (
-  student_id INTEGER PRIMARY KEY,
-  balance INTEGER NOT NULL DEFAULT 0,            -- tenths of CNY, e.g., 55 = ¥5.5
-  max_overdraft_week INTEGER NOT NULL DEFAULT 200, -- tenths of CNY, e.g., 200 = ¥20.0/week
-  FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE CASCADE
-);
-
-CREATE TABLE IF NOT EXISTS transactions (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  student_id INTEGER NOT NULL,
-  card_uid TEXT,
-  type TEXT NOT NULL CHECK (type IN ('TOPUP','DEBIT','ADJUST')),
-  amount INTEGER NOT NULL,                       -- + for topup/adjust, - for debit; tenths of CNY
-  overdraft_component INTEGER NOT NULL DEFAULT 0, -- part of DEBIT from weekly overdraft; tenths
-  description TEXT,
-  staff TEXT,
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),  -- UTC
-  FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE CASCADE
-);
-
--- Weekly overdraft usage, keyed by Monday 00:00 Asia/Shanghai (UTC)
-CREATE TABLE IF NOT EXISTS overdraft_weeks (
-  student_id INTEGER NOT NULL,
-  week_start_utc TEXT NOT NULL,
-  used INTEGER NOT NULL DEFAULT 0,               -- tenths of CNY used this week
-  PRIMARY KEY(student_id, week_start_utc),
-  FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE CASCADE
-);
-
-CREATE INDEX IF NOT EXISTS idx_tx_student_time
-  ON transactions(student_id, created_at);
-
--- Staff users (legacy, Better Auth tables used instead)
-CREATE TABLE IF NOT EXISTS users (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  name TEXT NOT NULL,
-  email TEXT NOT NULL UNIQUE,
-  password_hash TEXT NOT NULL,
-  avatar TEXT,
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
+```sh
+node --import tsx tools/import-legacy-db.ts \
+  --source /absolute/path/to/legacy.db \
+  --target /absolute/path/to/stuco.db --writers-stopped
 ```
 
-**Key Notes**:
-- **Currency**: Stored in tenths (e.g., 55 = ¥5.5) for decimal precision.
-- **Foreign Keys**: Enabled with CASCADE delete for data integrity.
-- **Timestamps**: UTC ISO strings.
-- **WAL Mode**: Recommended for concurrent access (web + CLI).
+Its defaults are repository-root `IMPORTTHIS/stuco.db` and `stuco.db`, not the
+configured `DATABASE_PATH`. A missing marker or scale `10` means exact ×10 to
+cents; scale `100` means unchanged. Other scales and unsafe amounts refuse.
+An already-rescaled but unmarked source cannot be inferred safely: establish its
+units before conversion. The converter reads an online source snapshot, preserves
+supported IDs/auth/archive/payment/link data and sequence maxima, validates a final
+staged ledger, and creates a verified pre-target backup before SQLite restore.
+It requires a known inactive/failed local web service and does not detect external
+writers. Unsupported source tables/columns refuse rather than being silently dropped.
 
-### Indexes
+Restart the new application only after reviewing balances, roles and payment
+state. Before rollback stop writers again, and restore the **matching old
+application and pre-upgrade database together**. Snapshot rollback loses later
+ledger writes; never run old SQL callers against the new customer schema.
 
-- `idx_tx_student_time`: Speeds up transaction queries by student and time.
+## Backup and restore
 
-## Connection
+Run typed commands from `web-next`. Install native `zstd`, and `rclone` for off-site
+storage; application maintenance does not require a runtime Python environment.
+Third-party native addon compilation may still require Python on build hosts.
 
-### CLI (Python)
-
-Uses `sqlite3` standard library. Example in `pos.py`:
-
-```python
-con = sqlite3.connect(DB)
-con.execute("PRAGMA foreign_keys=ON;")
-con.execute("PRAGMA busy_timeout=5000;")  # Handle locks
+```sh
+node --import tsx tools/ops/web_backup.ts /absolute/path/to/backup.tar.zst
+node --import tsx tools/sqlite-snapshot.ts snapshot \
+  /absolute/path/to/stuco.db /absolute/path/to/snapshot.db
 ```
 
-### Web UI (Next.js)
+Snapshots include committed WAL data and pass integrity/foreign-key checks.
+Archives use zstd `-15 -T0` by default (`ZSTD_CLEVEL`/`ZSTD_NBTHREADS` override),
+and publish atomically only after compression succeeds. Existing output archives
+can be replaced, so use unique names. Integrity cannot prove an old backup contains
+every expected transaction; reconcile totals and recent history too.
 
-Uses `better-sqlite3` for synchronous access.
+For an archive inspection, create an empty private staging directory, then:
 
-In `web-next/lib/db.ts`:
-
-```typescript
-import Database from 'better-sqlite3';
-
-const db = new Database(process.env.DATABASE_PATH || ':memory:');
-db.pragma('foreign_keys = ON');
-
-export default db;
+```sh
+node --import tsx tools/sqlite-snapshot.ts extract \
+  /absolute/path/to/backup.tar.zst /absolute/path/to/empty-staging
 ```
 
-**Config**: Set `DATABASE_PATH` in `.env.local` (absolute path).
+Extraction prints only the staged database path. Only root regular `stuco.db` and
+optional WAL/SHM members are accepted; paths, links, duplicate/unexpected members,
+missing main files, truncated tar and decompressor failure refuse. Staged WAL is
+folded through SQLite into a verified snapshot. Never extract over a live ledger.
 
-**Test Connection**:
+### Encrypted R2 backups
 
-```bash
-sqlite3 /absolute/path/to/stuco.db "PRAGMA integrity_check;"
+Create an R2 bucket and scoped object-read/write credentials, then:
+
+```sh
+node --import tsx tools/ops/setup-r2-crypt.ts
+node --import tsx tools/ops/cloud_backup_r2.ts
 ```
 
-Expected output: `ok`. Use the database path from `.env.local`.
+`RCLONE_REMOTE`, `RCLONE_CRYPT_REMOTE` and `R2_PATH` configure the raw remote,
+encrypted remote and bucket path. Defaults use `r2` and `r2-crypt`. Preserve crypt
+passwords/salts securely: changing them makes old backups unreadable. Backups stay
+local as well as being uploaded; retention deletion is not enabled automatically.
+Inspect objects with `rclone ls r2-crypt:` or `rclone lsl r2-crypt:`.
 
-### Compatibility
+For daily backups, configure the deployment user's environment and writable log
+directory before installing a cron entry, for example:
 
-- CLI and web share the DB; changes sync immediately.
-- WAL mode allows concurrent reads/writes.
-- No migrations needed for basic use; schema matches.
-
-## Migrations
-
-Migrations update existing DBs. Run with `./scripts/run_migration.sh <script.sql>` (backs up first).
-
-### Deletion and currency invariants
-
-Financial history is restrictive: archive a student with transactions rather than deleting its ledger. Do not apply the obsolete cascade-delete migration to a current ledger.
-
-Money is stored as integer cents (550 = ¥5.50). Startup acquires an immediate SQLite transaction before reading `app_meta.currency_scale`; missing/`10` converts tenths to cents once, `100` does nothing, and unknown markers or unsafe values refuse startup with all monetary values and metadata unchanged. There is no separate currency SQL command. Preserve a snapshot and validate legacy initialization on a copy first; an already-rescaled unmarked database cannot be inferred safely.
-
-### Running Migrations
-
-1. Snapshot the configured ledger: `./scripts/web_backup.sh /absolute/path/to/backup.tar.zst`.
-
-2. Run:
-
-   ```bash
-   ./scripts/run_migration.sh migrate_restrict_delete.sql
-   ```
-
-3. Verify: `sqlite3 stuco.db "SELECT * FROM accounts;"`
-
-See scripts for details. Migration files are located in `migrations/` directory.
-
-## Backup and Maintenance
-
-### Manual Backup
-
-```bash
-./scripts/web_backup.sh /absolute/path/to/stuco_backup.tar.zst
+```cron
+0 2 * * * cd /absolute/path/to/scps/web-next && /absolute/path/to/node --import tsx tools/ops/cloud_backup_r2.ts >> /absolute/path/to/scps/logs/r2_backup.log 2>&1
 ```
 
-The backup contains one integrity/FK-checked SQLite snapshot including committed WAL data. It is published only after compression succeeds. Old archives may already omit transactions; integrity alone cannot prove completeness.
+Use the actual pinned Node path; cron does not inherit your interactive PATH.
+For local-only scheduling, use `tools/ops/web_backup.ts` with a unique output path.
 
-### Database Reset
+Stop all writers before restore:
 
-Stop the web server and all database writers first. From the repository root:
+```sh
+node --import tsx tools/ops/restore_from_r2.ts backup.tar.zst --writers-stopped
+```
 
-```bash
-./scripts/reset_db.sh
+The argument must be a basename ending `.tar.zst`, not a path. Restore refuses
+unknown/unavailable or active local service state, downloads to private staging,
+validates extraction, and saves a verified pre-restore archive in `db_backups`.
+Validated old **cent-based** domain backups are normalized only in staging before
+final-schema checks. Non-cent backups need explicit legacy conversion, not implicit
+restore scaling. Contents are restored through SQLite, never by replacing live
+database/WAL files; no service is started or stopped for you. Test restoration
+against disposable data and a local rclone alias before relying on remote storage.
+
+## SQL migrations and destructive reset
+
+Review SQL and stop competing writers first:
+
+```sh
+node --import tsx tools/ops/run_migration.ts /absolute/path/to/migration.sql
+```
+
+The runner creates a verified snapshot and invokes `sqlite3 -bail`, preserving
+the SQL file's transaction/dot-command semantics. It does not add a transaction,
+guarantee arbitrary SQL atomicity, or automatically roll back a failed migration.
+Keep its snapshot for deliberate recovery.
+
+```sh
+node --import tsx tools/ops/reset_db.ts --writers-stopped
+# Then, from repository root:
 ./scps-cli users
 ```
 
-The reset script backs up and replaces the root `stuco.db` after confirmation. It does not follow `DATABASE_PATH`; do not use it to reset a database at another path. Recreate your administrator with the CLI afterward.
+Reset follows the canonical database path, requires a known stopped web service
+and exact typed `yes`, backs up an existing ledger, and transactionally replaces
+**all ledger and authentication data** with fresh core/auth schema. Recreate your
+administrator afterward. Never use reset as an upgrade.
 
-### Migration Runner
+## Maintenance and troubleshooting
 
-Run migrations with automatic backup:
+Use the configured absolute path:
 
-```bash
-./scripts/run_migration.sh migrate_restrict_delete.sql
+```sh
+sqlite3 /absolute/path/to/stuco.db "PRAGMA integrity_check; PRAGMA foreign_key_check;"
+sqlite3 /absolute/path/to/stuco.db ".schema"
+sqlite3 /absolute/path/to/stuco.db ".tables"
 ```
 
-The script:
-- Creates timestamped backup before migration
-- Runs the SQL migration file
-- Tests foreign key constraints
-- Provides rollback instructions if issues occur
-
-### Maintenance Tasks
-
-- **Compact Database**: `sqlite3 stuco.db "VACUUM;"`
-- **Integrity Check**: `sqlite3 stuco.db "PRAGMA integrity_check;"`
-- **Enable WAL Mode**: `sqlite3 stuco.db "PRAGMA journal_mode=WAL;"`
-- **Check Size**: `du -h stuco.db*`
-
-### Automated Backups (Production)
-
-Add to crontab for daily backups:
-
-```bash
-# Edit crontab
-crontab -e
-
-# Add daily backup at 2 AM
-0 2 * * * cd /path/to/stuco && tar --zstd -cf db_backups/auto_$(date +\%Y\%m\%d).tar.zst stuco.db*
-```
-
-### Cloud Backups with Cloudflare R2
-
-For off-site backups to Cloudflare R2 using `rclone crypt`, so the uploaded backup objects are encrypted before they leave the host:
-
-#### Setup
-
-1. **Create R2 Bucket**:
-   - Go to [Cloudflare Dashboard](https://dash.cloudflare.com/) → R2
-   - Create a new bucket (e.g., `stuco-db-backups`)
-   - Generate API token with Object Read & Write permissions
-   - Note your Account ID, Access Key ID, and Secret Access Key
-
-2. **Install rclone**:
-   ```bash
-   # On Debian/Ubuntu/Raspberry Pi OS
-   sudo apt update && sudo apt install rclone
-   
-   # Or download from official site
-   curl https://rclone.org/install.sh | sudo bash
-   ```
-
-3. **Configure encrypted R2 remotes**:
-   ```bash
-   ./scripts/setup-r2-crypt.sh
-   ```
-
-   The helper configures:
-   - raw remote: `r2`
-   - encrypted remote: `r2-crypt`
-
-4. **Optional: Set Environment Variables**:
-   ```bash
-   # Add to ~/.bashrc for convenience
-   export RCLONE_REMOTE="r2"  # Your rclone remote name
-   export RCLONE_CRYPT_REMOTE="r2-crypt"  # Encrypted remote used by backup scripts
-   export R2_PATH="stuco-db-backups"  # Path within bucket for backups
-   ```
-
-#### Manual Backup
-
-Run the backup script manually:
-
-```bash
-cd $PROJECT_ROOT
-./scripts/cloud_backup_r2.sh
-```
-
-This will:
-- Create a compressed backup in `db_backups/`
-- Upload to Cloudflare R2
-- Keep the local backup
-- Display backup summary
-
-#### Automated Daily Cloud Backups
-
-Add to crontab for daily cloud backups:
-
-```bash
-# Edit crontab
-crontab -e
-
-# Add daily R2 backup at 2 AM
-0 2 * * * cd $PROJECT_ROOT && ./scripts/cloud_backup_r2.sh >> logs/r2_backup.log 2>&1
-```
-
-If you need to specify a custom rclone remote name or path:
-
-```bash
-# With custom remote/path
-0 2 * * * cd $PROJECT_ROOT && RCLONE_REMOTE=my-r2 RCLONE_CRYPT_REMOTE=my-r2-crypt R2_PATH=my-backups ./scripts/cloud_backup_r2.sh >> logs/r2_backup.log 2>&1
-```
-
-#### Restore from R2
-
-To restore a database from R2:
-
-```bash
-# List available backups
-rclone ls r2-crypt:
-
-# Restore specific backup
-./scripts/restore_from_r2.sh stuco_backup_20251110_005702.tar.zst --writers-stopped
-```
-
-Stop all writers first; the flag acknowledges non-systemd writers too. The script refuses an active web service, downloads to private staging, rejects unsafe archives, saves a consistent pre-restore backup, and restores validated compatible cent-based data through SQLite. It never extracts over the live database or changes service state. A failed migration leaves its snapshot for deliberate recovery, not automatic rollback.
-
-#### List and Manage R2 Backups
-
-```bash
-# List all backups with sizes
-rclone ls r2-crypt:
-
-# List with more details
-rclone lsl r2-crypt:
-
-# Download a backup without restoring
-rclone copy r2-crypt:stuco_backup_20251110_005702.tar.zst db_backups/
-
-# Check total space used
-rclone size r2-crypt:
-
-# Delete old backups (optional)
-rclone delete r2-crypt:stuco_backup_20251110_005702.tar.zst
-
-# Delete backups older than 90 days
-rclone delete r2-crypt: --min-age 90d
-```
-
-
-## Troubleshooting
-
-- **Locked DB**: Close other apps/scripts; increase busy_timeout.
-- **Foreign Key Errors**: Ensure PRAGMA foreign_keys=ON.
-- **Path Issues**: Use absolute paths in .env.local.
-- **Permissions**: `chmod 666 stuco.db` if shared.
-
-For more, see [Troubleshooting](troubleshooting.md).
-
-## Quick Reference
-
-**Common Commands:**
-```bash
-# Initialize database
-sqlite3 stuco.db < migrations/schema.sql
-sqlite3 stuco.db < web-next/migrations/better_auth_schema.sql
-
-# View schema
-sqlite3 stuco.db ".schema"
-
-# List all tables
-sqlite3 stuco.db ".tables"
-
-# Query students with balances
-sqlite3 stuco.db "SELECT s.name, a.balance FROM students s JOIN accounts a ON s.id = a.student_id;"
-
-# Reset (destructive; stop all database writers first)
-./scripts/reset_db.sh
-
-# Migrations
-./scripts/run_migration.sh migration_file.sql
-```
-
-**Last updated: November 12, 2025**
+Integrity should return `ok`; foreign-key check should return no rows. Schedule
+`VACUUM` during maintenance, not peak writes. For locks, identify other writers
+instead of deleting WAL/SHM files. Give only the service user/trusted group access
+to the containing directory, database and sidecars; never make a ledger world-writable.
+See [Security Guide](security-guide.md), [Troubleshooting](troubleshooting.md) and
+[Batch Import Customers](batch-import-customers.md).

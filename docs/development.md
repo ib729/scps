@@ -1,305 +1,156 @@
 # Development Guide
 
-This guide is for developers extending or maintaining the Student Council Payment System. Covers architecture, tech stack, structure, and workflows.
+The Student Council Payment System uses one TypeScript package for the web server, administrative CLI, NFC readers and operational tools.
 
-## Tech Stack
+## Toolchain
 
-### Backend/Database
+- Node.js `>=26.13.1 <27`; containers pin `26.13.1`.
+- pnpm `12.21.0`, TypeScript `7.0.2`, tsx `4.23.15`.
+- Next.js `16.4.6`, React `19.3.1`, Tailwind CSS 4, Radix/Shadcn components, React Hook Form and Zod.
+- `better-sqlite3` for the ledger/auth database; `ws` for NFC transport.
+- Native libnfc for documented PN532 UART/I2C and libnfc-supported USB readers.
+- `csv-parse` and `tar-stream` for complete CSV/archive parsing.
 
-- **Language**: Python >=3.11 (reader and SQLite backup tools); the administrative CLI is TypeScript.
-- **Database**: SQLite 3 with WAL mode for concurrency.
-- **ORM/Access**: Raw `sqlite3` (CLI), `better-sqlite3` (Node.js).
-- **Dependencies**: nfcpy (NFC), requests (API calls).
-- See `requirements.txt`.
-
-### Web UI
-
-- **Framework**: Next.js 16 (App Router).
-- **Language**: TypeScript 5+.
-- **Runtime**: React 19.2.0.
-- **Styling**: Tailwind CSS 4, Radix UI components (via Shadcn).
-- **Forms/Validation**: React Hook Form, Zod.
-- **Authentication**: Better Auth with email/password support.
-- **Database**: better-sqlite3 (native bindings auto-built).
-- **Real-time**: WebSocket for NFC tap events with automatic reconnection.
-- **Custom Server**: Typed Node.js HTTP server with WebSocket support (`server.ts`, run with `node --import tsx server.ts` from `web-next`).
-- **Notifications**: Sonner (toasts).
-- **Animation**: Motion (Framer Motion), animate-ui.
-- **3D/Graphics**: Three.js for background effects.
-- **Charts**: Recharts for analytics visualization.
-- **Theming**: next-themes for dark mode support (already implemented).
-- **Icons**: Lucide React.
-- See `web-next/package.json`.
-
-### NFC
-
-- **Library**: nfcpy (Python) for PN532.
-- **Protocol**: WebSocket (bidirectional, real-time communication).
-- **Hardware**: PN532 over UART/USB/I2C.
+Python is not an application or reader runtime. Python >=3.11 and a C/C++ toolchain may still be required to compile third-party native addons. There is no repository Python requirements file or venv/pip setup.
 
 ## Architecture
 
-### Overall
-
-```
-CLI Tools (Python) ↔ stuco.db (SQLite) ↔ Web UI (Next.js)
-                           │
-                      NFC Reader ─ tap-broadcaster.py ─ WebSocket/API ─ UI
-```
-
-- **Shared DB**: All components access the same SQLite file.
-- **NFC Flow**: Hardware → Python broadcaster → Next.js WebSocket/API → Real-time UI updates.
-- **Authentication**: Better Auth with session-based authentication (protected routes).
-- **Server Actions**: Mutations in web UI use Next.js actions (atomic, typed).
-- **Custom Server**: `server.ts` handles WebSocket connections alongside Next.js.
-
-### Web UI Layers
-
-1. **Database Layer** (`lib/`):
-   - `db.ts`: Connection with foreign_keys ON.
-   - `models.ts`: Zod schemas for entities (Student, Transaction, etc.).
-   - `repositories/`: Typed CRUD (students.ts, cards.ts, etc.).
-   - `currency.ts`: Decimal conversion (tenths).
-
-2. **Server Actions** (`app/actions/`):
-   - `students.ts`: CRUD for students.
-   - `pos.ts`: Charge with overdraft logic.
-   - `topup.ts`: Add/adjust funds.
-   - All: Zod validation, error handling, revalidation.
-
-3. **Pages** (`app/`):
-   - `/` (root): Redirects to /dashboard or /login based on auth.
-   - `/login`, `/signup`: Authentication pages.
-   - `/dashboard`: Stats, recent transactions, charts.
-   - `/students` / `[id]`: List/detail with cards and transaction history.
-   - `/transactions`: Full transaction history with filters.
-   - `/pos`: Point of sale (Tap/Manual modes).
-   - `/topup`: Add funds (manual entry).
-
-4. **Components**:
-   - UI: Radix UI via Shadcn (button, table, dialog, drawer, sheet, sidebar, etc.).
-   - Layout: AppSidebar, PageHeader, ThemeProvider.
-   - Custom: PosForm, TopupForm, TapAlert (toasts), WeeklyTopupChart.
-   - Animation: FlipWords, EncryptedText.
-   - Backgrounds: HoleBackground, Fireworks, GravityStars (animate-ui).
-   - See [UI Components Guide](ui-components.md) for details.
-
-5. **API Routes** (`app/api/`):
-   - `/auth/[...all]`: Better Auth authentication endpoints.
-   - `/nfc/tap`: Legacy POST endpoint for NFC tap events (fallback, not recommended).
-   - **WebSocket**: `/api/nfc/ws` endpoint handled by custom `server.ts` for real-time NFC events.
-
-**Rendering**: Dynamic (`force-dynamic`) for DB pages.
-
-## Project Structure
-
-### Root
-
-```
-stuco/
-├── stuco.db                # SQLite database
-├── scps-cli                # Unified administrative CLI launcher
-├── scps-remote-cli         # SSH administrative launcher
-├── hardware-pi/            # NFC broadcaster, CSV import, diagnostics
-├── requirements.txt        # Python dependencies
-├── migrations/
-│   └── schema.sql          # Main database schema
-└── docs/                   # Documentation
+```mermaid
+flowchart LR
+  Reader["PN532/native USB"] --> Native["libnfc child"]
+  Native --> Broadcaster["TypeScript broadcaster"]
+  Broadcaster -->|authenticated WebSocket| Server["server.ts"]
+  Staff["staff/admin browser"] <-->|session-scoped taps| Server
+  Server --> App["Next pages/actions/APIs"]
+  Buyer["customer portal"] --> App
+  App --> Repository["repositories/auth"]
+  CLI["typed CLI/tools"] --> SQLite
+  Repository --> SQLite["SQLite ledger/auth"]
 ```
 
-### Web UI (web-next/)
+Remote tap nodes do not need access to the ledger file. Broadcasters authenticate separately from staff browser subscriptions. Network presence is not proof that a reader is communicating with a card.
 
-```
-web-next/
-├── app/
-│   ├── (app)/           # Protected routes with layout
-│   │   ├── dashboard/
-│   │   ├── students/    # + [id] detail pages
-│   │   ├── pos/
-│   │   ├── topup/
-│   │   ├── transactions/
-│   │   └── layout.tsx   # Auth-protected layout with sidebar
-│   ├── (auth)/          # Public auth routes
-│   │   ├── login/
-│   │   └── signup/
-│   ├── actions/         # Server actions
-│   ├── api/
-│   │   ├── auth/        # Better Auth endpoints
-│   │   └── nfc/         # NFC endpoints
-│   ├── layout.tsx       # Root layout with ThemeProvider
-│   ├── page.tsx         # Home (redirects)
-│   └── sitemap.ts       # SEO sitemap
-├── components/
-│   ├── ui/              # Radix UI components (via Shadcn)
-│   ├── animate-ui/      # Custom animations
-│   ├── app-sidebar.tsx  # Navigation sidebar
-│   ├── tap-alert.tsx    # Global NFC toast
-│   └── theme-provider.tsx
-├── lib/
-│   ├── auth.ts          # Better Auth config
-│   ├── auth-client.ts   # Client-side auth
-│   ├── db.ts            # Database connection
-│   ├── models.ts        # Zod schemas
-│   ├── currency.ts      # Currency helpers
-│   ├── use-nfc-websocket.ts
-│   └── repositories/    # Typed DB access
-├── public/
-│   └── robots.txt       # SEO configuration
-├── Dockerfile           # Production container
-├── server.ts            # Typed custom Node server with WebSocket
-├── next.config.ts       # Next.js configuration
-└── package.json         # Dependencies and scripts
-```
+The custom server and bundled Next handlers share one `Symbol.for`-anchored tap broadcaster and reader registry. Do not add a second emitter or cleanup interval. Socket delivery rechecks the original signed session's current database role and expiry.
 
-## Setup for Development
+## Source Map
 
-See [Getting Started](getting-started.md).
+- `scps-cli`, `scps-remote-cli`: minimal package-cwd launchers.
+- `scripts/setup-debian.sh`: only the OS/Node/pnpm/native-build bootstrap.
+- `migrations/schema.sql`, `web-next/migrations/better_auth_schema.sql`: final ledger/auth schemas.
+- `web-next/server.ts`: HTTP, Next handler, authenticated WebSockets and shutdown.
+- `web-next/app/(app)/admin/`: protected operator pages/layout.
+- `web-next/app/(customer)/customer/`: owned buyer portal/pending state.
+- `web-next/app/actions/`: authorized, validated server mutations.
+- `web-next/app/api/`: authentication, transaction, NFC and administrative endpoints.
+- `web-next/lib/`: auth/session guards, canonical paths, schema validation, cents and repositories.
+- `web-next/hardware/`: native reader adapter, broadcaster and diagnostics.
+- `web-next/tools/`: CSV, snapshots/extraction and maintenance conversions.
+- `web-next/tools/ops/`: one typed entrypoint per operational workflow.
+- `web-next/tests/`: disposable real-server tests and legacy fixtures.
+- `systemd/`: rendered Node/tsx service templates.
 
-**Web UI Specific**:
+### Routes and Roles
 
-1. `cd web-next && pnpm install` (auto-builds better-sqlite3).
-2. Create `.env.local` with required variables:
-   ```bash
-   DATABASE_PATH=/absolute/path/to/stuco.db
-   BETTER_AUTH_SECRET=your-secret-key-here
-   BETTER_AUTH_URL=http://localhost:3000
-   NEXT_PUBLIC_APP_URL=https://scps.ivanbelousov.com
-   NFC_TAP_SECRET=your-nfc-secret-here
-   ```
-3. Run auth migrations: `sqlite3 ../stuco.db < migrations/better_auth_schema.sql`
-4. `pnpm dev` (starts custom server on port 3000 with WebSocket support).
-5. Edit: Hot reload enabled.
+`admin | staff | customer` are the only roles. A teacher who only buys is a customer, not a separate role.
 
-**CLI**:
+- `/admin`: shared staff/admin dashboard.
+- `/admin/customers[/id]`, `/admin/transactions`, `/admin/pos`, `/admin/topup`: operator pages.
+- `/admin/users`, `/admin/payments`: administrator-only account/payment decisions.
+- `/customer`, `/customer/pending`: owned buyer account or pending approval.
+- `/login`, `/signup`: public authentication.
+- Existing `/api/*` URLs remain unchanged.
 
-1. `.venv` activate, `pip install -r requirements.txt`.
-2. `./scps-cli` for administration; use the web POS for card payments.
+The home page dispatches by fresh session/link state. Legacy page GET/HEAD URLs redirect permanently with suffix/query values preserved; POST actions are not redirected. Hiding navigation is not authorization: enforce role and ownership inside every action/API.
 
-**NFC Testing**:
+### Ledger Invariants
 
-`python hardware-pi/tap-broadcaster.py --simulate` + open POS.
+Financial rows use `customers`, `customer_id` and `user_customer_links`. Money is integer cents (`100` means ¥1.00), including balances, transaction amounts, weekly overdraft usage and payment reservations.
 
-## Building and Deployment
+Use repositories for ledger operations and existing currency helpers at display/input boundaries. Keep checkout and reviewed credit atomic. A claim does not credit; receipt-confirmed administrator approval credits the base amount once. Top-ups do not refund previously consumed weekly borrowing allowance.
 
-### Web UI
+Ordinary startup validates the final schema and cent scale; it never silently migrates old/mixed schemas or converts money. See [Database Guide](database.md) before changing an existing ledger.
 
-**Development**:
+## Local Setup
+
+Follow [Getting Started](getting-started.md) for fresh core/auth initialization and explicit first-administrator provisioning. Keep an existing database and secrets; do not initialize over them.
 
 ```bash
-pnpm dev  # Runs node --import tsx server.ts with WebSocket on http://localhost:3000
+cd web-next
+pnpm install --frozen-lockfile
+cp .env.local.example .env.local   # only when it does not already exist
+# Configure DATABASE_PATH, a generated BETTER_AUTH_SECRET, app URL and origins.
+pnpm dev
 ```
 
-**Production Build**:
+Configured relative `DATABASE_PATH` values resolve against `web-next`, independent of the launch directory. Quote paths containing spaces in `.env.local`.
+
+The root CLI launchers resolve the package directory themselves:
 
 ```bash
-pnpm build   # Optimizes, checks types, creates standalone output
-pnpm start   # Runs production server with WebSocket on port 3000
+./scps-cli --help
+./scps-remote-cli --help
 ```
 
-**Docker**:
+Direct TypeScript entrypoints run from the package with `node --import tsx`. Do not rely on an unpinned downloaded runner.
+
+## NFC Development
+
+Start the actual web server, sign in as staff/admin and open `/admin/pos`. Configure the shared broadcaster secret in the server and reader environment, then:
 
 ```bash
-# From repository root; runtime secrets and writable ledger directory are required.
-podman build -f web-next/Dockerfile -t scps:repair-smoke .
-# See deployment.md for the nonroot mounted-database run command.
+cd web-next
+node --import tsx tools/ops/run-nfc.ts --simulate
+# Enter a UID only after authentication; q/quit/exit or EOF stops simulation.
+node --import tsx tools/ops/test-nfc.ts --url http://localhost:3000 --lane reader-1
 ```
 
-- **Env**: Set `NODE_ENV=production`.
-- **HTTPS**: Use Cloudflare Tunnel or reverse proxy (nginx) for SSL.
-- **Raspberry Pi**: Run as systemd service or via Docker.
+The test command sends `DEADBEEF`; simulation does not prove physical reader acceptance. Exact device selection, native calibration, dual-reader services and safe stop/reset/start procedures are in [NFC Setup](nfc-setup.md) and [Dual Reader Setup](dual-reader-setup.md).
 
-**Lint/Type Check**:
+The native adapter owns its child through close. Cancellation must terminate/reap it before another read and must never publish an old generation's UID. Preserve the 100ms spacing, 1.5-second debounce and independent network/hardware backoffs.
+
+## Verification and Build
+
+From `web-next`:
 
 ```bash
+pnpm test
+pnpm exec tsc --noEmit
 pnpm lint
-pnpm build  # Includes TS check
+pnpm build
+pnpm start
 ```
 
-### CLI/NFC
+`pnpm test` selects only `*.test.ts`, then runs the CLI self-check. Do not use bare `node --test`: retained production diagnostic filenames also begin with `test-`/`test_`.
 
-- Administrative CLI: `./scps-cli`.
-- Broadcaster: Systemd service (see NFC Setup).
+Focused checks should name their test files. Use disposable ledgers, fake privileged executables and local rclone aliases. Never verify by resetting real USB devices, mutating host services, deploying over SSH or accessing a production/cloud ledger.
+
+Container builds use repository-root context and an isolated build database:
+
+```bash
+podman build -f web-next/Dockerfile -t scps:local .
+```
+
+See [Deployment Guide](deployment.md) for nonroot writable mounts, runtime secrets and HTTPS. Builder Python for native dependencies is separate from the Python-free application runtime.
 
 ## Extending the System
 
-### Adding Features
+1. Define/validate data in the existing models and repository layer.
+2. Keep schema changes explicit, backed up and transactionally validated; migrate every owned caller/fixture together.
+3. Add role/ownership checks inside server actions/APIs, not just components.
+4. Put operator pages below the protected admin layout and customer-owned pages below the customer layout.
+5. Revalidate canonical routes after successful mutations.
+6. Keep native commands argument-array based, propagate failures/signals and preserve owned-child cleanup.
 
-1. **New DB Table**:
-   - Update `migrations/schema.sql`, run init or migration.
-   - Add Zod model in `models.ts`.
-   - Create repository in `lib/repositories/`.
-   - Add action in `app/actions/`.
+Prefer the surrounding house components/helpers and one implementation over wrappers or aliases. Use type imports, strict message/row types and validated trust boundaries; do not add untyped compatibility modules.
 
-2. **New Page**:
-   - Create `app/new-feature/page.tsx`.
-   - Add nav link in `components/nav.tsx`.
-   - Use repositories/actions for data.
+Keep commit subjects short, lowercase and prefix-free like the existing history. Commit each verified implementation chunk.
 
-3. **NFC Enhancement**:
-   - Extend `/api/nfc/tap` handler.
-   - Update WebSocket handlers in `server.ts`.
-   - Modify client WebSocket hook in `lib/use-nfc-websocket.ts`.
+## Further Reading
 
-### Testing
+- [Testing Guide](testing.md)
+- [Scripts Reference](scripts.md)
+- [Authentication Guide](authentication.md)
+- [UI Components Guide](ui-components.md)
+- [Security Guide](security-guide.md)
 
-- **Manual**: Create student, tap, charge, top-up.
-- **DB**: `sqlite3 stuco.db` queries.
-- **UI**: Browser developer tools.
-- **NFC**: Simulate taps, check logs.
-
-**Edge Cases**:
-- Overdraft limits.
-- Unenrolled cards.
-- Concurrent access (web + CLI).
-- Decimal amounts.
-
-### Best Practices
-
-- **Type Safety**: Use Zod for all inputs, define schemas in `lib/models.ts`.
-- **Validation**: Server-side always, client-side for UX.
-- **Errors**: User-friendly messages with actionable suggestions.
-- **Dynamic Rendering**: For DB pages (`export const dynamic = 'force-dynamic'`).
-- **Revalidation**: After mutations (`revalidatePath`).
-- **Currency**: Use helpers in `lib/currency.ts` for tenths conversion.
-- **Components**: Prefer Shadcn UI components for consistency.
-- **Styling**: Use Tailwind utilities, avoid inline styles.
-- **Accessibility**: Use semantic HTML, ARIA labels, keyboard navigation.
-
-### Coding Conventions
-
-- **File Organization**: Group by feature (pages, actions, components).
-- **Naming**: camelCase for functions, PascalCase for components.
-- **Exports**: Named exports for utilities, default for pages/components.
-- **Comments**: Explain "why", not "what" (code should be self-documenting).
-- **Error Handling**: Always catch and handle errors gracefully.
-- **Database**: Use repositories for all DB access, never raw queries in pages.
-
-## Implemented Features
-
-- ✅ Authentication with Better Auth (email/password, session management)
-- ✅ Dark mode support (system/light/dark themes)
-- ✅ Analytics charts (weekly top-up visualization)
-- ✅ Real-time NFC updates via WebSocket
-- ✅ Responsive UI with sidebar navigation
-- ✅ SEO optimization (robots.txt, sitemap, metadata)
-
-## Potential Enhancements
-
-- Microsoft OAuth integration (configured but not enabled)
-- Reports/Exports (CSV/PDF)
-- Bulk operations (import students, bulk top-ups)
-- Advanced analytics dashboards
-- Audit logs and activity tracking
-- Student accounts & self-served top-ups
-
-
-See [Changelog](changelog.md) for recent changes.
-
-## Additional Resources
-
-- [UI Components Guide](ui-components.md) - Custom components and animations
-- [Deployment Guide](deployment.md) - Production setup
-- [Security Guide](security-guide.md) - Security best practices
-- [Scripts Reference](scripts.md) - Utility scripts documentation
-
-**Last updated: November 12, 2025**
+**Last updated: November 15, 2026**

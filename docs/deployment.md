@@ -1,65 +1,159 @@
 # Deployment Guide
 
-This guide covers production deployment options for the Student Council Payment System, including Docker, systemd services, SSL configuration, and environment management.
+Deploy the Student Council Payment System as **one custom web process** with a writable SQLite ledger and, where needed, separate native NFC reader processes. Use Node.js **>=26.13.1 <27** (the image pins **26.13.1**) and pnpm **12.21.0**. All repository application and operational logic is TypeScript. Python >=3.11 may be required to compile third-party native dependencies; it is not needed by application workflows at runtime.
 
-Use the custom server (`pnpm dev` / `pnpm start`), not `next dev/start` directly: it supplies NFC and overwrites signup client identity. Default `TRUST_PROXY=false` uses the socket peer. Set `TRUST_PROXY=true` only behind the documented single loopback Nginx hop; Nginx must append `$remote_addr` to `X-Forwarded-For` (or overwrite it), and the app port must not be publicly exposed. Only a loopback immediate peer's rightmost valid forwarded address is trusted. Caller `X-Real-IP` and `x-scps-client-ip` are ignored. Remote/multi-hop proxy topologies are unsupported without separate trust configuration.
+Run `pnpm dev` / `pnpm start`, not `next dev` / `next start`: the custom `server.ts` supplies authenticated NFC WebSockets and trusted signup client identity. Package-local tools run from `web-next` with `node --import tsx`.
 
-Signup allows five attempts per client in ten minutes, including successes and validation/auth failures. Budgets reset with this single web process; shared storage is required before adding workers.
+## Before deployment
 
-## Prerequisites
+- Use a nonroot service account with a maintained Linux host, sufficient build memory and appropriate native-build tools.
+- Keep one web process. Signup's five-attempt/ten-minute per-client budget includes successful and failed attempts and resets with that process; multiple workers require shared limiting storage.
+- Prepare DNS, HTTPS, a loopback reverse proxy, private secrets and tested encrypted recovery material.
+- Preserve the existing ledger, auth credentials, application revision and environment files before an upgrade. **Do not initialize/reset an existing installation.**
+- Current schema is `customers` / `customer_id` / `user_customer_links`, with roles `admin | staff | customer`. Follow [Existing-schema upgrade](#existing-schema-upgrade-and-rollback) before starting the new app against an old ledger.
 
-- Production-ready server (Standard Linux Cloud VPS: Debian 12 / Ubuntu 22.04+)
-- Domain name and DNS records configured (for SSL)
-- Node.js >=26.13.1 <27, Python >=3.11, pnpm 12.21.0 installed on the VPS
-- Build tools installed (see [Getting Started](getting-started.md))
+## Native Debian/systemd deployment
 
-## Recommended VPS Flow
+### Initial setup
 
-For your current setup, the recommended production path is:
-
-1. Develop locally on your Mac
-2. Push changes to GitHub
-3. SSH into the VPS and run:
-
-   ```bash
-   ./scripts/deploy-vps.sh
-   ```
-
-For first-time VPS setup on Debian:
+From a repository owned by the intended service user, with sudo access:
 
 ```bash
+# Repository root
 ./scripts/setup-debian.sh
 ```
 
-This installs packages, builds the app, renders the `stuco-web.service` unit, and starts the production web service. The VPS plan here is web-only; NFC broadcaster services stay out of scope unless you later deploy SCPS onto hardware that has the readers attached.
+The shell bootstrap only handles Debian/Node availability, pinned pnpm/dependency installation and OS/native-build packages needed to invoke TypeScript. Its Python package is for native-addon compilation, not application execution. Reader-host utilities include `libnfc-bin`, `usbutils`, `lsof` and `udev`; backups need `sqlite3`, `zstd` and `rclone`.
 
-Optional Mac shortcut:
+The typed `web-next/tools/ops/setup-debian.ts` stage:
 
-```bash
-./scripts/deploy-remote.sh user@your-vps
+1. Creates/restricts `web-next/.env.local`, sets the canonical quoted database path and generates a missing Better Auth secret without logging its value.
+2. Initializes both core and auth schemas **only if the database does not exist**; otherwise preserves it and requires explicit legacy migration.
+3. Builds as the service user with the pinned PATH preserved through sudo.
+4. Renders `stuco-web.service`, `tap-broadcaster.service` and `tap-broadcaster-reader2.service` using the actual user, repository, Node executable and PATH.
+5. Reloads systemd and enables/restarts **only `stuco-web`**. Reader units are installed but not automatically enabled.
+
+Do not copy unrendered repository units directly: they contain placeholders. Configure public URL, origins and secrets before public access, then restart web. Setup itself is not proof of a working production environment.
+
+### Environment and writable ledger
+
+The custom server loads `web-next/.env.local`. Set a real, private configuration, for example:
+
+```dotenv
+DATABASE_PATH=/srv/scps-data/stuco.db
+BETTER_AUTH_SECRET=<independently-generated-random-secret>
+NFC_TAP_SECRET=<separate-shared-reader-secret>
+NEXT_PUBLIC_APP_URL=https://payments.example.com
+TRUSTED_ORIGINS=https://payments.example.com
+TRUST_PROXY=true
+NEXT_TELEMETRY_DISABLED=1
 ```
 
-That SSHes into the server and runs the same `deploy-vps.sh` flow remotely.
+Generate independent secrets with `openssl rand -hex 32`; copy them securely rather than putting real secrets in commands/history. Restrict the env file to its owner (`chmod 600 web-next/.env.local`). A separate systemd `EnvironmentFile` may supply values instead; keep it protected and remember process environment takes precedence over dotenv.
 
-## Deployment Options
+Configured relative `DATABASE_PATH` resolves against `web-next`, regardless of caller cwd. With no configured value, an existing `web-next/stuco.db` wins, otherwise repository-root `stuco.db` is used. Prefer one explicit absolute path in production.
 
-### Option 1: Docker Deployment
+The service user needs access to the **ledger directory**, not just the file, so SQLite can create WAL/SHM. Restrict directory traversal and database access to the intended account/administrators; do not make it world-writable or change ownership on a live ledger. See [Database](database.md) and [Security](security-guide.md).
 
-The supported deployment is one custom web process with remote Pi readers; do not scale web workers without shared signup budgets.
-
-#### Build Docker Image
+The rendered web unit defaults to `HOSTNAME=0.0.0.0`, `PORT=3000`. For native loopback-only deployment, use a systemd override:
 
 ```bash
-# From repository root
-podman build -f web-next/Dockerfile -t scps:repair-smoke .
+sudo systemctl edit stuco-web.service
 ```
 
-The Dockerfile uses multi-stage builds:
-- `deps` stage: Installs dependencies with build tools
-- `builder` stage: Builds Next.js production bundle
-- `runner` stage: Nonroot Node runtime with Python, sqlite3, zstd and rclone for backups/recovery
+```ini
+[Service]
+Environment="HOSTNAME=127.0.0.1"
+Environment="PORT=3000"
+```
 
-#### Run Container
+Then reload/restart:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart stuco-web.service
+sudo systemctl status stuco-web.service
+journalctl -u stuco-web.service -f
+```
+
+Change `PORT` through environment, not an invented `pnpm start -p` flag. If URL/origin values change, rebuild for public build-time configuration as appropriate before restart.
+
+### Application updates
+
+After reviewing and making the intended release available on origin, run **on the server**, from `web-next`:
+
+```bash
+node --import tsx tools/ops/deploy-vps.ts
+node --import tsx tools/ops/deploy-vps.ts main
+```
+
+This refuses a dirty checkout, fetches origin, selects the branch (default `main`), pulls ff-only, installs with `--frozen-lockfile`, builds and only then restarts/status-checks web. Install/build failures stop before restart; failures are not automatic application/database rollbacks. This flow does **not** migrate an old ledger for you.
+
+From a configured local checkout, the separate deployment transport is:
+
+```bash
+# Local web-next directory
+node --import tsx tools/ops/deploy-remote.ts scps@server.example.com main
+```
+
+It uses `ssh -t`; default repository is the remote user's `$HOME/scps`. `SCPS_REMOTE_PATH='/absolute/path with spaces/scps'` overrides it literally. Directory and branch arguments are POSIX-quoted; custom paths do not expand `$HOME`, `~` or shell metacharacters. SSH exit/signal propagates. The remote must already have the required Node/pnpm/dependencies to invoke the typed deployment tool.
+
+### Reader services
+
+Readers may run on a separate Pi while web/SQLite live on the VPS. Install matching Node/package dependencies and native libnfc tools on that host. Supported scope is PN532 UART/I2C and libnfc-supported USB; unsupported or ambiguous explicit selectors fail. Configure exact devices for two readers. See [NFC Setup](nfc-setup.md) and [Dual Readers](dual-reader-setup.md) for wiring, calibration and remote-reader setup.
+
+Create a restricted repository-root `.env.broadcaster` with the matching server secret and deployment URL:
+
+```dotenv
+NEXTJS_URL=https://payments.example.com
+NFC_TAP_SECRET=<same-reader-secret-as-web>
+```
+
+Both reader units load that file. Their rendered defaults select `tty:USB0:pn532` / `tty:USB1:pn532` and lanes `reader-1` / `reader-2`; adjust each installed unit/drop-in if those are not the actual devices/lanes. Avoid a shared `PN532_DEVICE`/`POS_LANE_ID` in the common env file when readers require different values.
+
+Before enabling:
+
+- Give the service user actual serial/I2C/USB permissions. For Debian serial devices this often means `dialout` membership and a new login/service restart; native USB/I2C may need appropriate udev/group rules.
+- Confirm no unmanaged process owns the selected devices. Probes/reset must not race active broadcasters.
+- Review the units' pre-start USB resets: the unprivileged Node tool calls `sudo tee` on `/sys/bus/usb/drivers/usb/unbind` and `/sys/bus/usb/drivers/usb/bind`. It needs **noninteractive** privileges; setup does not install sudoers rules. Use `visudo` and a site-reviewed, narrowly scoped policy, not unrestricted Node/tee/modprobe sudo. Even access restricted to those two sysfs paths permits USB disruption, so treat the service identity as privileged hardware access.
+- UART/I2C or native USB deployments not using the default USB-serial reset must deliberately adapt the installed pre-start/device settings; the supplied reset targets USB0/USB1.
+
+Only after that configuration:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now tap-broadcaster.service
+# Only when the second reader is configured:
+sudo systemctl enable --now tap-broadcaster-reader2.service
+journalctl -u tap-broadcaster.service -u tap-broadcaster-reader2.service -f
+```
+
+Units use package cwd and `node --import tsx hardware/tap-broadcaster.ts`, `Restart=always`, `RestartSec=5`, a one-second post-stop settle and a ten-second stop window. Reader 2 retains its five-second pre-start settle after reset. These settings are not evidence that physical hardware passes the stop deadline.
+
+For a network-only test or simulation, from `web-next`:
+
+```bash
+node --import tsx tools/ops/test-nfc.ts
+node --import tsx tools/ops/run-nfc.ts --simulate
+```
+
+The wrappers load `.env.broadcaster`; direct hardware entrypoints need environment supplied separately. A successful authenticated simulated tap proves neither native reader health nor physical recovery. For hardware diagnosis stop owners first; see the full [23-workflow reference](scripts.md#operational-workflows). Recovery tools intentionally leave services stopped when reset/probe fails. Administrator Settings repair actions are unavailable without configured host privileges; do not grant broad passwordless root or arbitrary Node execution to enable them.
+
+Settings backup and repair invoke Node/tsx from `web-next`. Existing `WEB_BACKUP_SCRIPT` and `FIX_READERS_SCRIPT_PATH` overrides must point to compatible typed entrypoints; relative overrides resolve against the package, not the shell's launch directory. Reader repair runs Node without elevation and requires only its fixed native service/module/ownership commands through a narrowly reviewed sudo policy; never grant arbitrary Node or general `systemctl`/`modprobe` execution to the web identity.
+These actions target the web host only. When readers run on a separate Pi, run the reader-host tools there; local Settings repair is not remote hardware recovery.
+
+## Container deployment
+
+Build with the **repository root as context**, not `web-next`:
+
+```bash
+# Repository root
+podman build -f web-next/Dockerfile -t scps:local .
+```
+
+The multi-stage image builds native dependencies and the Next production bundle, using a disposable build database and test-only secrets. The runner is Node 26.13.1, nonroot uid/gid **1001**, includes tsx, typed tools/hardware/schema and native backup/NFC utilities, and starts `node --import tsx server.ts`. Python is installed in the native dependency build stage, not the runner. No production env file or fallback ledger is baked in.
+
+Provide a separately initialized or migrated ledger and real secrets:
 
 ```bash
 podman run -d --name stuco-web \
@@ -67,25 +161,20 @@ podman run -d --name stuco-web \
   -p 127.0.0.1:3000:3000 \
   -e HOSTNAME=0.0.0.0 \
   -e DATABASE_PATH=/app/data/stuco.db \
-  -e BETTER_AUTH_SECRET -e NFC_TAP_SECRET -e NEXT_PUBLIC_APP_URL -e TRUSTED_ORIGINS \
+  -e BETTER_AUTH_SECRET -e NFC_TAP_SECRET \
+  -e NEXT_PUBLIC_APP_URL -e TRUSTED_ORIGINS \
+  -e TRUST_PROXY=false \
   -v /absolute/path/to/owned-ledger-directory:/app/data:rw \
-  scps:repair-smoke
+  scps:local
 ```
 
-Supply existing operator secrets and an existing configured database. Mount the entire writable ledger directory so WAL/SHM stay beside it, with ownership compatible with nonroot uid/gid 1001; never change a live ledger's ownership just for a smoke test. Build uses a disposable database and test-only secret, not production environment files. The image includes no fallback ledger. For Docker, provide equivalent uid/gid mapping or appropriately owned storage. Keep TLS termination and the single trusted proxy topology above.
+Export the named secret/URL variables securely before invocation. Mount the **whole writable ledger directory** so WAL/SHM remain beside the DB. Rootless Podman's mapping above maps your host identity to container uid/gid 1001; Docker requires equivalent accessible storage ownership. Do not chown a live ledger simply to try a container. Systems using SELinux may need an appropriate mount label under their local policy.
 
-**Environment Variables:**
-- `NODE_ENV=production` - Optimizes Next.js for production
-- `DATABASE_PATH` - Absolute path to SQLite database
-- `NFC_TAP_SECRET` - Shared secret for NFC tap authentication
-- `PORT` - Port to listen on (default: 3000)
+The host-loopback published port must stay private behind TLS. **Do not blindly enable `TRUST_PROXY` in bridged containers:** forwarded client identity is trusted only for a loopback immediate peer inside the app's network namespace. A host proxy reaching a bridged container may not be loopback there. Leave it false unless the actual topology meets the supported single-loopback-hop contract; otherwise obtain a separately reviewed trust design before relying on per-client signup limits.
 
-#### Docker Compose
-
-Create `docker-compose.yml`:
+Equivalent Compose example, in the repository root:
 
 ```yaml
-version: '3.8'
 services:
   web:
     build:
@@ -94,623 +183,206 @@ services:
     ports:
       - "127.0.0.1:3000:3000"
     environment:
-      - HOSTNAME=0.0.0.0
-      - DATABASE_PATH=/app/data/stuco.db
-      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
-      - NFC_TAP_SECRET=${NFC_TAP_SECRET}
-      - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
-      - TRUSTED_ORIGINS=${TRUSTED_ORIGINS}
+      HOSTNAME: 0.0.0.0
+      DATABASE_PATH: /app/data/stuco.db
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
+      NFC_TAP_SECRET: ${NFC_TAP_SECRET}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
+      TRUSTED_ORIGINS: ${TRUSTED_ORIGINS}
+      TRUST_PROXY: "false"
     volumes:
-      - ./data:/app/data:rw
+      - /absolute/path/to/owned-ledger-directory:/app/data:rw
     restart: unless-stopped
 ```
 
-Run with:
-```bash
-docker-compose up -d
-```
+Run `docker compose up -d` only after arranging storage permissions, database migration, secrets and reverse proxy. No systemd/cloud/physical-hardware proof is implied by this configuration.
 
-### Option 2: Systemd Services (Native, Recommended for this VPS flow)
+## HTTPS and reverse proxy
 
-Run directly on the host system using systemd for process management.
+Default `TRUST_PROXY=false` uses the socket peer. Set `TRUST_PROXY=true` **only** for the supported single loopback Nginx hop, with no publicly reachable app port. Only a loopback immediate peer's rightmost valid forwarded address is trusted; caller `X-Real-IP` and `x-scps-client-ip` are ignored. Nginx must append `$remote_addr` to `X-Forwarded-For` or overwrite it. Remote/multi-hop topologies are unsupported without separate trust configuration.
 
-#### Web UI Service
-On Debian, use the bootstrap script instead of hand-writing the service:
-
-```bash
-./scripts/setup-debian.sh
-```
-
-That renders `systemd/stuco-web.service` into `/etc/systemd/system/stuco-web.service` with your actual username and repo path, then enables and starts it.
-
-#### NFC Tap Broadcaster Service
-
-The `tap-broadcaster.service` file is already included in the repo (in `systemd/`). Install it:
-
-```bash
-sudo cp systemd/tap-broadcaster.service /etc/systemd/system/
-sudo nano /etc/systemd/system/tap-broadcaster.service
-```
-
-Update the environment variables:
-
-```ini
-[Unit]
-Description=NFC Tap Broadcaster for SCPS POS
-After=network.target
-
-[Service]
-Type=simple
-User=stuco
-Group=stuco
-WorkingDirectory=/home/stuco/stuco
-Environment="NEXTJS_URL=http://localhost:3000"
-Environment="NFC_TAP_SECRET=your-production-secret"
-Environment="POS_LANE_ID=default"
-Environment="PN532_DEVICE=tty:AMA0:pn532"
-ExecStart=/home/stuco/stuco/.venv/bin/python /home/stuco/stuco/hardware-pi/tap-broadcaster.py
-Restart=always
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-```
-
-**Enable and start:**
-```bash
-sudo systemctl daemon-reload
-sudo systemctl enable tap-broadcaster
-sudo systemctl start tap-broadcaster
-```
-
-#### Service Management
-
-```bash
-# Check status
-sudo systemctl status stuco-web
-journalctl -u stuco-web -f
-
-# Restart services
-sudo systemctl restart stuco-web
-
-# Stop services
-sudo systemctl stop stuco-web
-```
-
-**Quick Start After Reboot:**
-
-When you reboot your system:
-
-1. ✅ Network starts
-2. ✅ `stuco-web` service starts automatically
-3. ✅ Next.js server loads with WebSocket support
-4. ✅ `tap-broadcaster` service starts automatically
-5. ✅ Connects to Next.js via WebSocket
-6. ✅ Ready to detect NFC card taps
-
-**Total startup time:** ~10-15 seconds
-
-**Verify after reboot:**
-```bash
-# 1. Check services are running
-sudo systemctl status stuco-web tap-broadcaster
-
-# 2. Test web server
-curl http://localhost:3000
-
-# 3. Check NFC broadcaster logs
-journalctl -u tap-broadcaster -n 20
-
-# Should show:
-# [WS] Connected successfully
-# [WS] Authenticated successfully
-# [NFC] Waiting for card tap...
-```
-
-**Helper Scripts:**
-You also have these scripts available:
-
-```bash
-# Test NFC connection
-./scripts/test-nfc.sh
-
-# Run broadcaster with all settings (if you stop the service)
-./scripts/run-nfc.sh --simulate
-```
-
-**Access Your Application:**
-Once services are running:
-- **Web UI:** http://localhost:3000 (or http://your-ip:3000)
-- **POS Page:** http://localhost:3000/pos
-- **Dashboard:** http://localhost:3000/dashboard
-
-#### Configure Passwordless Sudo for Service Restart
-
-The web UI includes a feature to restart NFC broadcaster services from the Settings dialog. To enable this, configure passwordless sudo for specific systemctl commands.
-
-**Create sudoers configuration:**
-
-```bash
-sudo visudo -f /etc/sudoers.d/stuco-services
-```
-
-**Add the following content:**
-
-```
-# Allow web UI user to restart NFC tap broadcaster services without password
-# This enables the "Restart NFC Services" button in the Settings dialog
-$USER ALL=(ALL) NOPASSWD: /bin/systemctl restart tap-broadcaster.service tap-broadcaster-reader2.service
-$USER ALL=(ALL) NOPASSWD: /bin/systemctl restart tap-broadcaster.service
-$USER ALL=(ALL) NOPASSWD: /bin/systemctl restart tap-broadcaster-reader2.service
-# Allow executing the full fix script which handles driver resets
-$USER ALL=(ALL) NOPASSWD: /path/to/stuco/scripts/fix-readers.sh
-```
-
-Replace `$USER` with your actual system username (e.g., `pi`) and `/path/to/stuco` with the actual installation path.
-
-**Set correct permissions:**
-
-```bash
-sudo chmod 440 /etc/sudoers.d/stuco-services
-sudo chown root:root /etc/sudoers.d/stuco-services
-```
-
-**Verify configuration:**
-
-```bash
-# Test without password prompt
-sudo -n systemctl restart tap-broadcaster.service tap-broadcaster-reader2.service
-echo $?  # Should print 0 (success)
-```
-
-**Security Considerations:**
-
-- ✅ **Restricted scope**: Only allows restarting specific services, no other sudo commands
-- ✅ **No password required**: Enables one-click restart from web UI
-- ✅ **Specific user**: Only the web UI user has this permission
-- ✅ **Audit trail**: All restarts are logged in system journal
-- ⚠️ **Access control**: Ensure only trusted users can access the web UI
-- ⚠️ **File permissions**: sudoers.d files must be mode 440 (read-only)
-
-**Troubleshooting:**
-
-If the restart button doesn't work:
-
-```bash
-# Check sudoers syntax
-sudo visudo -c -f /etc/sudoers.d/stuco-services
-
-# Test manually as web UI user
-sudo -u $USER sudo -n systemctl restart tap-broadcaster.service
-
-# Check web UI logs for errors
-journalctl -u stuco-web -n 50 | grep "System"
-```
-
-**Using the Feature:**
-
-1. Log in to the web UI
-2. Click your user profile in the sidebar
-3. Select **Settings**
-4. Scroll to **System Services** section
-5. Click **Restart NFC Services** button
-6. Wait for confirmation toast
-
-The restart is useful when:
-- NFC readers stop responding
-- WebSocket connection is stuck
-- After changing USB device assignments
-- After system updates or configuration changes
-
-#### Production Ready Checklist
-
-✅ Next.js built for production  
-✅ WebSocket server configured  
-✅ NFC broadcaster configured  
-✅ USB device detected  
-✅ Authentication secret set  
-✅ Auto-start on boot enabled  
-✅ Restart on failure enabled  
-✅ Logs configured (journalctl)  
-
-## Reverse Proxy with Nginx
-
-Use nginx as a reverse proxy for SSL termination and improved performance.
-
-### Install Nginx
-
-```bash
-sudo apt update
-sudo apt install nginx
-```
-
-### Configure Site
-
-Create `/etc/nginx/sites-available/stuco`:
+Install Nginx and configure DNS for your actual domain. The following assumes TLS certificate files already exist; for initial certificate issuance first serve a plain HTTP site, then use your certificate provider/Certbot before enabling the TLS block. Put `map` and `limit_req_zone` in Nginx's **http context**, not inside `server`:
 
 ```nginx
-upstream stuco_web {
-    server localhost:3000;
-    keepalive 64;
+map $http_upgrade $scps_connection_upgrade {
+    default upgrade;
+    '' close;
 }
+limit_req_zone $binary_remote_addr zone=scps_api:10m rate=10r/s;
 
-# Redirect HTTP to HTTPS
 server {
     listen 80;
-    server_name stuco.example.com;
-    return 301 https://$server_name$request_uri;
+    server_name payments.example.com;
+    return 301 https://$host$request_uri;
 }
 
 server {
-    listen 443 ssl http2;
-    server_name stuco.example.com;
-
-    # SSL Configuration
-    ssl_certificate /etc/letsencrypt/live/stuco.example.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/stuco.example.com/privkey.pem;
+    listen 443 ssl;
+    server_name payments.example.com;
+    ssl_certificate /etc/letsencrypt/live/payments.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/payments.example.com/privkey.pem;
     ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers HIGH:!aNULL:!MD5;
-    ssl_prefer_server_ciphers on;
+    add_header Strict-Transport-Security "max-age=31536000" always;
+    add_header X-Content-Type-Options nosniff always;
+    add_header X-Frame-Options SAMEORIGIN always;
 
-    # Security Headers
-    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
-    add_header X-Content-Type-Options "nosniff" always;
-    add_header X-Frame-Options "SAMEORIGIN" always;
-
-    # Rate Limiting
-    limit_req_zone $binary_remote_addr zone=api_limit:10m rate=10r/s;
-    limit_req zone=api_limit burst=20 nodelay;
-
-    # Proxy to Next.js
     location / {
-        proxy_pass http://stuco_web;
+        limit_req zone=scps_api burst=20 nodelay;
+        proxy_pass http://127.0.0.1:3000;
         proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
         proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $scps_connection_upgrade;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_cache_bypass $http_upgrade;
     }
 
-    # WebSocket for NFC taps
     location /api/nfc/ws {
-        proxy_pass http://stuco_web;
+        proxy_pass http://127.0.0.1:3000;
         proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
         proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $scps_connection_upgrade;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_read_timeout 86400s;
         proxy_send_timeout 86400s;
     }
 
-    # Access Logs
-    access_log /var/log/nginx/stuco_access.log;
-    error_log /var/log/nginx/stuco_error.log;
+    access_log /var/log/nginx/scps_access.log;
+    error_log /var/log/nginx/scps_error.log;
 }
 ```
 
-### Enable Site
+Enable the site under your distribution's Nginx layout, then validate before reload:
 
 ```bash
-sudo ln -s /etc/nginx/sites-available/stuco /etc/nginx/sites-enabled/
 sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-## SSL with Let's Encrypt
+If using Certbot's distribution Nginx integration, obtain/configure your certificate with `sudo certbot --nginx -d payments.example.com`; confirm the installed renewal timer/job and test `sudo certbot renew --dry-run`. Certbot is external administration tooling, not an SCPS application dependency.
 
-### Install Certbot
+Permit SSH before changing firewall policy; allow 80/443 and deny public 3000. Do not lock yourself out of a remote host. The reverse proxy's limits supplement, not replace, application signup authorization and rate limiting.
 
-```bash
-sudo apt install certbot python3-certbot-nginx
-```
+## Existing-schema upgrade and rollback
 
-### Obtain Certificate
+Ordinary startup rejects old/mixed/non-cent schemas; it never silently converts money. Deploy/update commands do not replace this maintenance procedure.
 
-```bash
-sudo certbot --nginx -d stuco.example.com
-```
+1. Stop `stuco-web`, development servers, CLI writers and any external writers. Preserve the old application revision, env files and crypt credentials.
+2. With the new typed tools installed, from `web-next`, create a verified snapshot at a new path:
 
-Certbot will:
-- Verify domain ownership
-- Obtain certificate
-- Update nginx configuration
-- Set up auto-renewal
+   ```bash
+   node --import tsx tools/sqlite-snapshot.ts snapshot /absolute/path/to/stuco.db /absolute/path/to/pre-upgrade.db
+   ```
 
-### Auto-Renewal
+3. For a supported cent-based pre-cutover ledger:
 
-Certbot automatically sets up a cron job. Test renewal:
+   ```bash
+   node --import tsx tools/migrate-customer.ts --writers-stopped
+   ```
 
-```bash
-sudo certbot renew --dry-run
-```
+   It takes another verified pre-migration backup and performs atomic domain/role conversion, preserving IDs, balances, cards, archive/payment/login state and credentials. Detected active web service refuses; unavailable systemd warns, so you remain responsible for stopping every writer.
 
-## Environment Configuration
+4. For older money schemas, convert from a separate source snapshot:
 
-### Production Environment Variables
+   ```bash
+   node --import tsx tools/import-legacy-db.ts --source /absolute/path/to/legacy-copy.db --target /absolute/path/to/stuco.db --writers-stopped
+   ```
 
-Create `/home/stuco/stuco/web-next/.env.production`:
+   This requires known inactive/failed local web state, validates a staged final schema and creates a pre-target backup before SQLite replacement. Scale 10 or absent legacy marker means exact ×10 to cents, scale 100 is unchanged; unsupported scales/unsafe amounts refuse. Specify source/target explicitly; its defaults are root `IMPORTTHIS/stuco.db` and root `stuco.db`.
 
-```bash
-NODE_ENV=production
-DATABASE_PATH=/home/stuco/stuco/stuco.db
-NFC_TAP_SECRET=<generate-with-openssl>
-NEXT_TELEMETRY_DISABLED=1
-```
+5. Build/start the new application and check operator/customer login, account links, cents/balances, payment decisions and history. Staff/admin use `/admin`, `/admin/customers`, `/admin/transactions`, `/admin/pos`, `/admin/topup`; `/admin/users` and `/admin/payments` are administrator-only. Buyers use `/customer` or `/customer/pending`. Public `/login`, `/signup` and `/api/*` remain.
 
-Generate a secure secret:
+Old page GET/HEAD URLs permanently redirect with suffixes/query values preserved; POST actions do not redirect. Public signup is customer-only; linking and role grants remain administrator-controlled. A payment claim does not credit money; confirmed administrator approval credits the base amount once.
+
+For rollback, stop every writer again and restore the **matching old application plus its pre-upgrade database together**. Do not run old SQL callers against customer schema. A snapshot rollback does **not** preserve later ledger writes: retain a copy for deliberate reconciliation before replacing anything. Current restore tools normalize supported old cent-schema backups to the new schema, so that path is for forward recovery, not a way to produce an old-schema rollback ledger.
+
+## Encrypted backup and restore
+
+From `web-next`, configure the storage account used by the backup service/cron:
 
 ```bash
-openssl rand -hex 32
+export RCLONE_REMOTE=r2
+export RCLONE_CRYPT_REMOTE=r2-crypt
+export R2_PATH=stuco-db-backups
+node --import tsx tools/ops/setup-r2-crypt.ts
+node --import tsx tools/ops/cloud_backup_r2.ts
+rclone ls r2-crypt:
 ```
 
-### Secure Secrets Management
+Setup hides crypt password/salt and R2 secret input and avoids printing credential-bearing configuration failures. It reuses raw configuration and creates/updates crypt without deleting it first. Keep the old crypt password/salt and protected rclone configuration to read old backups. The crypt remote maps the raw bucket/path; changing `R2_PATH` alone does not relocate an existing configured crypt root.
 
-**Option 1: Environment files with restricted permissions**
-```bash
-chmod 600 /home/stuco/stuco/web-next/.env.production
-chown stuco:stuco /home/stuco/stuco/web-next/.env.production
-```
+Backups use verified **online SQLite snapshots**, `zstd -15 -T0` by default and atomic archive publication. Uploads use the crypt remote, preserve local archives on failure and do not enable retention deletion. Never substitute `tar stuco.db*` on a live ledger.
 
-**Option 2: Systemd environment files**
-```bash
-# Create /etc/stuco/environment
-DATABASE_PATH=/home/stuco/stuco/stuco.db
-NFC_TAP_SECRET=your-secret
-
-# Restrict permissions
-sudo chmod 600 /etc/stuco/environment
-sudo chown stuco:stuco /etc/stuco/environment
-
-# Reference in service file
-EnvironmentFile=/etc/stuco/environment
-```
-
-## Database Configuration
-
-### Enable WAL Mode
-
-For production with concurrent access:
+Local archive, with an existing restricted output directory:
 
 ```bash
-sqlite3 /home/stuco/stuco/stuco.db "PRAGMA journal_mode=WAL;"
+node --import tsx tools/ops/web_backup.ts /absolute/path/to/backups/manual.tar.zst
 ```
 
-### Permissions
+Daily cron example (replace paths, arrange PATH/rclone credentials, create restricted log directory):
+
+```cron
+0 2 * * * cd /srv/scps/web-next && /absolute/path/to/node --import tsx tools/ops/cloud_backup_r2.ts >> /srv/scps/logs/r2-backup.log 2>&1
+```
+
+Restore deliberately, after stopping **every** writer:
 
 ```bash
-chown stuco:stuco /home/stuco/stuco/stuco.db*
-chmod 664 /home/stuco/stuco/stuco.db*
+sudo systemctl stop stuco-web.service
+# Also stop all non-service/external writers before acknowledging the flag.
+cd /srv/scps/web-next
+node --import tsx tools/ops/restore_from_r2.ts stuco_backup_YYYYMMDD_HHMMSS.tar.zst --writers-stopped
 ```
 
-## Port Management
+Use an actual listed basename, not the placeholder timestamp. Restore requires known inactive/failed local web state; unavailable/unknown/empty state refuses. The flag cannot prove external writers are stopped. It securely downloads/extracts, accepts only root regular SQLite members, folds staged WAL, validates schema/integrity/FKs/cent scale, creates `db_backups/pre_restore_backup_*.tar.zst`, and restores through SQLite without deleting live sidecars. Supported old cent-schema backups normalize privately; arbitrary older money schemas require explicit conversion.
 
-### Firewall Configuration
+For local `.db` restore, make your own verified pre-restore snapshot first, then run `./scps-cli import-db /absolute/path/to/backup.db --yes` from the repository root with writers stopped. That CLI command has no automatic pre-backup/systemd guard. See [Database](database.md) and [Scripts](scripts.md) for extraction, reset and SQL migration failure semantics. Keep a protected backup of environment files, service/proxy configuration and crypt credentials separately from the database.
 
-```bash
-# Allow HTTP and HTTPS
-sudo ufw allow 80/tcp
-sudo ufw allow 443/tcp
+## Remote management
 
-# Block direct access to app (optional)
-sudo ufw deny 3000/tcp
+Local `web-next/.env.local` or environment:
+
+```dotenv
+SCPS_VPS_HOST=server.example.com
+SCPS_VPS_USER=scps
+SCPS_VPS_DIR=/var/www/scps
+SCPS_VPS_PORT=22
+SCPS_VPS_SSH_KEY=~/.ssh/id_ed25519
 ```
 
-### Change Default Port
-
-Modify in systemd service or docker-compose:
-
-```bash
-Environment="PORT=8080"
-```
-
-Or in Next.js:
-```bash
-pnpm start -p 8080
-```
-
-## Health Checks
-
-### Systemd Health Check
-
-Add to service file:
-
-```ini
-[Service]
-ExecStartPost=/bin/sleep 5
-ExecStartPost=/usr/bin/curl -f http://localhost:3000/api/health || exit 1
-```
-
-### Docker Health Check
-
-Add to Dockerfile:
-
-```dockerfile
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD node healthcheck.js
-```
-
-## Monitoring
-
-### Log Aggregation
-
-```bash
-# View combined logs
-journalctl -u stuco-web -u tap-broadcaster -f
-
-# Export logs
-journalctl -u stuco-web --since "1 hour ago" > /tmp/stuco_logs.txt
-```
-
-### Performance Monitoring
-
-```bash
-# Check resource usage
-systemctl status stuco-web
-
-# Monitor in real-time
-htop -p $(pgrep -f "node.*start")
-```
-
-## Backup Strategy
-
-### Automated Database Backups
-
-See [Database Guide](database.md) for cron setup.
-
-```bash
-# Add to crontab
-0 2 * * * cd /home/stuco/stuco && tar -czf db_backups/auto_$(date +\%Y\%m\%d).tar.gz stuco.db*
-```
-
-### Full System Backup
-
-```bash
-# Backup entire application
-tar -czf stuco_full_backup_$(date +%Y%m%d).tar.gz \
-  /home/stuco/stuco \
-  /etc/systemd/system/stuco-*.service \
-  /etc/nginx/sites-available/stuco
-```
-
-## Troubleshooting
-
-### Service Failed to Start
-
-**Check logs:**
-```bash
-journalctl -u stuco-web -n 50
-journalctl -u tap-broadcaster -n 50
-```
-
-**Common issues:**
-- Port 3000 already in use
-- USB device unplugged
-- Build files missing (run `cd web-next && pnpm build`)
-
-### NFC Not Detecting Cards
-
-**Check device:**
-```bash
-ls -l /dev/ttyUSB0
-```
-
-**Restart broadcaster:**
-```bash
-sudo systemctl restart tap-broadcaster
-journalctl -u tap-broadcaster -f
-```
-
-### WebSocket Not Connecting
-
-**Check web server:**
-```bash
-curl http://localhost:3000
-sudo systemctl status stuco-web
-```
-
-**Restart both services:**
-```bash
-sudo systemctl restart stuco-web tap-broadcaster
-```
-
-### Web UI Won't Start
-
-```bash
-# Check logs
-journalctl -u stuco-web -n 50
-
-# Common issues:
-# - Port already in use: change PORT environment variable
-# - Database not found: check DATABASE_PATH
-# - Permission denied: check file ownership
-```
-
-### SSL Certificate Issues
-
-```bash
-# Renew certificate manually
-sudo certbot renew --force-renewal
-
-# Check certificate expiry
-sudo certbot certificates
-```
-
-### High Memory Usage
-
-```bash
-# Check Node.js memory
-NODE_OPTIONS="--max-old-space-size=512" pnpm start
-
-# Add to systemd service
-Environment="NODE_OPTIONS=--max-old-space-size=512"
-```
-
-**Configuration Files:**
-All configuration is in:
-- `/etc/systemd/system/stuco-web.service`
-- `/etc/systemd/system/tap-broadcaster.service`
-
-To modify:
-```bash
-sudo nano /etc/systemd/system/stuco-web.service
-sudo systemctl daemon-reload
-sudo systemctl restart stuco-web
-```
-
-## Remote Secure Management
-
-To manage your production VPS database securely from your local developer machine without having to manually log in and browse directories every time, use the root SSH-tunnel script `scps-remote-cli`.
-
-### 1. Local Configuration
-
-Add your remote VPS deployment parameters to your local `web-next/.env.local` file (on your local development machine):
-
-```bash
-# Production VPS SSH Parameters
-SCPS_VPS_HOST=157.180.68.183              # Your remote server IP or domain
-SCPS_VPS_USER=root                         # SSH user (default: current system user)
-SCPS_VPS_DIR=/home/qiss/scps               # The absolute path to your repo on the VPS
-SCPS_VPS_PORT=22                          # SSH port (default: 22)
-SCPS_VPS_SSH_KEY=~/.ssh/id_ed25519         # Optional: Path to private key file
-```
-
-### 2. Execution
-
-From the root of your local repository, launch the connection tunnel:
+From the local repository root:
 
 ```bash
 ./scps-remote-cli
+./scps-remote-cli users
 ```
 
-This allocates a secure interactive pseudo-terminal (`ssh -t`), enabling the remote administrative CLI prompts and selection menus to render natively in your local terminal.
+The wrapper runs the remote `./scps-cli` over `ssh -t`, quotes directory/every argument and propagates SSH failure/signals. Defaults: `/var/www/scps`, port 22, local OS username. An unset host triggers prompts. Remote directories are literal; only a key's leading `~/` expands locally. This is a privileged administrative console, not a customer access tunnel.
 
----
+## Monitoring, acceptance and troubleshooting
 
-## Security Checklist
+```bash
+systemctl status stuco-web.service
+journalctl -u stuco-web.service -n 50
+journalctl -u tap-broadcaster.service -u tap-broadcaster-reader2.service -f
+curl -I http://127.0.0.1:3000/login
+```
 
-- [ ] Strong NFC_TAP_SECRET set (32+ hex chars)
-- [ ] SSL certificate installed and auto-renewal enabled
-- [ ] Firewall configured (ufw/iptables)
-- [ ] Services running as non-root user
-- [ ] Database file permissions restricted (664)
-- [ ] Environment files secured (600)
-- [ ] Sudoers configuration for service restart (optional, for web UI restart feature)
-- [ ] Regular automated backups configured
-- [ ] Nginx security headers enabled
-- [ ] Rate limiting configured
-- [ ] Logs monitored regularly
+Use existing routes for basic HTTP reachability; there is no documented dedicated health endpoint/script. A responding login page is not a financial or reader-health check.
 
-## Next Steps
+Before calling a deployment ready, verify on a disposable copy first and then under your deployment change process:
 
-- Configure automated backups (see [Database Guide](database.md))
-- Set up monitoring alerts
-- Review [Security Guide](security-guide.md) for hardening
-- Test disaster recovery procedures
+- [ ] Native dependencies load, production build exists, correct DB opens and directory permits WAL.
+- [ ] Login/signup/linking, staff denial of administration, last-admin protection and private customer history behave correctly.
+- [ ] Balances and cents match the pre-upgrade ledger; claim does not credit, approval credits once.
+- [ ] TLS/origins/proxy client identity and firewall match the actual topology.
+- [ ] Encrypted backup is readable with retained crypt material; pre-restore backup and recovery are exercised.
+- [ ] Both physical readers pass repeated taps, removal, unplug/replug, unavailable reader, network outage and service-stop timing.
 
-**Last updated: November 17, 2025**
+These are **required observations, not a statement that final tests, container acceptance or physical checks have passed**. Service-active status and simulation cannot substitute for hardware acceptance.
+
+For start failures inspect logs for wrong DB/schema, permissions, port conflict or missing build/dependencies. For NFC failures inspect actual device/ownership, `lsusb`, serial permissions and native probe errors with owners stopped. For WebSocket failures check URL/secret, trusted origins and proxy upgrade handling. Check certificate expiry/renewal using your provider's tooling. Avoid changing live ownership or resetting unrelated USB devices as a generic fix.
+
+See [Getting Started](getting-started.md), [Security](security-guide.md), [Database](database.md), [NFC Setup](nfc-setup.md) and [Troubleshooting](troubleshooting.md).

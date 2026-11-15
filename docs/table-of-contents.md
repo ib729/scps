@@ -1,6 +1,6 @@
 # Documentation
 
-Welcome to the documentation for the Student Council Management System. This system handles customer payments via NFC cards, account management, and point-of-sale operations.
+Documentation for the Student Council Payment System: customer payments via NFC cards, account management and point-of-sale operations.
 
 ## Table of Contents
 
@@ -32,9 +32,12 @@ Welcome to the documentation for the Student Council Management System. This sys
 
 ## Project Structure
 
-- **Root**: CLI tools (pos.py, topup.py), database (stuco.db), setup scripts.
-- **web-next/**: Next.js web UI.
-- **docs/**: This documentation.
+- **Root**: Minimal `scps-cli` and `scps-remote-cli` launchers; the default ledger is `stuco.db` unless configured otherwise.
+- **web-next/**: Typed Next.js application/custom server, shared modules, hardware programs and tools.
+- **migrations/** and **web-next/migrations/**: Final customer ledger and authentication SQL schemas.
+- **scripts/setup-debian.sh**: OS/Node/pnpm/native-build bootstrap; application setup lives in TypeScript.
+- **systemd/**: Rendered Node/tsx web and reader unit templates.
+- **docs/**: Practical operation, security and development guides.
 
 For the root project overview, see [../README.md](../README.md).
 
@@ -46,8 +49,4 @@ For the root project overview, see [../README.md](../README.md).
 - **Extending the system?** Check [Development Guide](development.md) and [UI Components](ui-components.md)
 - **Having issues?** Look in [Troubleshooting](troubleshooting.md)
 
-## Contributing
-
-This is an internal tool. See the [Development Guide](development.md) for technical details.
-
-**Last updated: November 11, 2025**
+**Last updated: November 15, 2026**

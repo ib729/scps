@@ -1,775 +1,222 @@
 # Scripts Reference
 
-Documentation for all utility scripts in the Student Council Payment System, including setup, maintenance, and testing tools.
+The Student Council Payment System runs its web server, administrative CLI, database tools and operational workflows in TypeScript. Use **Node.js >=26.13.1 <27** (container: **26.13.1**) and **pnpm 12.21.0**. Python >=3.11 is only a possible third-party native-addon compilation dependency; it is not an application runtime.
 
-## Overview
+## Invocation and database paths
 
-The Student Council Payment System includes various scripts for:
-- **Setup**: Installing dependencies and configuring the environment
-- **Database**: Initialization, migration, backup, and reset
-- **NFC**: Testing and broadcasting card taps
-- **Student Management**: Enrollment and batch imports
-- **Maintenance**: Checking prerequisites and troubleshooting
+From the repository root, the only shell entrypoints are:
 
----
-
-## Unified Administrative CLI
-
-We have consolidated administrative tasks (user management, ledger adjustments, imports, and system diagnostics) into a unified TypeScript CLI. This replaces individual standalone Python scripts for production management.
-
-### scps-cli
-
-**Location**: `./scps-cli` (root)
-
-**Purpose**: Terminal interface for staff accounts, ledger adjustments, imports, and diagnostics. Initialize the database first using [Getting Started](getting-started.md).
-
-**Usage:**
-
-*   **Interactive Menu Mode:** (Run with no arguments to open the visual console menu)
-    ```bash
-    ./scps-cli
-    ```
-*   **Direct Commands (still interactive):**
-    ```bash
-    ./scps-cli users             # Manage staff accounts (Add, Delete, Reset Password)
-    ./scps-cli ledger            # Execute top-ups and balance debits
-    ./scps-cli import            # Parse and import students/cards from a CSV file
-    ./scps-cli import-db         # Overwrite active database securely from backup
-    ./scps-cli diagnose          # Spawns serial, reader, and GPIO test scripts
-    ```
-
-The launcher runs from `web-next/`, so relative CSV and backup paths resolve there. Ledger debits are administrative adjustments; they do not enforce the web POS weekly overdraft policy.
-
-Before `import-db`, stop the app and other database writers and keep a separate backup. Restore accepts only integrity-checked, current-schema databases; initialize or migrate legacy backups on a copy first. SQLite performs the replacement transactionally without deleting active WAL files.
-
-**Interactive Interface Preview:**
-```
-┌  SCPS CLI
-│
-◇  What management task would you like to perform?
-│  ● Manage Staff Accounts (Add, Delete, Reset Passwords)
-│  ○ Ledger & Balances (Top-up, Adjustments)
-│  ○ Import Students (CSV)
-│  ○ Import SQLite Database Backup (Overwrite Active)
-│  ○ NFC Hardware & Diagnostics
-│  ○ Exit CLI
-└
-```
-
----
-
-### scps-remote-cli
-
-**Location**: `./scps-remote-cli` (root)
-
-**Purpose**: Secure SSH connection wrapper to interactively run the remote production server's CLI from your local terminal.
-
-**Prerequisites:**
-
-Configure your production server credentials in your local `web-next/.env.local` configuration file:
 ```bash
-SCPS_VPS_HOST=157.180.68.183              # Remote server IP
-SCPS_VPS_USER=root                         # SSH user
-SCPS_VPS_DIR=/home/qiss/scps               # Repo directory path on VPS
-SCPS_VPS_PORT=22                          # SSH port (default: 22)
-SCPS_VPS_SSH_KEY=~/.ssh/id_ed25519         # Optional path to private key
-```
-
-**Usage:**
-
-Run the script locally to allocate a secure pseudo-terminal TTY session (`ssh -t`) to the VPS:
-```bash
-./scps-remote-cli [command]
-```
-
-This establishes an encrypted connection, navigates to the target repository directory, and initializes `./scps-cli` in your current terminal session cleanly.
-
----
-
-## Setup Scripts
-
-### web-next-check-prereqs.sh
-
-**Location**: `scripts/web-next-check-prereqs.sh`
-
-**Purpose**: Verify build tools and dependencies before installing.
-
-**Usage:**
-```bash
-./scripts/web-next-check-prereqs.sh
-```
-
-**Checks:**
-- Operating system (Linux)
-- gcc, g++, make (Linux)
-- Node.js and version
-- pnpm package manager
-- python3
-
-**Output:**
-- ✅ Green checks for installed tools
-- ❌ Red X for missing dependencies
-- Installation instructions for missing tools
-
-**Exit Codes:**
-- `0`: All prerequisites met
-- `1`: Missing dependencies
-
-**When to Use:**
-- Before first `pnpm install`
-- After OS upgrade or toolchain changes
-- When troubleshooting build failures
-
-### web-next-setup.sh
-
-**Location**: `scripts/web-next-setup.sh`
-
-**Purpose**: Legacy manual setup for better-sqlite3 when postinstall fails.
-
-**Usage:**
-```bash
-./scripts/web-next-setup.sh
-```
-
-**Steps:**
-1. Changes to `web-next/` directory
-2. Runs `pnpm install` to install dependencies
-3. Navigates to better-sqlite3 directory
-4. Manually builds native bindings with `npm run build-release`
-5. Returns to project root
-
-**When to Use:**
-- If `pnpm install` postinstall hook fails
-- On platforms with complex build requirements
-- When `web-next-check-prereqs.sh` passes but postinstall still fails
-
-**Note**: Modern `pnpm install` includes automatic postinstall, so this is rarely needed.
-
-### setup-debian.sh
-
-**Location**: `scripts/setup-debian.sh`
-
-**Purpose**: Bootstrap a Debian VPS for the SCPS web app with systemd.
-
-**Usage:**
-```bash
+./scps-cli
+./scps-remote-cli
 ./scripts/setup-debian.sh
 ```
 
-**What it does:**
-1. Verifies a Debian-based host with `sudo`
-2. Installs OS packages, requires Node.js >=26.13.1 <27, bootstraps pnpm 12.21.0, and installs `rclone`, `sqlite3`, `zstd`, and Python >=3.11 tooling.
-3. Creates `.venv` and installs root Python dependencies
-4. Installs `web-next` dependencies and builds the app
-5. Creates `web-next/.env.local` from `web-next/.env.local.example` if missing
-6. Renders and installs `stuco-web.service`
-7. Enables and starts the production web service
+The first two only resolve the package directory and launch TypeScript. The Debian bootstrap installs OS/Node/pnpm/native-build dependencies and invokes the typed setup stage. All other examples below run **from `web-next/`**, after `pnpm install --frozen-lockfile`:
 
-**When to Use:**
-- First-time VPS setup
-- Reprovisioning a Debian host
-- Standardizing production installs
-
-### deploy-vps.sh
-
-**Location**: `scripts/deploy-vps.sh`
-
-**Purpose**: Pull the latest code on the VPS and restart the production web service.
-
-**Usage:**
 ```bash
-./scripts/deploy-vps.sh
-./scripts/deploy-vps.sh main
+cd web-next
+node --import tsx tools/ops/web-next-check-prereqs.ts
 ```
 
-**What it does:**
-1. Fails if the VPS repo is dirty
-2. Fetches from `origin`
-3. Fast-forward pulls the selected branch
-4. Runs `pnpm install --frozen-lockfile`
-5. Runs `pnpm build`
-6. Restarts `stuco-web`
+`DATABASE_PATH` configured in `web-next/.env.local` is canonical: relative values resolve against `web-next`, not the caller's directory. If unset, an existing package-local database wins, otherwise the fallback is repository-root `stuco.db`. Other relative arguments, such as CSV, SQL and output filenames, use the command's working directory. Prefer absolute paths for maintenance.
 
-### deploy-remote.sh
+Current data uses `customers`, `customer_id` and `user_customer_links`; roles are exactly `admin`, `staff`, `customer`. See [Getting Started](getting-started.md) before opening a new database.
 
-**Location**: `scripts/deploy-remote.sh`
+## Administrative CLI
 
-**Purpose**: Convenience wrapper for running the VPS deploy script over SSH from your Mac.
+Run these from the repository root:
 
-**Usage:**
 ```bash
-./scripts/deploy-remote.sh user@your-vps
-./scripts/deploy-remote.sh user@your-vps main
+./scps-cli users       # Interactive operator creation, listing, password reset/deletion
+./scps-cli ledger      # Interactive cash top-up or signed balance adjustment
+./scps-cli import      # Interactive customer/card CSV import, with dry-run prompt
+./scps-cli import-db /absolute/path/to/validated.db --yes
+./scps-cli diagnose   # Interactive typed USB/UART/I2C diagnostics
 ```
 
-**Notes:**
-- Defaults the remote repo path to `$HOME/scps`
-- Override with `SCPS_REMOTE_PATH=/custom/path`
+With no subcommand the CLI opens its menu. `users` creates staff/admin accounts; public signup creates customers only and never grants the first account administrator access. An administrator controls customer-login links in `/admin/users`.
 
-## Database Scripts
+The launcher changes to `web-next`, so relative import paths resolve there. CLI debits are administrative adjustments and do **not** enforce the web POS weekly overdraft policy.
 
-Database initialization, bootstrapping, resets, and secure backups have been fully consolidated into the TypeScript administrative CLI under the `./scps-cli users` (interactive database schema and admin registration) and `./scps-cli import-db` (database overwrite and active log purge) subcommands.
+`import-db [source]` accepts `-y, --yes` to confirm an explicit source without prompts. **Stop all writers and create a separate verified backup first.** This CLI command does not enforce a systemd stopped-state guard or make an automatic pre-restore backup. It validates a private SQLite snapshot, normalizes supported pre-cutover cent-schema backups, then replaces contents through SQLite's backup API. It never deletes live WAL files. Arbitrary legacy currency conversion requires the separate converter below.
 
-Refer to the **Unified Administrative CLI** section at the top of this document for execution guides.
+### Remote CLI
 
----
+Configure local `web-next/.env.local` or the process environment:
 
-### reset_db.sh
+```dotenv
+SCPS_VPS_HOST=server.example.com
+SCPS_VPS_USER=scps
+SCPS_VPS_DIR=/var/www/scps
+SCPS_VPS_PORT=22
+SCPS_VPS_SSH_KEY=~/.ssh/id_ed25519
+```
 
-**Location**: `scripts/reset_db.sh`
-
-**Purpose**: Quick developer-centric database reset.
-
-**Usage:**
 ```bash
-./scripts/reset_db.sh
+./scps-remote-cli
+./scps-remote-cli users
 ```
 
-**Interactive Flow:**
-1. Confirms migrations/schema.sql exists
-2. Prompts for confirmation (type 'yes')
-3. Creates timestamped backup
-4. Removes old database files
-5. Re-runs database initializers to reinitialize
+The typed remote CLI uses `ssh -t` and POSIX-quotes the remote directory and every forwarded argument. Default directory is `/var/www/scps`, port `22`, username the local OS user; missing host triggers host/username prompts. Only the SSH key's leading `~/` is expanded locally. A configured remote directory is literal, so use an absolute path, not `$HOME` or `~`. A missing configured key warns and leaves SSH's normal authentication selection in effect. SSH failures/signals propagate; no remote command is treated as successful merely because a connection was attempted.
 
-**When to Use:**
-- Quick resets during development
-- Scripting/automation (non-interactive mode possible)
+## Operational workflows
 
-### run_migration.sh
+Each of the following is a distinct entrypoint under `web-next/tools/ops/`; retired shell paths have no aliases. Commands require their external utilities and permissions. Mutating command failures exit nonzero rather than silently continuing; inspect output before restarting services or retrying.
 
-**Location**: `scripts/run_migration.sh`
+### Setup, application deployment and OS updates
 
-**Purpose**: Run SQL migrations with automatic backup.
+| Basename | Invocation from `web-next` | Capability and guard |
+|---|---|---|
+| `web-next-check-prereqs` | `node --import tsx tools/ops/web-next-check-prereqs.ts` | Read-only pinned Node/pnpm and native-build tool checks. Checks Python >=3.11 for compilation; Linux gcc/g++/make required, pkg-config recommended. Missing requirements return 1. |
+| `web-next-setup` | `node --import tsx tools/ops/web-next-setup.ts` | Checks prerequisites, installs frozen dependencies and rebuilds `better-sqlite3`; stops on failure. |
+| `setup-debian` | `node --import tsx tools/ops/setup-debian.ts` | Typed stage after the root bootstrap: private env file, canonical quoted DB path, missing auth secret generation without logging, fresh core+auth initialization only when the ledger does not exist, build and service rendering. Preserves existing ledgers. Renders all three units but enables/restarts **web only**. |
+| `deploy-vps` | `node --import tsx tools/ops/deploy-vps.ts [branch]` | Default `main`; refuses a dirty checkout, fetches origin, selects branch, pulls ff-only, installs frozen dependencies, builds, then restarts/status-checks `stuco-web`. An install/build failure prevents restart. Does not perform the domain migration. |
+| `deploy-remote` | `node --import tsx tools/ops/deploy-remote.ts user@server.example.com [branch]` | Runs typed VPS deploy over `ssh -t`. Default remote directory expands the **remote** `$HOME/scps`; `SCPS_REMOTE_PATH` overrides with a literal POSIX-quoted directory. Branch defaults to `main`; SSH exit/signal propagates. |
+| `auto-update` | `sudo node --import tsx tools/ops/auto-update.ts` | OS maintenance, not application deployment: apt update, upgrade, autoremove and autoclean; appends `/var/log/auto-update.log`, records consecutive failures in `/var/tmp/auto-update-failures`, and refuses after three. Review/fix the cause before deliberately removing that counter. |
 
-**Usage:**
+For first-time Debian setup run `./scripts/setup-debian.sh` **from the repository root**, as the intended service user with sudo access. It bootstraps packages and pinned pnpm before invoking the typed stage. Reader units are installed inactive: configure reader environment, serial access and noninteractive reset privileges before enabling them. See [Deployment](deployment.md).
+
+### Backup, restore and database maintenance
+
+| Basename | Invocation from `web-next` | Capability and guard |
+|---|---|---|
+| `web_backup` | `node --import tsx tools/ops/web_backup.ts /absolute/existing/directory/backup.tar.zst` | Online SQLite snapshot with integrity/FK verification, then tar+zstd. Publishes atomically only after compression completes; failed compression never publishes the partial archive. Parent output directory must exist. |
+| `cloud_backup_r2` | `node --import tsx tools/ops/cloud_backup_r2.ts` | Checks raw/crypt remotes, creates repository `db_backups/stuco_backup_YYYYMMDD_HHMMSS.tar.zst`, uploads through crypt and reports counts. Upload failure returns nonzero and preserves the local archive. No retention deletion enabled. |
+| `setup-r2-crypt` | `node --import tsx tools/ops/setup-r2-crypt.ts` | Interactive raw Cloudflare S3 and crypt configuration. Hides crypt password/salt and R2 secret input; configuration failures do not print credentials. Reuses an existing raw remote and creates/updates crypt without deleting it first. |
+| `restore_from_r2` | `node --import tsx tools/ops/restore_from_r2.ts backup.tar.zst --writers-stopped` | Requires one basename ending `.tar.zst`, then the flag, and known `inactive`/`failed` local `stuco-web.service`. Downloads/extracts privately, creates a verified pre-restore archive, restores via SQLite. Does not stop/start services. Unknown/unavailable service state refuses. |
+| `reset_db` | `node --import tsx tools/ops/reset_db.ts --writers-stopped` | **Deletes all ledger and authentication data.** Requires known stopped web state plus exact interactive `yes`; cancellation changes nothing. Backs up an existing ledger, transactionally replaces schema/content and verifies final schema/integrity/FKs. Never unlinks a live database. |
+| `run_migration` | `node --import tsx tools/ops/run_migration.ts /absolute/path/to/migration.sql` | Accepts exactly one SQL path, or a basename found in root `migrations/`. Creates verified `<database>.backup.<timestamp>.<pid>`, then runs `sqlite3 -bail`. Preserves SQL/dot-command/explicit-transaction semantics; failure retains the snapshot, with no automatic rollback of earlier SQL. Stop writers yourself; this workflow has no stopped-state flag/guard. |
+
+`web_backup` snapshots online; do not archive a live database and its sidecars by copying them separately. Default compression is `zstd -15 -T0`; `ZSTD_CLEVEL` and `ZSTD_NBTHREADS` override compression level/thread count. Archives contain the verified snapshot as root `stuco.db`.
+
+Backup configuration:
+
 ```bash
-./scripts/run_migration.sh migrate_restrict_delete.sql
-```
-
-**Steps:** Resolve the configured ledger, create an integrity/FK-checked SQLite snapshot, then run `sqlite3 -bail`. Failure exits nonzero and retains that snapshot for deliberate recovery. Stop writers and use `./scps-cli import-db /absolute/path/to/validated.db --yes` to restore; never overwrite a live database file.
-
-**When to Use:**
-- Applying schema changes to existing database
-- Upgrading from older versions
-- Adding new features requiring schema updates
-
-**Safety Features:**
-- Automatic backup before migration
-- Exit on SQL failure; retain the snapshot without automatic rollback
-- Verification of foreign key constraints
-- Clear rollback instructions
-
-### cloud_backup_r2.sh
-
-**Location**: `scripts/cloud_backup_r2.sh`
-
-**Purpose**: Automated database backup to Cloudflare R2 with local retention.
-
-**Usage:**
-```bash
-./scripts/cloud_backup_r2.sh
-```
-
-**Prerequisites:**
-- rclone installed (`sudo apt install rclone`)
-- rclone configured for Cloudflare R2 (see documentation)
-
-**Environment Variables:**
-```bash
-export RCLONE_REMOTE="r2"  # Raw R2 remote name (default: r2)
-export RCLONE_CRYPT_REMOTE="r2-crypt"  # Encrypted remote used by scripts
-export R2_PATH="stuco-db-backups"  # Path within bucket for backups (default: stuco-db-backups)
-```
-
-**Setup:**
-```bash
-./scripts/setup-r2-crypt.sh
-```
-
-**Steps:**
-1. Creates compressed `.tar.zst` backup of `stuco.db`, `stuco.db-wal`, `stuco.db-shm`
-2. Stores backup locally in `db_backups/` with timestamp
-3. Uploads to the encrypted `rclone crypt` remote
-4. Displays backup summary and statistics
-5. Keeps local backup (does not auto-delete)
-
-**Output:**
-```
-============================================================
-STUCO Cloudflare R2 Database Backup (rclone)
-============================================================
-Timestamp: 20251110_005702
-
-------------------------------------------------------------
-Step 1: Creating compressed backup
-------------------------------------------------------------
-✓ All database files included
-✓ Local backup created: db_backups/stuco_backup_20251110_005702.tar.zst (45K)
-
-------------------------------------------------------------
-Step 2: Uploading to Cloudflare R2
-------------------------------------------------------------
-Remote: r2-crypt:
-File: stuco_backup_20251110_005702.tar.zst
-✓ Upload successful!
-
-------------------------------------------------------------
-Step 3: Backup Summary
-------------------------------------------------------------
-Local backups: 5 files (225K total)
-Latest backup: db_backups/stuco_backup_20251110_005702.tar.zst (45K)
-
-Checking R2 bucket contents...
-R2 backups: 12 files
-
-============================================================
-✓ Backup Complete!
-============================================================
-
-Local:  db_backups/stuco_backup_20251110_005702.tar.zst
-Remote: r2-crypt:stuco_backup_20251110_005702.tar.zst
-```
-
-**When to Use:**
-- Automated daily cloud backups (via cron)
-- Off-site disaster recovery
-- Compliance with data retention policies
-- Before major system changes
-
-**Cron Setup:**
-```bash
-# Daily at 2 AM
-0 2 * * * cd $PROJECT_ROOT && ./scripts/cloud_backup_r2.sh >> logs/r2_backup.log 2>&1
-
-# With custom remote/path
-0 2 * * * cd $PROJECT_ROOT && RCLONE_REMOTE=my-r2 RCLONE_CRYPT_REMOTE=my-r2-crypt R2_PATH=my-backups ./scripts/cloud_backup_r2.sh >> logs/r2_backup.log 2>&1
-```
-
-### setup-r2-crypt.sh
-
-**Location**: `scripts/setup-r2-crypt.sh`
-
-**Purpose**: Configure both the raw Cloudflare R2 remote and the encrypted `rclone crypt` remote used by the backup scripts.
-
-**Usage:**
-```bash
-./scripts/setup-r2-crypt.sh
-```
-
-### restore_from_r2.sh
-
-**Location**: `scripts/restore_from_r2.sh`
-
-**Purpose**: Restore database from Cloudflare R2 backup.
-
-**Usage:**
-```bash
-./scripts/restore_from_r2.sh <backup_filename.tar.zst> --writers-stopped
-```
-
-**Example:**
-```bash
-# List available backups first
+export RCLONE_REMOTE=r2
+export RCLONE_CRYPT_REMOTE=r2-crypt
+export R2_PATH=stuco-db-backups
+node --import tsx tools/ops/setup-r2-crypt.ts
+node --import tsx tools/ops/cloud_backup_r2.ts
 rclone ls r2-crypt:
-
-# Restore specific backup
-./scripts/restore_from_r2.sh stuco_backup_20251110_005702.tar.zst --writers-stopped
 ```
 
-Stop every writer before invoking this command. It refuses a detected active web service; the flag acknowledges that other writers are also stopped. Downloads and extraction use private staging. Only root regular SQLite backup members are accepted; SQLite validates integrity, foreign keys, schema and cent scale before copying through its backup API. A consistent pre-restore archive remains in `db_backups`. Services and live sidecars are never silently stopped, replaced or removed.
+Defaults are the values shown. Crypt maps to `r2:stuco-db-backups` when configured; backup/restore use the crypt remote root. Changing `R2_PATH` alone does not rewrite an existing crypt remote. Preserve the existing crypt password **and salt**, plus a protected copy of the rclone configuration: new keys cannot read old encrypted backups. Do not put credentials in cron command lines or logs.
 
-## Customer Import
+Example daily cron, after creating a restricted log directory; replace paths and ensure cron's PATH contains the pinned Node and rclone:
 
-### batch-import-customers.ts
+```cron
+0 2 * * * cd /srv/scps/web-next && /absolute/path/to/node --import tsx tools/ops/cloud_backup_r2.ts >> /srv/scps/logs/r2-backup.log 2>&1
+```
 
-Run from `web-next`:
+Before destructive maintenance stop web, development processes, CLI writers and any external database clients. `--writers-stopped` is an operator assertion: no command can detect arbitrary external writers. Keep pre-restore/reset snapshots and verify recovery on a disposable copy. Do not enable retention deletion until you have a separately reviewed retention policy.
 
-```sh
+### Reader lifecycle and diagnostics
+
+Install native `libnfc-bin`, `usbutils`, `lsof` and `udev` on reader hosts. Support is PN532 UART/I2C and libnfc-supported USB; unsupported or ambiguous explicit devices fail, rather than choosing another reader. See [NFC Setup](nfc-setup.md) and [Dual Readers](dual-reader-setup.md) for wiring and native calibration.
+
+| Basename | Invocation from `web-next` | Capability and side effects |
+|---|---|---|
+| `run-nfc` | `node --import tsx tools/ops/run-nfc.ts [broadcaster options]` | Loads repository-root `.env.broadcaster` without overriding existing environment, then runs typed broadcaster. |
+| `test-nfc` | `node --import tsx tools/ops/test-nfc.ts [broadcaster options]` | Same environment loading, adds `--test`: authenticated single `DEADBEEF` tap; exit 0/1. Network test, not physical reader proof. |
+| `dev-with-nfc` | `node --import tsx tools/ops/dev-with-nfc.ts` | Stops all installed reader owners, checks release, resets selected USB adapters, launches development custom server and waits up to 20s for `/login`; starts primary and previously active readers only after readiness. Ctrl+C stops web but intentionally leaves reader services running. Reset/readiness failure prevents reader startup; inspect actual service state after a partial start failure. |
+| `check_usb_port` | `node --import tsx tools/ops/check_usb_port.ts` | Read-only lsusb/topology/TTY/kernel observations; does not open a reader or claim TTY presence means health. |
+| `reset-usb-nfc` | `node --import tsx tools/ops/reset-usb-nfc.ts [USB0\|USB1\|/dev/ttyUSBn]` | Stop owners yourself first. Resolves selected TTY's actual sysfs USB ancestor; unbinds, waits 2s, always rebinds even on interrupt, waits 1s and bounds device-return wait. Default selects CH340 adapters first, otherwise USB serial adapters. Requires sysfs reset privileges. |
+| `recover-nfc` | `node --import tsx tools/ops/recover-nfc.ts [USB0\|USB1\|/dev/ttyUSBn]` | Stops both installed broadcaster owners, refuses unmanaged TTY owners, resets actual USB ancestry, settles, probes native communication, then starts services. Failure before restart leaves services stopped. |
+| `fix-readers` | `node --import tsx tools/ops/fix-readers.ts` | Stops both owners, checks exclusive release, reloads `ch341` with 2s/3s calibration waits, probes native readers and starts services. Driver reload can affect other devices using it; it attempts reload even if interrupted. |
+| `disable-usb-autosuspend` | `sudo node --import tsx tools/ops/disable-usb-autosuspend.ts` | Backs up `/boot/firmware/cmdline.txt`, validates single-line format, sets `usbcore.autosuspend=-1` preserving file ownership/mode, and attempts original-content recovery if editing fails. Asks `y/N` before reboot; gives 5s to cancel. |
+| `test-reader2-hardware` | `node --import tsx tools/ops/test-reader2-hardware.ts` | Reader 2 specialist observations for `/dev/ttyUSB1`, wiring/power, sysfs ancestry and serial settings; stops both owners and performs a bounded native probe. Leaves services stopped for diagnosis. |
+| `test_replug` | `node --import tsx tools/ops/test_replug.ts [USB0\|USB1\|/dev/ttyUSBn]` | Interactive before/unplug/replug comparison of the same TTY, default USB0; services must already be stopped. Requires real removal/return and exclusive native communication; does not mutate services. |
+| `verify-nfc-auto-recovery` | `node --import tsx tools/ops/verify-nfc-auto-recovery.ts [--observe-seconds 1..120]` | Reads actual boot/autosuspend and service restart/enabled state. Default 10s fresh journal window requires hardware error followed by successful tap, with no later reader error, for each active reader. No service mutation; incomplete evidence exits nonzero. |
+
+Do not run direct probes/reset while a broadcaster owns the reader. Coordinated recovery workflows stop both installed owners and use `lsof` to refuse unmanaged owners; missing ownership evidence is an error, not permission to seize the device. Active/authenticated service status proves neither native reader health nor recovery.
+
+Broadcaster examples, from `web-next`, with matching `NFC_TAP_SECRET` configured:
+
+```bash
+node --import tsx tools/ops/run-nfc.ts --simulate
+node --import tsx tools/ops/run-nfc.ts --device pn532_uart:/dev/ttyUSB0
+node --import tsx tools/ops/run-nfc.ts --device pn532_i2c:/dev/i2c-1
+node --import tsx tools/ops/test-nfc.ts --url https://payments.example.com --lane reader-1
+```
+
+Options are `--url`, `--secret`, `--lane`, `--device`, `--simulate`, `--test`. Prefer secret environment/config over a process-list-visible `--secret`. Environment equivalents are `NEXTJS_URL` (default `http://localhost:3000`), `NFC_TAP_SECRET`, `POS_LANE_ID` (default `default`), `PN532_DEVICE`. Explicit CLI device wins over environment, then deterministic native autodiscovery, then the legacy AMA0 default. Configure exact devices for multiple readers. Legacy UART/I2C selectors normalize to native connstrings; legacy USB bus/device selectors must resolve uniquely.
+
+Simulation uppercases typed UIDs; `q`, `quit`, `exit` or EOF stops it. Authentication success gates taps; disconnected taps are not buffered/replayed. Native probes have a five-second bound plus child cleanup. The loop retains 100ms spacing, 1.5s UID debounce, independent network 1–60s and hardware 1–30s retry backoff.
+
+Additional direct diagnostics:
+
+```bash
+node --import tsx hardware/diagnose-nfc.ts
+node --import tsx hardware/test-readers.ts
+node --import tsx hardware/test-usb-ports.ts
+```
+
+These respectively provide interactive single-reader USB/TTY/kernel diagnosis, sequential bounded USB0/USB1 tests, and physical-port comparison. Stop owners before native probes. Physical dual-reader, unplug/replug, network outage and stop-window acceptance must be observed on deployment hardware; simulation is not that proof.
+
+## Customer import, snapshots and schema cutover
+
+From `web-next`:
+
+```bash
 node --import tsx tools/batch-import-customers.ts --template --with-uid customers.csv
 node --import tsx tools/batch-import-customers.ts --dry-run customers.csv
 node --import tsx tools/batch-import-customers.ts customers.csv
 node --import tsx tools/batch-import-customers.ts --no-skip-duplicates customers.csv
+node --import tsx tools/sqlite-snapshot.ts snapshot /absolute/path/to/ledger.db /absolute/path/to/snapshot.db
+node --import tsx tools/sqlite-snapshot.ts extract /absolute/path/to/backup.tar.zst /empty/private/staging
 ```
 
-UTF-8 CSV requires `name` and optionally `uid`; quoted/multiline names are supported.
-UIDs are uppercase hexadecimal, 4–20 characters. Each valid row atomically creates
-a zero-balance account or attaches an unowned card to an existing customer.
-Bad rows do not prevent later valid rows, but any error produces a nonzero exit.
-Dry runs are read-only; template generation does not open the ledger.
+UTF-8 CSV requires `name`, optionally `uid`; quoted/multiline fields work. UIDs normalize to uppercase hexadecimal, length 4–20. Each valid row atomically creates a zero-balance customer/account or attaches an unowned card to an existing customer. Bad rows do not prevent later valid rows, but any row failure returns nonzero. Dry run is read-only; template generation never opens the ledger. See [Batch Import Customers](batch-import-customers.md).
 
-### sqlite-snapshot.ts
+Snapshot uses SQLite's online backup API and verifies integrity/FKs. Extraction accepts only root regular `stuco.db` plus optional legacy WAL/SHM, rejects unsafe/duplicate/truncated members, and folds staged WAL without touching a live ledger. Extraction stdout is the verified staged database path only.
 
-```sh
-node --import tsx tools/sqlite-snapshot.ts snapshot /path/to/ledger.db /path/to/snapshot.db
-node --import tsx tools/sqlite-snapshot.ts extract /path/to/backup.tar.zst /empty/private/staging
-```
+### Existing installations
 
-Snapshots use SQLite's online backup API and verify integrity/foreign keys.
-Extraction accepts only the main database and optional legacy WAL/SHM, rejects
-unsafe or truncated archives, and folds staged WAL without touching a live ledger.
-Extraction stdout contains only the verified staged database path.
+**Do not run fresh initialization/reset against an existing ledger.** Ordinary startup rejects old/mixed/non-cent schemas and never silently converts money.
 
-### import-legacy-db.ts
+1. Stop every writer; record the matching application revision and preserve environment/crypt credentials.
+2. Create/verify a pre-upgrade snapshot with `sqlite-snapshot.ts snapshot`.
+3. For an already-cent-based pre-cutover schema, run:
 
-```sh
-node --import tsx tools/import-legacy-db.ts --source /path/to/old.db --target /path/to/ledger.db --writers-stopped
-```
+   ```bash
+   node --import tsx tools/migrate-customer.ts --writers-stopped
+   ```
 
-Stop every writer first. The command refuses an active local web service, takes a
-verified pre-target backup, validates conversion in staging, then restores through
-SQLite. Marker 10 or an absent legacy marker means exact ×10 conversion to cents;
-marker 100 preserves values. Other scales and unsafe amounts refuse conversion.
-Credentials, roles, login links and financial IDs remain intact; there is no first-admin promotion.
-Pre-cutover cent-based student-schema backups also normalize in private restore staging.
-The local service check cannot detect arbitrary external writers.
+   This creates another verified pre-migration backup, then atomically renames the domain and converts roles. It refuses detected active local web service state; if systemd is unavailable it warns, so the stopped-writer assertion still matters.
 
-See [Batch Import Customers](batch-import-customers.md) for CSV/SQL examples.
+4. For older currency schemas, use a **separate source copy**, not in-place renaming:
 
+   ```bash
+   node --import tsx tools/import-legacy-db.ts --source /absolute/path/to/legacy-copy.db --target /absolute/path/to/ledger.db --writers-stopped
+   ```
 
-## NFC Scripts
+   Defaults, if omitted, are repository `IMPORTTHIS/stuco.db` and root `stuco.db`, not the configured database path. Specify both explicitly. Marker 10 or absent means exact ×10 to cents; marker 100 keeps values. Other scales/unsafe amounts refuse. Conversion validates privately and backs up an existing target before SQLite replacement. This command requires known stopped local web state.
 
-### tap-broadcaster.py
+5. Start the matching new application and check roles, login links, balances, payments and owned customer history.
 
-**Location**: `hardware-pi/tap-broadcaster.py`
+Supported pre-cutover **cent-schema** backups normalize privately during restore; that is not permission to guess an old currency scale. For rollback, stop writers and restore the **matching old application and pre-upgrade database together**. Never run old SQL callers against customer schema. Snapshot rollback loses later ledger writes; preserve/reconcile those separately rather than promising they survive.
 
-**Purpose**: Broadcast NFC card taps to web UI via WebSocket connection.
-
-**Version**: WebSocket v2.0 (async, with card presence tracking)
-
-**Usage:**
-
-**Simulation Mode (No Hardware):**
-```bash
-python hardware-pi/tap-broadcaster.py --simulate
-> DEADBEEF
-> CAFE1234
-> quit
-```
-
-**Hardware Mode (PN532 Reader):**
-```bash
-# UART connection (recommended for Raspberry Pi)
-python hardware-pi/tap-broadcaster.py --device tty:AMA0:pn532
-
-# USB connection
-python hardware-pi/tap-broadcaster.py --device tty:USB0:pn532
-
-# I2C connection (uses libnfc)
-python hardware-pi/tap-broadcaster.py --device i2c:/dev/i2c-1:pn532
-```
-
-**Test Mode (Single Tap):**
-```bash
-python hardware-pi/tap-broadcaster.py --test
-```
-
-**Options:**
-- `--url` - Next.js server URL (default: http://localhost:3000)
-- `--secret` - Shared secret for authentication
-- `--lane` - POS lane identifier (default: 'default')
-- `--device` - NFC reader device string (default: tty:AMA0:pn532)
-- `--simulate` - Manual UID entry mode
-- `--test` - Send single test tap and exit
-
-**Environment Variables:**
-- `NEXTJS_URL` - Server URL
-- `NFC_TAP_SECRET` - Authentication secret
-- `POS_LANE_ID` - Lane identifier
-- `PN532_DEVICE` - Default device
-
-**Features:**
-- **WebSocket connection** with automatic reconnection
-- **Card presence tracking** - detects card removal, prevents duplicates
-- **Async operation** - efficient, non-blocking
-- **Smart debouncing** - 1.5s per-card tracking
-- **Exponential backoff** - intelligent reconnection on failures
-- Supports TTY, USB, and I2C connections
-- Graceful signal handling (SIGINT, SIGTERM)
-- Comprehensive logging with connection status
-
-**Output:**
-```
-╔═══════════════════════════════════════════════════════════════╗
-║         NFC Tap Broadcaster for SCPS POS System              ║
-║                    WebSocket Version                         ║
-╠═══════════════════════════════════════════════════════════════╣
-║ Server:  http://localhost:3000                               ║
-║ Lane:    default                                             ║
-║ Device:  tty:AMA0:pn532                                      ║
-║ Secret:  [SET]                                               ║
-║ Mode:    HARDWARE                                            ║
-╚═══════════════════════════════════════════════════════════════╝
-
-[WS] Connecting to ws://localhost:3000/api/nfc/ws...
-[WS] Connected successfully
-[WS] Authenticated successfully (lane: default)
-[NFC] Starting card reader loop on tty:AMA0:pn532
-[NFC] Waiting for card tap...
-[OK] Tap broadcast: DEADBEEF
-```
-
-**When to Use:**
-- Development: `--simulate` for testing without hardware
-- Production: Run as systemd service (see tap-broadcaster.service)
-- Testing: `--test` to verify server connectivity
-- Debugging: Watch logs for WebSocket connection status
-
-**Systemd Service:**
-
-See `systemd/tap-broadcaster.service` for systemd configuration.
+## Operational checks and troubleshooting
 
 ```bash
-# Install service
-sudo cp systemd/tap-broadcaster.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable tap-broadcaster
-sudo systemctl start tap-broadcaster
-
-# Check status
-sudo systemctl status tap-broadcaster
-
-# View logs (live)
-journalctl -u tap-broadcaster -f
-
-# View recent logs
-journalctl -u tap-broadcaster -n 100
+sqlite3 /absolute/path/to/stuco.db "PRAGMA integrity_check; PRAGMA foreign_key_check;"
 ```
 
-**Dependencies:**
-- `websockets>=13.1` - WebSocket client library
-- `nfcpy>=1.0.4` - NFC reader library (TTY/USB)
-- `libnfc-bin` - For I2C connections (optional)
+Integrity should report `ok`; the FK check should return no rows. For read-only weekly reporting, amounts remain integer cents:
 
-**Troubleshooting:**
-- Connection issues: Check `[WS]` log messages
-- Auth failures: Verify NFC_TAP_SECRET matches server
-- Reader issues: Check `[NFC]` log messages and hardware connections
-- Duplicate taps: Should be handled automatically; check debounce logs
-
-## Deprecated Legacy Python CLI Tools
-
-The legacy standalone Python CLI tools (`pos.py`, `topup.py`, `enroll.py`, `reset_db.py`, and `init_db.py`) have been fully deprecated and deleted from the codebase.
-
-Use the unified TypeScript CLI for administration and imports. Initialize new databases with the existing core and auth SQL schemas; see [Getting Started](getting-started.md).
-
-## Testing Scripts
-
-### Database Integrity
-
-```bash
-sqlite3 /absolute/path/to/stuco.db "PRAGMA integrity_check;"
-```
-
-Use the database path configured in `.env.local`; expected output is `ok`.
-
-
-### test_readers.py
-
-**Location**: `hardware-pi/test_readers.py`
-
-**Purpose**: Test multiple NFC readers connected simultaneously.
-
-**Usage:**
-```bash
-python hardware-pi/test_readers.py
-```
-
-**Features:**
-- Automatically detects all available USB NFC readers
-- Tests each reader independently
-- Displays reader ID and device path
-- Useful for dual-reader setup verification
-
-**When to Use:**
-- Setting up multiple NFC readers
-- Verifying reader detection and identification
-- Troubleshooting dual-reader configurations
-
-### test_usb_ports.py
-
-**Location**: `hardware-pi/test_usb_ports.py`
-
-**Purpose**: Diagnostic tool for USB port detection and reader identification.
-
-**Usage:**
-```bash
-python hardware-pi/test_usb_ports.py
-```
-
-**Features:**
-- Lists all detected USB serial devices
-- Shows device paths and attributes
-- Helps identify which physical USB port corresponds to which device
-- Useful for systemd service configuration
-
-**When to Use:**
-- Determining correct device paths for broadcaster configuration
-- Troubleshooting USB device detection issues
-- Verifying USB permissions
-
-### diagnose_nfc.py
-
-**Location**: `hardware-pi/diagnose_nfc.py`
-
-**Purpose**: Comprehensive NFC hardware diagnostic and troubleshooting tool.
-
-**Usage:**
-```bash
-python hardware-pi/diagnose_nfc.py
-```
-
-**Features:**
-- Tests NFC reader connectivity
-- Verifies nfcpy library installation
-- Checks device permissions
-- Attempts card detection
-- Provides detailed error messages and solutions
-
-**When to Use:**
-- NFC reader not working
-- Setting up NFC hardware for the first time
-- Troubleshooting card detection issues
-- Verifying hardware configuration
-
-**Output Example:**
-```
-[CHECK] Checking nfcpy installation...
-✓ nfcpy is installed
-
-[CHECK] Scanning for NFC devices...
-✓ Found device: tty:USB0:pn532
-
-[CHECK] Testing card detection...
-✓ Place a card on the reader...
-✓ Card detected: 04A1B2C3
-
-[RESULT] NFC hardware is working correctly!
-```
-
-## Utility Scripts
-
-### Migration SQL Files
-
-**migrate_cascade_delete.sql**: Adds ON DELETE CASCADE to foreign keys.
-
-Currency conversion is performed once by application startup under an atomic scale check; no manual decimal-currency SQL migration is supported.
-
-See [Database Guide](database.md) for migration details.
-
-## Script Cheat Sheet
-
-| Task | Command |
-|------|---------|
-| Check prerequisites | `./scripts/web-next-check-prereqs.sh` |
-| Setup web UI | `cd web-next && pnpm install` |
-| Setup web UI (manual) | `./scripts/web-next-setup.sh` |
-| Initialize database | Apply `migrations/schema.sql` and `web-next/migrations/better_auth_schema.sql`; see Getting Started |
-| Reset database (quick) | `./scripts/reset_db.sh` |
-| Run migration | `./scripts/run_migration.sh migrate_file.sql` |
-| Backup to cloud (R2) | `./scripts/cloud_backup_r2.sh` |
-| Restore from cloud (R2) | `./scripts/restore_from_r2.sh backup_file.tar.gz` |
-| Test NFC (simulate) | `python hardware-pi/tap-broadcaster.py --simulate` |
-| Test NFC (hardware) | `python hardware-pi/tap-broadcaster.py --device tty:AMA0:pn532` |
-| POS and card enrollment | Web interface `/pos` and `/students` |
-| CLI balance adjustment | `./scps-cli ledger` |
-| Test DB integrity | `sqlite3 /absolute/path/to/stuco.db "PRAGMA integrity_check;"` |
-| Start web UI | `cd web-next && pnpm dev` |
-| Build production | `cd web-next && pnpm build` |
-
-## Automation
-
-### Daily Backups
-
-Add to crontab:
-
-```bash
-# Backup database daily at 2 AM
-0 2 * * * cd /home/stuco/stuco && tar -czf db_backups/auto_$(date +\%Y\%m\%d).tar.gz stuco.db*
-
-# Clean old backups (30+ days)
-0 3 * * * find /home/stuco/stuco/db_backups -name "auto_*.tar.gz" -mtime +30 -delete
-```
-
-### Weekly Reports
-
-Example script for weekly transaction summary:
-
-```bash
-#!/bin/bash
-# weekly_report.sh
-sqlite3 stuco.db <<EOF
-.mode column
-.headers on
-SELECT 
-  strftime('%Y-W%W', created_at) as week,
-  COUNT(*) as transactions,
-  SUM(CASE WHEN type='TOPUP' THEN amount ELSE 0 END) as topups,
-  SUM(CASE WHEN type='DEBIT' THEN -amount ELSE 0 END) as debits
+```sql
+SELECT strftime('%Y-%W', created_at) AS week, COUNT(*) AS transactions,
+       SUM(CASE WHEN type='TOPUP' THEN amount ELSE 0 END) AS topup_cents,
+       SUM(CASE WHEN type='DEBIT' THEN -amount ELSE 0 END) AS debit_cents
 FROM transactions
-WHERE created_at >= date('now', '-7 days')
+WHERE created_at >= datetime('now', '-7 days')
 GROUP BY week;
-EOF
 ```
 
-### Balance Adjustments
+- If Node/tsx cannot start, check the pinned Node version, package dependencies and service/cron PATH. Do not make `.ts` executable or run it directly.
+- For native binding errors use the prerequisite/rebuild tools above; a native build may need Python, but application commands do not.
+- A ledger needs a writable **directory** for WAL/SHM as well as an appropriately owned file. Fix permissions deliberately with writers stopped, not blanket world-writable modes.
+- Inspect `journalctl -u stuco-web` and both reader units. Do not equate successful SSH, a TTY, or WebSocket authentication with a completed deployment or healthy reader.
 
-Use `./scps-cli ledger` for interactive top-ups and adjustments. The removed Python top-up script is no longer available for CSV automation.
-
-
-## Troubleshooting
-
-### Script Not Executable
-
-```bash
-chmod +x script_name.sh
-./script_name.sh
-```
-
-### Python Environment
-
-Always activate virtual environment:
-
-```bash
-source .venv/bin/activate
-python script.py
-```
-
-### Node Not Found
-
-Ensure Node.js installed:
-
-```bash
-node --version
-# If not found, install via nvm or package manager
-```
-
-### Permission Denied
-
-Run as correct user:
-
-```bash
-# For systemd scripts
-sudo -u stuco ./script.sh
-
-# For database scripts
-chown stuco:stuco stuco.db*
-```
-
-## Best Practices
-
-- **Always backup** before running destructive scripts (reset, migration)
-- **Test in development** before production
-- **Use simulation modes** to test without hardware
-- **Check exit codes** in automation scripts
-- **Log script output** for troubleshooting
-- **Version control** custom scripts in git
-
-## Resources
-
-- [Getting Started](getting-started.md) - Setup guides
-- [Database Guide](database.md) - Database operations
-- [NFC Setup](nfc-setup.md) - NFC configuration
-- [Deployment Guide](deployment.md) - Production deployment
-
-**Last updated: November 22, 2025**
+See [Getting Started](getting-started.md), [Deployment](deployment.md), [Database](database.md), [Security](security-guide.md) and [Troubleshooting](troubleshooting.md).

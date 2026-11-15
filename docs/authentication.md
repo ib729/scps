@@ -61,25 +61,15 @@ The authentication system requires additional database tables:
 - `account` - OAuth and credential accounts
 - `verification` - Email verification and password reset tokens
 
-**Setup**: Initialize the core schema with `sqlite3 stuco.db < migrations/schema.sql`, then apply the auth migration below. Use the path configured by `DATABASE_PATH`.
-
-**Manual Migration** (if needed):
-
-If you have an existing database without Better Auth tables, you can add them manually:
+For a **new empty database only**, apply both checked-in schemas to the same absolute path configured by `DATABASE_PATH`:
 
 ```bash
-cd web-next
-sqlite3 ../stuco.db < migrations/better_auth_schema.sql
+# From the repository root; replace the path with your configured fresh ledger.
+sqlite3 "/absolute/path/to/stuco.db" < migrations/schema.sql
+sqlite3 "/absolute/path/to/stuco.db" < web-next/migrations/better_auth_schema.sql
 ```
 
-Or using pnpm:
-
-```bash
-cd web-next
-pnpm auth:migrate
-```
-
-**Note**: The migration script is idempotent and safe to run multiple times.
+Do not apply fresh initialization or an auth-generated migration as a substitute for the existing-ledger customer migration. Stop writers, verify a backup and follow [Database Guide](database.md) for legacy roles/schema/currency conversion. Existing credentials, sessions and links must be preserved.
 
 ### Schema Details
 
@@ -91,6 +81,7 @@ CREATE TABLE user (
   email TEXT NOT NULL UNIQUE,
   emailVerified INTEGER DEFAULT 0,
   image TEXT,
+  role TEXT NOT NULL DEFAULT 'customer' CHECK(role IN ('admin','staff','customer')),
   createdAt INTEGER NOT NULL,
   updatedAt INTEGER NOT NULL
 );
@@ -232,7 +223,7 @@ const session = await requirePageStaffContext();
 
 ```bash
 cd web-next
-pnpm install
+pnpm install --frozen-lockfile
 pnpm dev
 ```
 
@@ -269,10 +260,8 @@ See [Deployment Guide](deployment.md) for production setup with proper secrets m
 ```typescript
 // web-next/lib/auth.ts
 session: {
-  cookieCache: {
-    enabled: true,
-    maxAge: 60 * 5, // 5 minutes
-  },
+  cookieCache: { enabled: false },
+  updateAge: 60 * 60 * 24,
 },
 advanced: {
   cookiePrefix: "better-auth",
@@ -291,9 +280,8 @@ web-next/
 │   │   ├── layout.tsx       # Minimal layout
 │   │   ├── login/page.tsx   # Login page
 │   │   └── signup/page.tsx  # Signup page
-│   ├── (app)/               # Protected routes
-│   │   ├── layout.tsx       # Session guard + sidebar
-│   │   └── ...              # App pages
+│   ├── (app)/admin/         # Staff/admin protected layout and pages
+│   ├── (customer)/customer/ # Owned portal and pending approval
 │   └── api/
 │       └── auth/
 │           └── [...all]/
@@ -310,13 +298,13 @@ web-next/
 - **Server Config**: `lib/auth.ts` - Better Auth configuration
 - **Client Config**: `lib/auth-client.ts` - Client-side auth hooks
 - **API Handler**: `app/api/auth/[...all]/route.ts` - Auth endpoints
-- **Session Guard**: `app/(app)/layout.tsx` - Protected route wrapper
+- **Session Guard**: `app/(app)/admin/layout.tsx` - Staff/admin route wrapper; customer pages use their own customer/link guard
 - **Login Page**: `app/(auth)/login/page.tsx`
 - **Signup Page**: `app/(auth)/signup/page.tsx`
 
 ## Troubleshooting
 
-See the [Troubleshooting Guide](troubleshooting.md#authentication-issues) for common authentication issues and solutions.
+See the [Troubleshooting Guide](troubleshooting.md#authentication-and-approval) for common authentication issues and solutions.
 
 ### Quick Checks
 
@@ -345,18 +333,6 @@ See the [Troubleshooting Guide](troubleshooting.md#authentication-issues) for co
 - Preserve the controlled signup action: direct email-signup HTTP requests are blocked.
 - Password recovery uses the existing administrator CLI, not new email/SMS delivery.
 
-## Future Enhancements
-
-Potential authentication improvements:
-
-- [x] Role-based access control (admin, staff, customer)
-- [ ] Email verification for new signups
-- [ ] Password reset flow via email
-- [ ] Two-factor authentication (2FA)
-- [ ] Session timeout configuration per role
-- [ ] Audit log for authentication events
-- [ ] Account lockout after failed login attempts
-
 ## Resources
 
 - [Better Auth Documentation](https://www.better-auth.com/docs)
@@ -364,5 +340,5 @@ Potential authentication improvements:
 - [Security Guide](security-guide.md) - Security best practices
 - [Deployment Guide](deployment.md) - Production setup
 
-**Last updated: November 12, 2025**
+**Last updated: November 15, 2026**
 

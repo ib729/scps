@@ -32,14 +32,18 @@
 - Require a verified stopped local web service before destructive reset/restore, preserve existing crypt configuration on failed replacement, and keep configured NFC secrets out of CLI help.
 - Settings backup download and reader repair now invoke the typed tools from the package directory; administrator/origin gates and subprocess failures remain enforced without granting arbitrary Node sudo.
 
+### Documentation cutover
+- Remove the root security-reporting, code-of-conduct and contributing policy files; retain practical authentication, security, deployment, NFC and recovery guides.
+- Update current examples to customer routes/schema and typed tools, distinguish native-build Python from runtime, and document stopped-writer upgrades and paired application/database rollback.
+
 ### Toolchain
-- Pin Node 26.13.1, pnpm 12.21.0 and current stable direct dependencies; use the installed `auth` CLI. Python reader dependencies require Python 3.11 or newer.
+- Pin Node 26.13.1, pnpm 12.21.0 and current stable direct dependencies; use the installed `auth` CLI. Python >=3.11 is only a third-party native-addon build prerequisite, not an application/reader runtime.
 - TypeScript 7 checks the application; ESLint compiler-API consumers resolve isolated TypeScript 6.0.3. Workspace policy explicitly permits native builds and denies unused Prisma client generation and telemetry scripts.
 - Remove unreachable TanStack tables; keep the live customer and transaction interfaces. Forward Next development upgrades so browser hydration works alongside NFC sockets.
 - Run `cd web-next && pnpm test` for account/payment regressions and CLI self-checks. HTTP fixtures use temporary databases and test credentials, never an operator ledger.
-- Resolve all configured relative SQLite paths against `web-next`, including installer initialization; preserve existing ledgers. Verify with `cd web-next && node --import tsx --test lib/database-path.test.ts` and root `python3 -m unittest discover -s tests -p test_setup_paths.py`.
-- Backups now archive a validated SQLite snapshot, not independently copied WAL files. R2 restoration requires `--writers-stopped`, stages and validates the archive, saves old state, and calls `scps-cli import-db <source> --yes`. Migration failures retain a snapshot rather than copying files over an active ledger.
-- Currency startup conversion now locks before reading the scale marker and commits all cent values and metadata together. Unknown markers, invalid amounts and overflow roll back. Historical ledger usage is not rewritten.
+- Resolve all configured relative SQLite paths against `web-next`, including installer initialization; preserve existing ledgers. Focused path/setup checks live in `lib/database-path.test.ts` and `tools/ops/setup-debian.test.ts`.
+- Backups archive a validated SQLite snapshot, not independently copied WAL files. R2 restoration requires stopped writers and a verified inactive local web service, validates private staging, saves old state and uses the shared SQLite restore implementation. Migration failures retain a snapshot instead of copying over an active ledger.
+- Currency conversion is explicit. Startup refuses non-cent ledgers; the legacy converter rejects unknown scales, invalid amounts and overflow without rewriting historical borrowing usage.
 - Protected HTTP requests always check the database session, including old cache cookies. CLI password resets atomically revoke only that user's sessions; failed revocation rolls back the credential change.
 - Every matching-lane NFC delivery rechecks the original signed session's current user, staff role and finite expiry. Revoked, expired or demoted sockets close 1008 without receiving the next identifier; duplicate authentication and malformed cookies are rejected.
 - NFC readiness tracks authenticated remote broadcasters per lane, not local USB/systemd state. Protocol ping/pong removes stale connections; connected means network presence, not confirmed reader hardware health.

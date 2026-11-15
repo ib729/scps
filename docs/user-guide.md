@@ -1,164 +1,94 @@
 # User Guide
 
-This guide is for staff using the Student Council Payment System web interface to manage the snack bar. URL: http://localhost:3000 (or production URL).
+The Student Council Payment System has an operator workspace and a separate customer portal. Open your deployment URL, or `http://localhost:3000` locally.
 
-## Navigation
+## Navigation and Access
 
-- 🏠 **Dashboard**: System overview, stats, recent transactions.
-- 💳 **POS**: Process sales (tap card or manual).
-- 💰 **Top-up**: Add funds or adjust balances (manual only).
-- 👥 **Students**: Manage student accounts and cards.
-- 📊 **Transactions**: View full history.
+- Staff/admin: `/admin` dashboard, `/admin/pos`, `/admin/topup`, `/admin/customers` and `/admin/transactions`.
+- Administrators only: **Accounts** at `/admin/users` and **Payment review** at `/admin/payments`.
+- Customers: `/customer`; new/unlinked registrations wait at `/customer/pending`.
 
-## Processing Sales (POS)
+Public registration never grants operator access or creates a financial balance. An administrator verifies the person and links the correct existing customer ledger. A teacher who only buys uses the customer role.
 
-The POS supports two modes for flexibility.
+## Processing Sales
 
-### Tap Card Mode (Recommended)
+### Tap Card Mode
 
-1. Go to POS page.
-2. Ensure **"Tap Card"** button is selected (green).
-3. Student taps their card on the reader.
-4. Student auto-selects, balance shows.
-5. Enter purchase amount (e.g., 6.5 for ¥6.5).
-6. (Optional) Add description (e.g., "Chips") and your name.
-7. Click **"Charge ¥X"**.
-8. Success: Transaction complete, balance updated.
+1. Open `/admin/pos` and select the intended reader in Settings.
+2. Select **Tap Card** mode.
+3. Ask the customer to tap a card; confirm the selected customer and balance.
+4. Enter the purchase amount, description and staff information as appropriate.
+5. Confirm the charge and wait for the success result/balance update.
 
-**If card unenrolled**: Dialog opens. Enter name, choose:
-- **Enroll & Process Payment**: Enrolls and charges immediately.
-- **Enroll & Top-up**: Enrolls and goes to top-up.
-- **Enroll Only**: Enrolls, returns to POS.
-- **Cancel**.
-
-**Time**: ~10 seconds.
+A tap selects a card/customer; it is not itself a completed payment. If the card is unenrolled, the enrollment dialog offers enrollment with payment, enrollment with top-up, enrollment only, or cancellation. Check the person's identity before assigning the card.
 
 ### Manual Mode
 
-Use if reader offline or student forgot card:
+Use manual selection when a reader is unavailable or a customer has forgotten their card. Search by name, verify the customer, enter the amount and confirm the charge. Do not treat an offline reader as a reason to bypass balance/overdraft checks.
 
-1. Click **"Manual"** button (turns green).
-2. Select student from dropdown (search by name).
-3. Enter amount and description.
-4. Click **"Charge ¥X"**.
+Outside the POS page, a tap alert can take staff to `/admin/pos` with the detected card selected. Customer sessions do not subscribe to operator NFC events.
 
-NFC taps still work but show a toast alert (see below).
+## Adding Funds and Corrections
 
-## Adding Funds (Top-up)
+At `/admin/topup`, select the correct customer, enter a positive amount, record the payment description/staff and confirm. Enrollment can preselect the new customer.
 
-Top-ups are manual only (no NFC).
+Use the balance-adjustment form for corrections: positive values add and negative values subtract. Record the reason and review the resulting balance before confirming. A ledger correction is not a refund to a merchant payment account.
 
-1. Go to Top-up page.
-2. Select student from dropdown.
-3. Enter amount (e.g., 20.0 for ¥20).
-4. (Optional) Description (e.g., "Cash") and your name.
-5. Click **"Add ¥X"**.
+## Managing Customers and Cards
 
-For adjustments (e.g., refunds): Enter negative amount with reason.
+At `/admin/customers`, search the ledger or create a new customer with a zero balance. Open a customer to edit their name, review transactions, configure weekly overdraft and manage cards.
 
-**Auto-selection**: If coming from enrollment, student pre-selected.
+- Register a UID only after verifying the intended owner.
+- Multiple active cards can belong to one customer.
+- Revoke a lost card before issuing a replacement.
+- Records with financial history are archived rather than losing their history; only eligible unused records are deleted.
+- Archived/account-less linked records are unavailable in the customer portal.
 
-## Managing Students
+Do not reassign a login link by guessing from a name/email. The approval screen links one login to one financial customer; identity mistakes need an administrator and a verified backup.
 
-### View/Add Students
+## Balances and Weekly Overdraft
 
-1. Go to Students page.
-2. Search or scroll to find.
-3. Balance indicators:
-   - 🟢 Positive (green).
-   - 🟡 Low (orange, < ¥5).
-   - 🔴 Overdraft (red).
+Amounts display in yuan with two decimals; the ledger stores integer cents. Customers have individual weekly overdraft limits, which may be zero.
 
-4. **Add New**: Click "Add Student", enter name, create (¥0 balance).
+Borrowing allowance uses the week beginning Monday 00:00 in `Asia/Shanghai`. Top-ups improve the balance but do not refund borrowing allowance already consumed during that week. If a charge exceeds available funds/allowance, top up first or use another accepted payment method.
 
-### Student Details
+Review history at `/admin/transactions` or on the customer detail page. Use the existing correction controls carefully and keep the reason/staff information; never repair balances by editing SQLite rows directly.
 
-Click student name:
+## Customer Portal and QR Top-ups
 
-- **Edit Info**: Update name.
-- **Account Settings**: Adjust overdraft limit (default ¥20/week).
-- **Cards**: Add/revoke/delete cards.
-  - Add: Enter UID (tap or type), set active.
-- **Transactions**: Full history for this student.
+1. Register at `/signup`, then sign in.
+2. Wait for administrator approval/linking at `/customer/pending`.
+3. The linked portal shows only your balance, history and top-up requests.
+4. Request a base top-up amount and pay the exact distinct payable amount displayed against the configured merchant QR.
+5. Mark the request sent only after sending payment; keep the request ID/receipt.
+6. Wait for an administrator to verify the actual receipt and approve.
 
-**Delete Student**: Cascades to delete cards, transactions, account.
+For example, a ¥30.00 request may ask for ¥30.01 to distinguish it. Only ¥30.00 is credited after approval. A sent claim does not change the balance. Rejection gives no credit and does not refund the merchant payment.
 
-## Handling Unenrolled Cards
+Unclaimed reservations expire; do not pay after expiry. Claimed pending requests remain reserved until review. For late or disputed payments, contact the operator with the request ID instead of paying a reused amount.
 
-When an unenrolled card is tapped:
+## Administrator Account and Payment Review
 
-### On POS Page
+In **Accounts**, verify registration identity and select the existing ledger before **Approve and link**. Grant staff/admin access only after separate confirmation. Staff cannot grant roles, approve payments or access these administration pages. The last administrator cannot be demoted.
 
-- Dialog: "Card not registered".
-- Enter student name.
-- Options:
-  - **Enroll & Process Payment**: Enroll + charge.
-  - **Enroll & Top-up**: Enroll + add funds.
-  - **Enroll Only**: Enroll, stay on POS.
-  - **Cancel**.
+In **Payment review**, investigate the request/receipt, then confirm actual receipt before approval. Claiming alone never credits. Approval credits the base amount once; rejection must not be used as a substitute for arranging a real-world refund.
 
-### On Other Pages
+The website queue/status is authoritative. Optional Telegram messages are alerts linking to the website, not approval buttons.
 
-- Toast alert (top-right): "Card Detected! Go to POS".
-- Click "Go to POS": Navigates to POS, auto-selects student.
-- If unenrolled: Follows POS unenrolled flow.
-- Auto-dismisses after 10s.
+## Reader and System Status
 
-## Balances and Overdrafts
+**Connected** means an authenticated broadcaster is present on the selected lane. It does not prove PN532 communication, a good cable or a successful payment. Verify a real tap when opening a lane; use manual mode if hardware is unavailable.
 
-- **Balance**: Current funds (¥X.X).
-- **Overdraft**: Up to ¥20/week (resets Monday 00:00 local time).
-- **Decline**: If over limit, "Overdraft exceeded".
-  - Solution: Top-up first or cash payment.
+Reader recovery and database backup controls are administrator-only and need correctly configured host permissions/tools. A failed operation is not a successful repair or backup. See [NFC Setup](nfc-setup.md) and [Troubleshooting](troubleshooting.md); do not repeatedly reset a device held by another process.
 
-View history on Transactions page or per student.
+## Busy-period and Security Checks
 
-## Card Management
+- Keep the correct POS/reader selection open and confirm the customer before charging.
+- Wait for the success result instead of resubmitting an uncertain charge.
+- Keep an accepted manual/cash fallback for hardware/network outages.
+- Revoke missing cards and log out of unattended operator sessions.
+- Escalate identity/payment disputes to an administrator; keep internal notes private.
 
-- **Register Card**: Students → [Name] → Add Card → Enter UID.
-- **Status**: Active (usable) / Revoked (disabled).
-- **Multiple Cards**: Students can have several; all active work.
+See [Authentication Guide](authentication.md) for account approval and [Database Guide](database.md) for operator backup/recovery procedures.
 
-**Lost Card**: Revoke in details, issue new.
-
-## Transaction History
-
-- **All Transactions**: Filter by type (TOPUP/DEBIT/ADJUST), search student.
-- **Delete**: Reverses balance impact.
-- **Staff Tracking**: Who processed each.
-
-## Tips for Busy Times
-
-1. **Keep POS Open**: Auto-reconnects to reader.
-2. **Tap Card Mode**: Fastest for card users.
-3. **Manual Fallback**: For issues.
-4. **Check Balance First**: Avoid declines.
-5. **Cash Backup**: For NFC failures.
-6. **Tap Alerts**: Guide to POS if tapped elsewhere.
-7. **Search**: Quick student lookup.
-
-**Shortcuts**:
-- Tab: Next field.
-- Enter: Submit (amount focused).
-- Esc: Cancel dialogs.
-
-## Status Indicators
-
-- 🟢 **Connected to card reader**: Ready for taps (POS Tap Card mode).
-- 🔵 **Card Detected!** toast: Tap happened, go to POS.
-- 🔴 **Disconnected**: Use manual; check broadcaster.
-
-## Security
-
-- Log out if leaving unattended.
-- Report suspicious activity.
-- Don't edit database manually.
-
-## Getting Help
-
-- **IT**: For hardware/setup.
-- **Supervisor**: Policy questions.
-- **Logs**: Browser console for web errors.
-
-**Version**: 1.1 (NFC + Decimal Support)  
-**Last updated: November 12, 2025**
+**Last updated: November 15, 2026**

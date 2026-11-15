@@ -1,442 +1,177 @@
 # Testing Guide
 
-This guide provides comprehensive testing procedures for the WebSocket-based NFC tap detection system and overall functionality.
+Use disposable SQLite databases, identities, secrets and local storage. Never use
+a production ledger or `.env.local` as a fixture. The procedures below are checks
+to perform, not claims that this checkout, deployment or physical readers passed.
 
-## Student accounts and QR top-ups (isolated SQLite)
+## Automated checks
 
-From `web-next/`, under Node.js >=26.13.1 <27 and pnpm 12.21.0:
+From `web-next`, use Node `>=26.13.1 <27` and pnpm `12.21.0`:
 
-```bash
+```sh
 pnpm install --frozen-lockfile
 pnpm test
 pnpm exec tsc --noEmit
+pnpm lint
+pnpm build
 ```
 
-These use disposable databases, not a live ledger or reader. They exercise role
-migration/rollback, administrator linkage/grants, private projections, payment
-parsing, cross-process reservations/review, replay refusal and credit rollback.
-Use disposable identities/data for browser smoke; verify pending registration,
-administrator linking, own balance/request/claim, website approval and rejection,
-student 403s, and retained operator pages. No real transfer is required.
-Missing merchant QR must show a configuration error; use only a disposable
-same-origin test image when checking loading. Never commit a fake merchant QR.
+`pnpm test` explicitly discovers `lib`, `tests`, `tools` and `hardware`
+`**/*.test.ts`, runs them sequentially, then runs the CLI self-check.
+For a focused run, name test files explicitly:
 
-From repository root: `.venv/bin/python -m unittest discover -s tests -p 'test_*.py'`.
-HTTP/WebSocket test files run sequentially against the actual custom development server, with a new disposable core/auth database and test credentials. Close any browser smoke server before running them to avoid the shared Next development lock. Production builds require a separately initialized temporary database and explicit test-only auth/NFC secrets; never use a production `.env.local` or ledger as a fixture. Container proof: `podman build -f web-next/Dockerfile -t scps:repair-smoke .` from root, then run with a disposable directory mounted at `/app/data` and explicit `DATABASE_PATH=/app/data/stuco.db`.
-
-
-## Prerequisites
-
-1. **Install Python dependencies**:
-   ```bash
-   cd $PROJECT_ROOT
-   source .venv/bin/activate
-   pip install -r requirements.txt
-   ```
-
-2. **Set environment variables** (in `web-next/.env.local`):
-   ```
-   NFC_TAP_SECRET=test-secret-123
-   ```
-
-3. **Start Next.js server**:
-   ```bash
-   cd web-next
-   pnpm dev
-   ```
-
-## Test 1: Python Broadcaster Test Mode
-
-**Purpose**: Verify WebSocket connection and authentication
-
-```bash
-cd $PROJECT_ROOT
-source .venv/bin/activate
-python hardware-pi/tap-broadcaster.py --test --secret test-secret-123
+```sh
+node --import tsx --test lib/customer-schema.test.ts tools/migrate-customer.test.ts
+node --import tsx --test tools/batch-import-customers.test.ts tools/import-legacy-db.test.ts
+node --import tsx --test tools/sqlite-snapshot.test.ts tools/restore-database.test.ts tools/backup-roundtrip.test.ts
 ```
 
-**Expected output**:
-```
-╔═══════════════════════════════════════════════════════════════╗
-║         NFC Tap Broadcaster for SCPS POS System              ║
-║                    WebSocket Version                         ║
-╠═══════════════════════════════════════════════════════════════╣
-║ Server:  http://localhost:3000                               ║
-║ Lane:    default                                             ║
-║ Device:  tty:AMA0:pn532                                      ║
-║ Secret:  [SET]                                               ║
-║ Mode:    TEST                                                ║
-╚═══════════════════════════════════════════════════════════════╝
+Do not use bare `node --test`: production diagnostics such as
+`hardware/test-readers.ts` also start with `test-` and are not automated test files.
+No first-party Python test runner, virtualenv or runtime requirements file is needed.
+Python may still be needed to compile third-party native addons.
 
-[TEST] Sending test tap event...
-[WS] Connecting to ws://localhost:3000/api/nfc/ws...
-[WS] Connected successfully
-[WS] Authenticated successfully (lane: default)
-[OK] Tap broadcast: DEADBEEF
-[TEST] Test tap sent successfully
-```
+HTTP/WebSocket tests launch the actual custom development server against disposable
+core/auth databases. Close browser smoke servers first to avoid the shared Next
+development lock. Production builds also need a separately initialized disposable
+database and explicit test-only auth/NFC configuration.
 
-**Pass criteria**:
-- ✅ WebSocket connects successfully
-- ✅ Authentication succeeds
-- ✅ Test tap is sent
-- ✅ Exit code 0
+### What the fixtures establish
 
-**Fail scenarios**:
-- Connection refused → Server not running
-- Auth failed → Secret mismatch
-- Timeout → Network or WebSocket support issue
+- Domain/role migration: preservation, idempotency, refusal of mixed schemas and rollback.
+- Account access: administrator linking/grants, private customer projections and role denial.
+- Payments: parsing, reservations/review, replay refusal and credit rollback.
+- CSV: quoted/multiline parsing, UID ownership, row rollback, dry runs and template behavior.
+- Archive/restore: committed WAL snapshots, unsafe/truncated archives and old cent-domain staging.
+- NFC: local real WebSocket server, reconnect/stale-read handling and real cancellable child fixtures.
+- Operations: fake OS executables and temporary files at external boundaries; real child
+  processes for argument quoting/exit behavior; **local rclone aliases**, not cloud acceptance.
 
-## Test 2: Simulation Mode (No Hardware)
+Fake systemctl/sudo/USB tools do not prove real privileges, device resets or service
+ownership. Child cancellation fixtures do not prove a physical PN532 releases its
+port. Local rclone roundtrips do not prove real R2 credentials or remote recovery.
 
-**Purpose**: Test tap detection without NFC hardware
+## Disposable browser acceptance
 
-```bash
-python hardware-pi/tap-broadcaster.py --simulate --secret test-secret-123
+Start the custom server from `web-next` with test-only configuration:
+
+```sh
+pnpm dev
 ```
 
-**Actions**:
-1. Type: `DEADBEEF` + Enter
-2. Type: `CAFE1234` + Enter
-3. Type: `quit` + Enter
+Provision a disposable administrator using repository-root `./scps-cli users`.
+Check separate unauthenticated, unlinked customer, linked customer, staff and admin sessions:
 
-**Expected output**:
-```
-[WS] Connecting to ws://localhost:3000/api/nfc/ws...
-[WS] Connected successfully
-[WS] Authenticated successfully (lane: default)
-[SIMULATE] Manual UID entry mode. Type UID hex (or 'quit'):
-> DEADBEEF
-[OK] Tap broadcast: DEADBEEF
-> CAFE1234
-[OK] Tap broadcast: CAFE1234
-> quit
+1. `/login` and `/signup` remain public. Signup creates only a customer login;
+   `/customer/pending` waits for administrator-controlled ledger linkage at `/admin/users`.
+2. A linked customer sees only their own `/customer` balance/history and requests.
+   Customer A must not receive B's data, card UIDs or internal notes.
+3. Staff/admin share `/admin`, `/admin/customers`, `/admin/transactions`,
+   `/admin/pos` and `/admin/topup`. Staff must be denied `/admin/users`,
+   `/admin/payments` and their protected actions/API calls.
+4. Verify last-administrator protection and denial when directly calling protected
+   actions/API/WebSockets rather than merely hiding navigation.
+5. A mounted empty payment queue receives a newly created request. Claiming does
+   not credit; administrator confirmation credits base cents exactly once; rejection
+   never credits. Check newest resolved history and pending claimed-first order.
+6. Legacy page URLs permanently redirect to canonical routes, preserving detail
+   suffixes/query values. POST actions must not redirect.
 
-[EXIT] Exiting simulation mode.
-```
+No real transfer is needed. A missing merchant QR should show configuration failure;
+use only a disposable same-origin test image for loading checks, never commit a fake QR.
 
-**Pass criteria**:
-- ✅ Each UID is broadcast successfully
-- ✅ WebSocket stays connected
-- ✅ Clean exit on 'quit'
+## Authenticated tap smoke without hardware
 
-## Test 3: Browser Client Connection (POS Page)
+Set the same disposable `NFC_TAP_SECRET` in server and broadcaster environments.
+From `web-next`:
 
-**Purpose**: Verify browser WebSocket connection and tap reception
-
-**Steps**:
-1. Open browser to http://localhost:3000/pos
-2. Open browser DevTools → Console
-3. Select "Tap Card" mode in POS form
-4. In another terminal, run simulation:
-   ```bash
-   python hardware-pi/tap-broadcaster.py --simulate --secret test-secret-123
-   ```
-5. Type `DEADBEEF` in simulation terminal
-
-**Expected behavior**:
-- ✅ Console shows: `[NFC WS] Connection opened`
-- ✅ Console shows: `[NFC WS] Authenticated successfully`
-- ✅ Status indicator shows "Connected"
-- ✅ After typing UID: Console shows `[POS] Card tap detected: DEADBEEF`
-- ✅ UI responds to tap (enrollment dialog or student selection)
-
-**Pass criteria**:
-- ✅ WebSocket connection established
-- ✅ Tap events received in real-time
-- ✅ UI updates correctly
-
-## Test 4: Browser Client Connection (Non-POS Page)
-
-**Purpose**: Verify TapAlert component WebSocket connection
-
-**Steps**:
-1. Navigate to http://localhost:3000/dashboard
-2. Open browser DevTools → Console
-3. Run simulation and type a UID
-
-**Expected behavior**:
-- ✅ Console shows WebSocket connection
-- ✅ Drawer/toast appears with card information
-- ✅ Option to navigate to POS
-
-## Test 5: Hardware Test (UART Connection)
-
-**Purpose**: Test with actual PN532 NFC reader
-
-**Prerequisites**:
-- PN532 connected via UART (GPIO pins)
-- User in `dialout` group: `groups | grep dialout`
-
-```bash
-# Check device exists
-ls -l /dev/ttyAMA0
-
-# Run broadcaster
-python hardware-pi/tap-broadcaster.py --device tty:AMA0:pn532 --secret test-secret-123
+```sh
+node --import tsx hardware/tap-broadcaster.ts --test
+node --import tsx hardware/tap-broadcaster.ts --simulate
 ```
 
-**Actions**:
-1. Tap an NFC card on reader
-2. Remove card
-3. Tap same card again after 2 seconds
-4. Tap different card
+Test mode authenticates to `/api/nfc/ws`, sends `DEADBEEF`, and exits 0/1.
+Simulation accepts hexadecimal UIDs; try `DEADBEEF`, `CAFE1234`, then `quit`.
+Also check `q`, `exit` and EOF cleanly terminate. Do not paste production secrets
+into command history or issue logs.
 
-**Expected behavior**:
-```
-[NFC] Starting card reader loop on tty:AMA0:pn532
-[NFC] Waiting for card tap...
-[OK] Tap broadcast: 04ABC123
-[OK] Tap broadcast: 04ABC123  # (after removal and re-tap)
-[OK] Tap broadcast: 04XYZ789  # (different card)
-```
+With an authenticated operator browser at `/admin/pos`, verify connection and tap
+delivery, enrollment/customer selection and the configured lane. At `/admin`, check
+the tap alert/navigation behavior. Use two operator browsers to check same-lane
+delivery; customer sessions must not gain operator tap data.
 
-**Pass criteria**:
-- ✅ Card UIDs detected correctly
-- ✅ No duplicate taps while card remains on reader
-- ✅ Can re-tap after removal
-- ✅ Multiple cards work
+For lane isolation, start separate simulations:
 
-**Troubleshooting**:
-- "Permission denied" → Add user to dialout group and reboot
-- "Device not found" → Check `/dev/ttyAMA0` exists
-- No detection → Check wiring, try `nfc-list` command
-
-## Test 6: USB Connection Test
-
-**Purpose**: Test PN532 via USB
-
-```bash
-# List USB devices
-lsusb | grep -i nfc
-
-# Check for ttyUSB devices
-ls -l /dev/ttyUSB*
-
-# Run with USB device
-python hardware-pi/tap-broadcaster.py --device tty:USB0:pn532 --secret test-secret-123
+```sh
+node --import tsx hardware/tap-broadcaster.ts --simulate --lane lane-a
+node --import tsx hardware/tap-broadcaster.ts --simulate --lane lane-b
 ```
 
-**Pass criteria**: Same as UART test
+Observe each configured browser lane receives only its own events. Repeat rapid
+UID input to check deduplication; do not infer physical card-presence behavior from
+simulation. Stop/restart only the disposable server to check reconnect/authentication,
+network retry backoff and no replay of disconnected taps.
 
-## Test 7: Duplicate Tap Prevention
+## Physical reader and service acceptance — separate, unverified until performed
 
-**Purpose**: Verify server-side and client-side deduplication
+Supported scope is documented PN532 UART/I2C and libnfc-supported USB devices.
+Install native libnfc tools (`libnfc-bin` on Debian), grant the service user serial
+permissions, and use exact selectors when multiple readers are attached.
+Do not run two processes owning the same reader.
 
-**Method 1 - Simulation**:
-```bash
-python hardware-pi/tap-broadcaster.py --simulate --secret test-secret-123
-```
-Type same UID multiple times rapidly:
-```
-> DEADBEEF
-> DEADBEEF
-> DEADBEEF
-```
-
-**Expected output**:
-```
-[OK] Tap broadcast: DEADBEEF
-[OK] Tap broadcast: DEADBEEF  # Should still send (different "taps")
+```sh
+# From web-next, with all other owners of this reader stopped:
+node --import tsx hardware/tap-broadcaster.ts --device pn532_uart:/dev/ttyAMA0
+# USB-to-UART PN532 example:
+node --import tsx hardware/tap-broadcaster.ts --device pn532_uart:/dev/ttyUSB0
+# I2C example:
+node --import tsx hardware/tap-broadcaster.ts --device pn532_i2c:/dev/i2c-1
 ```
 
-**Note**: Python broadcaster tracks card presence. In simulation, each entry is treated as a new tap. Server-side deduplication (1s window) should prevent UI from processing duplicates too quickly.
+These are selectors, not guarantees the device exists. Unsupported explicit
+selectors must fail, not choose another reader. See [NFC setup](nfc-setup.md) for
+wiring, native calibration and diagnostic commands.
 
-**Method 2 - Check server logs**:
-Watch Next.js console for:
-```
-[TapBroadcaster] Broadcasting tap: DEADBEEF (X listeners)
-[TapBroadcaster] Duplicate tap ignored: DEADBEEF (within 1000ms)
-```
+For **both deployed readers**, record:
 
-**Pass criteria**:
-- ✅ Server detects and logs duplicates within 1s window
-- ✅ UI only processes unique taps
+- Repeated taps, removal/re-tap and different cards; correct UIDs and lane identity.
+- Healthy no-card behavior versus unavailable reader errors.
+- Unplug/replug and hardware retry without unnecessary network reconnect.
+- Network outage/reconnect with no buffered old card UID delivered afterward.
+- Stop waits for owned child/reader release before replacement, within the
+  systemd ten-second stop window.
+- Reader2's five-second startup settle, configured restart behavior and actual
+  permissions/noninteractive reset privileges.
 
-## Test 8: Auto-Reconnection
+Do not copy unrendered systemd templates directly into `/etc/systemd/system`;
+deployment setup renders their paths/user/Node placeholders. Inspect installed
+unit status and `journalctl -u stuco-web -u tap-broadcaster -u tap-broadcaster-reader2`.
+Host service mutation, USB reset, wiring acceptance, real SSH/deploy and cloud
+backup/restore require a separately authorized deployment window.
 
-**Purpose**: Verify automatic reconnection on disconnect
+## Rootless production-container acceptance
 
-**Steps**:
-1. Start broadcaster in simulation mode
-2. Stop Next.js server (Ctrl+C in server terminal)
-3. Observe broadcaster logs
-4. Restart Next.js server
-5. Observe broadcaster reconnects
+From repository root:
 
-**Expected behavior**:
-```
-[WS] Connection closed: 1006
-[WS] Reconnecting in 1s...
-[WS] Connecting to ws://localhost:3000/api/nfc/ws...
-[WS] Connection error: ...
-[WS] Reconnecting in 2s...
-[WS] Connecting to ws://localhost:3000/api/nfc/ws...
-[WS] Connection error: ...
-[WS] Reconnecting in 4s...
-# (exponential backoff continues)
-# After server restart:
-[WS] Connected successfully
-[WS] Authenticated successfully (lane: default)
+```sh
+podman build -f web-next/Dockerfile -t scps:cutover-smoke .
 ```
 
-**Pass criteria**:
-- ✅ Broadcaster detects disconnect
-- ✅ Exponential backoff works (1s, 2s, 4s, 8s, ...)
-- ✅ Reconnects automatically when server available
-- ✅ Re-authenticates successfully
+Start the actual image rootlessly with a disposable migrated legacy ledger mounted
+at `/app/data`, `DATABASE_PATH=/app/data/stuco.db`, and test-only auth/NFC secrets.
+Repeat role/route/payment browser checks, launch the actual CLI, deliver an
+authenticated simulated tap, and perform a local-only backup/restore roundtrip.
+Verify no application workflow invokes a Python runtime. Container simulation is
+not physical NFC proof.
 
-## Test 9: Multiple Browser Clients
+## Failure evidence
 
-**Purpose**: Verify multiple clients can connect simultaneously
+Collect the exact command/exit status, Node/pnpm versions, redacted server and
+broadcaster output, browser console/network details and relevant journal logs.
+For missing cards, check selector, serial permissions, wiring and native libnfc
+availability. For auth failure, compare secret configuration without printing it.
+The custom server owns WebSockets; a hosting platform without that persistent
+server is not equivalent. Do not publish tokens, card UIDs, customer data or credentials.
 
-**Steps**:
-1. Open POS page in Browser 1 (tab 1)
-2. Open POS page in Browser 2 (tab 2) or incognito mode
-3. Run simulation and send a tap
-4. Both tabs should receive the tap event
-
-**Pass criteria**:
-- ✅ Both clients connect successfully
-- ✅ Both clients receive tap events
-- ✅ No interference between clients
-
-## Test 10: Systemd Service
-
-**Purpose**: Verify production service configuration
-
-```bash
-# Copy service file
-sudo cp systemd/tap-broadcaster.service /etc/systemd/system/
-
-# Edit if needed (set correct device, secret, etc.)
-sudo nano /etc/systemd/system/tap-broadcaster.service
-
-# Reload systemd
-sudo systemctl daemon-reload
-
-# Start service
-sudo systemctl start tap-broadcaster
-
-# Check status
-sudo systemctl status tap-broadcaster
-
-# View logs
-journalctl -u tap-broadcaster -f
-```
-
-**Expected status output**:
-```
-● tap-broadcaster.service - NFC Tap Broadcaster for SCPS POS (WebSocket)
-   Loaded: loaded (/etc/systemd/system/tap-broadcaster.service; enabled)
-   Active: active (running) since ...
-```
-
-**Pass criteria**:
-- ✅ Service starts without errors
-- ✅ Logs show WebSocket connection
-- ✅ Logs show authentication success
-- ✅ Service restarts on failure (RestartSec=5)
-- ✅ Auto-starts on boot (if enabled)
-
-```bash
-# Test restart on failure
-sudo kill -9 $(pgrep -f tap-broadcaster)
-sleep 6
-sudo systemctl status tap-broadcaster  # Should be running again
-```
-
-## Test 11: Lane Filtering
-
-**Purpose**: Verify multi-lane support
-
-**Terminal 1** (Lane A):
-```bash
-POS_LANE_ID=lane-a python hardware-pi/tap-broadcaster.py --simulate --secret test-secret-123
-```
-
-**Terminal 2** (Lane B):
-```bash
-POS_LANE_ID=lane-b python hardware-pi/tap-broadcaster.py --simulate --secret test-secret-123
-```
-
-**Browser**:
-- Open http://localhost:3000/pos?lane=lane-a
-- Should only receive taps from Terminal 1
-
-**Pass criteria**:
-- ✅ Both broadcasters connect to different lanes
-- ✅ POS page filters by lane correctly
-- ✅ No cross-lane interference
-
-## Test Summary Checklist
-
-After running all tests, verify:
-
-- [ ] Test mode works (test 1)
-- [ ] Simulation mode works (test 2)
-- [ ] Browser client connects on POS page (test 3)
-- [ ] Browser client connects on other pages (test 4)
-- [ ] Hardware UART works (test 5) - if available
-- [ ] Hardware USB works (test 6) - if available
-- [ ] Duplicate prevention works (test 7)
-- [ ] Auto-reconnection works (test 8)
-- [ ] Multiple clients work (test 9)
-- [ ] Systemd service works (test 10)
-- [ ] Lane filtering works (test 11)
-
-## Common Issues
-
-### WebSocket Not Supported
-**Error**: "WebSocket not supported in this environment"
-
-**Cause**: Next.js may not have native WebSocket support in all runtimes
-
-**Solution**: Check Next.js version and runtime. May need to deploy to Vercel or use custom server.
-
-### Authentication Failures
-**Error**: `[WS] Authentication failed`
-
-**Cause**: NFC_TAP_SECRET mismatch
-
-**Fix**:
-1. Check `web-next/.env.local` has `NFC_TAP_SECRET=your-secret`
-2. Set same secret when running broadcaster: `--secret your-secret`
-3. For systemd, edit service file Environment variable
-
-### Card Not Detected
-**Error**: No output when tapping card
-
-**Possible causes**:
-1. Device wrong: Check `ls /dev/tty*` for correct device
-2. Permissions: Add user to dialout group
-3. Hardware: Check wiring, try `nfc-list` to test reader
-4. Library: Install nfcpy or libnfc-bin
-
-## Performance Metrics
-
-Expected performance:
-- **Latency**: < 200ms from tap to UI update
-- **Reconnection**: < 5s after server restart
-- **Memory**: ~50MB Python process, ~500MB Next.js
-- **CPU**: < 5% idle, < 20% during tap processing
-
-## Next Steps
-
-After testing:
-1. Update NFC_TAP_SECRET to strong production value
-2. Enable systemd service for auto-start
-3. Configure HTTPS for production (WSS)
-4. Monitor logs for any issues
-5. Set up log rotation for systemd service
-
-## Reporting Issues
-
-If tests fail, collect:
-1. Python broadcaster output
-2. Next.js console output
-3. Browser console logs (DevTools)
-4. systemd logs: `journalctl -u tap-broadcaster -n 200`
-5. Environment details: OS, Python version, Next.js version
-
-**Last updated: November 11, 2025**
+Measure latency/resource use on the actual deployment rather than treating
+unmeasured targets as passed performance claims.

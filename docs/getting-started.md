@@ -1,371 +1,248 @@
 # Getting Started
 
-This guide covers installing prerequisites, setting up the database, installing dependencies, and running the system on a Linux Cloud VPS (Debian/Ubuntu) or standalone local platforms.
+Set up the Student Council Payment System with a Next.js custom server, SQLite ledger, TypeScript administrative tools and optional native NFC readers. Buyers are **customers**; operator and buyer pages use separate namespaces.
 
 ## Prerequisites
 
-### Host Server (Linux Cloud VPS)
+- **Node.js >=26.13.1 <27** (production container pins **26.13.1**).
+- **pnpm 12.21.0**.
+- **SQLite CLI** for manual setup/maintenance; `zstd` and `rclone` for archive/cloud workflows.
+- Native-addon build tools when prebuilt dependencies are unavailable: Linux gcc/g++/make and Python >=3.11; Xcode command-line tools on macOS. Python is for third-party native compilation only, not an SCPS runtime.
+- Reader hosts also need the same Node/package dependencies, Debian `libnfc-bin`, `usbutils`, `lsof`, `udev`, and appropriate device permissions.
 
-We recommend deploying the Next.js server and SQLite database on a standard Linux Cloud VPS (such as Debian 12 or Ubuntu 24.04).
-
-- **Node.js >=26.13.1 <27**: For the web interface and TypeScript CLI.
-  - Check: `node --version`
-  - Install (NodeSource): `curl -fsSL https://deb.nodesource.com/setup_26.x | sudo -E bash - && sudo apt install -y nodejs`; verify the installed version satisfies >=26.13.1 <27.
-- **pnpm 12.21.0**: Pinned package manager for Node.js.
-  - Check: `pnpm --version`
-  - Bootstrap locally: `npm install --prefix .local/pnpm --no-save pnpm@12.21.0`, then `export PATH="$PWD/.local/pnpm/node_modules/.bin:$PATH"`.
-- **Build Essentials**: Required to compile native SQLite database bindings.
-  - Install: `sudo apt update && sudo apt install -y build-essential python3 pkg-config git curl`
-
-### Client NFC Node (Raspberry Pi)
-
-For localized card reader nodes located at physical POS registers:
-- **Raspberry Pi OS (64-bit)**
-- **Python >=3.11**: To run the WebSocket serial tap broadcaster client.
-- **NFCPN532 Reader Hardware** (UART or USB configuration).
-
-### Alternative: Standalone Raspberry Pi Full-Stack Hosting
-If you wish to host the *entire* system (Next.js server, database, and reader daemon) locally on a single Raspberry Pi:
-- **Swap Size:** Increase the default system swap size to at least 2GB to prevent compiling processes from running out of memory:
-  ```bash
-  sudo dphys-swapfile swapoff
-  sudo sed -i 's/CONF_SWAPSIZE=.*/CONF_SWAPSIZE=2048/' /etc/dphys-swapfile
-  sudo dphys-swapfile setup
-  sudo dphys-swapfile swapon
-  ```
-
----
-
-## Database Setup
-
-Install Node.js >=26.13.1 <27, pnpm 12.21.0, and `sqlite3` first. From the repository root:
+Check installed versions:
 
 ```bash
-cd web-next
-pnpm install --frozen-lockfile
-cp .env.local.example .env.local
-cd ..
+node --version
+pnpm --version
 ```
 
-Set `DATABASE_PATH` in `web-next/.env.local` to the absolute database path and configure `BETTER_AUTH_SECRET`.
-
-### 1. Initialize Schema & User Accounts
-
-For a new installation, initialize the same database path configured above:
+To install pinned pnpm locally, from the repository root:
 
 ```bash
-sqlite3 /absolute/path/to/stuco.db < migrations/schema.sql
-sqlite3 /absolute/path/to/stuco.db < web-next/migrations/better_auth_schema.sql
-./scps-cli users
+npm install --prefix .local/pnpm --no-save pnpm@12.21.0
+export PATH="$PWD/.local/pnpm/node_modules/.bin:$PATH"
 ```
 
-In the CLI, choose **Create a new user**, then select the **Admin** role. Existing installations should retain their database and environment files.
-
-### 2. Verify Tables
-
-Verify that the tables were created successfully using the SQLite shell:
+For Debian native builds/manual administration, install distribution packages as needed:
 
 ```bash
-sqlite3 stuco.db ".tables"
+sudo apt update
+sudo apt install build-essential python3 pkg-config git curl sqlite3 zstd rclone
 ```
 
-The output should show all core tables as well as the Better Auth system tables (`user`, `session`, `account`, `verification`).
+On a Pi hosting the whole stack, allow enough memory for native compilation and production builds; a suitably configured swap file may help. Do not copy native `node_modules` between incompatible OS/CPU/Node versions.
 
-### 3. Optional: Run Database Migrations
+## Choose fresh setup or upgrade
 
-If you are upgrading an existing system, migrations are located in the `migrations/` folder and can be applied using the migration script:
+**Existing installation? Do not initialize or reset its database.** Preserve its ledger and environment files and follow [Deployment: existing-schema upgrade and rollback](deployment.md#existing-schema-upgrade-and-rollback). Startup rejects legacy/mixed/non-cent schemas; it does not silently convert money.
 
-```bash
-./scripts/run_migration.sh migrate_cascade_delete.sql
-```
+### Automated Debian setup
 
-See [Database Guide](database.md) for more details.
-
-## Web UI Setup
-
-### Local Development (Mac/Linux)
-
-For normal development on your Mac:
-
-1. Install dependencies:
-
-   ```bash
-   ./scripts/web-next-setup.sh
-   ```
-
-2. Create `web-next/.env.local` from the sample:
-
-   ```bash
-   cp web-next/.env.local.example web-next/.env.local
-   ```
-
-3. Start the app:
-
-   ```bash
-   cd web-next
-   pnpm dev
-   ```
-
-This local flow stays separate from the VPS. You develop on your Mac, push to GitHub, then deploy on the VPS with `./scripts/deploy-vps.sh`.
-
-### Automated Setup (Debian VPS Recommended)
-
-For a Debian web server or VPS:
+From the repository root, as the intended service user with sudo access:
 
 ```bash
 ./scripts/setup-debian.sh
 ```
 
-This script:
-- installs system packages and requires Node.js >=26.13.1 <27, bootstrapping pinned pnpm 12.21.0
-- creates the root Python venv
-- installs `pnpm` dependencies in `web-next`
-- creates `web-next/.env.local` from the sample if missing
-- builds the production app
-- installs and starts `stuco-web.service`
+This is the only setup shell bootstrap: it installs OS/Node/native-build prerequisites, pins pnpm and installs package dependencies, then invokes `web-next/tools/ops/setup-debian.ts`. The typed stage configures the private env file, creates a missing auth secret without printing it, initializes core+auth only for a **missing** ledger, builds, and renders all three systemd units using the actual user/repo/Node/PATH.
 
-After the script finishes:
+It enables/restarts **web only**. Reader units remain inactive until you configure `.env.broadcaster`, device selection, serial access and noninteractive USB reset privileges. Existing ledgers are preserved, not automatically migrated.
 
-1. Edit `web-next/.env.local`
-2. Restart the web service:
+Before allowing public access:
 
-   ```bash
-   sudo systemctl restart stuco-web
-   ```
+1. Edit `web-next/.env.local` for your actual database, HTTPS URL and trusted origins.
+2. Create the initial administrator using `./scps-cli users` from the repository root.
+3. Configure the loopback proxy/firewall and restart `stuco-web` as described in [Deployment](deployment.md).
+4. Configure encrypted backups using the typed tools below.
 
-3. Configure encrypted R2 backups:
+### Manual development/fresh setup
 
-   ```bash
-   ./scripts/setup-r2-crypt.sh
-   ```
-### Manual / Existing Setup
-
-1. **Navigate to Web UI**:
-
-   ```bash
-   cd web-next
-   ```
-
-2. **Check Prerequisites** (optional):
-
-   ```bash
-   ../scripts/web-next-check-prereqs.sh
-   ```
-
-3. **Install Dependencies**:
-
-   ```bash
-   pnpm install
-   ```
-
-   - Automatically runs postinstall to rebuild `better-sqlite3` native bindings.
-   - Handles platform-specific compilation for ARM64 and x86_64 Linux.
-
-4. **Configure Environment**:
-
-   Create or update `.env.local`:
-
-   ```
-   DATABASE_PATH=/path/to/stuco.db  # Absolute path to your database
-   NFC_TAP_SECRET=your-secret-key   # For NFC authentication (optional for dev)
-   ```
-
-5. **Setup Authentication**:
-
-   Configure Better Auth for secure access:
-
-   ```bash
-   # Generate secret
-   openssl rand -base64 32
-   
-   # Add to .env.local
-   echo "BETTER_AUTH_SECRET=<generated_secret>" >> .env.local
-   ```
-
-   Run database migration:
-
-   ```bash
-   sqlite3 ../stuco.db < migrations/better_auth_schema.sql
-   ```
-
-   For detailed authentication setup, see [Authentication Guide](authentication.md).
-
-6. **Check Database Integrity** (use your configured database path):
-
-   ```bash
-   sqlite3 /absolute/path/to/stuco.db "PRAGMA integrity_check;"
-   ```
-
-   Expected output: `ok`.
-
-7. **Start Development Server**:
-
-   ```bash
-   pnpm dev
-   ```
-
-   Open [http://localhost:3000](http://localhost:3000) - you'll be redirected to login.
-   
-   Create your first account at `/signup` with the 8 digit code.
-
-### Legacy Manual Setup
-
-If automated setup fails:
-
-```bash
-../scripts/web-next-setup.sh  # Runs pnpm install + manual better-sqlite3 build
-pnpm dev
-```
-
-### Docker Setup (Alternative)
-
-For containerized deployment:
+From the repository root:
 
 ```bash
 cd web-next
-docker build -t stuco-web .
-docker run -p 3000:3000 \
-  -e DATABASE_PATH=/app/stuco.db \
-  -e NFC_TAP_SECRET=your-secret \
-  -v /path/to/stuco.db:/app/stuco.db \
-  stuco-web
+pnpm install --frozen-lockfile
+cp .env.local.example .env.local
+chmod 600 .env.local
+cd ..
 ```
 
-See [Deployment Guide](deployment.md) for production setup.
+Do not overwrite an existing `.env.local`. Choose **one** database path, generate a secret with `openssl rand -hex 32`, and edit the file:
 
-## CLI Tools Setup
+```dotenv
+DATABASE_PATH=../stuco.db
+BETTER_AUTH_SECRET=<generated-secret>
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+TRUSTED_ORIGINS=http://localhost:3000
+# Optional until readers are used:
+# NFC_TAP_SECRET=<separate-generated-shared-secret>
+```
 
-We provide a unified TypeScript CLI to handle server administration tasks.
+Relative `DATABASE_PATH` is always relative to `web-next`, so `../stuco.db` means the repository-root ledger. If unset, an existing package-local `stuco.db` takes priority, otherwise root `stuco.db` is the fallback. Prefer an absolute path for deployment; its parent directory must be writable by the service account for WAL/SHM.
 
-### Local CLI Execution (on the VPS)
-No Python environment or local database configuration is needed to run the CLI on the server, as it integrates directly with the Next.js runtime.
-
-1.  Make sure the script is executable:
-    ```bash
-    chmod +x scps-cli
-    ```
-2.  Boot the interactive administration console:
-    ```bash
-    ./scps-cli
-    ```
-
-### Remote Secure CLI Execution (from your Local Machine)
-To manage the remote production VPS database securely from your local developer machine without SSHing manually:
-1.  Configure your remote VPS parameters in your local `web-next/.env.local` file (see [Deployment Guide](deployment.md#remote-management) for options).
-2.  Launch the secure terminal tunnel:
-    ```bash
-    ./scps-remote-cli
-    ```
-
-## NFC Setup Quick Start
-
-For full NFC integration (card taps in web UI):
-
-1. **Install NFC Dependencies** (Raspberry Pi):
-
-   ```bash
-   sudo apt install libnfc-bin libnfc-dev
-   pip install nfcpy  # For TTY/USB PN532
-   ```
-
-2. **Connect PN532 Reader**:
-
-   - UART: Connect to GPIO pins, device: `tty:AMA0:pn532`
-   - USB: Plug in, device: `usb:001:003:pn532` (check with `lsusb`)
-
-3. **Test Broadcaster**:
-
-   ```bash
-   python hardware-pi/tap-broadcaster.py --simulate  # Type UIDs manually
-   ```
-
-   For hardware:
-
-   ```bash
-   python hardware-pi/tap-broadcaster.py --device tty:AMA0:pn532
-   ```
-
-4. **Run as Service** (see [NFC Setup](nfc-setup.md)).
-
-## Common Tasks
-
-### Adding a Student (Web UI)
-
-1. Go to Students page.
-2. Click "Add Student".
-3. Enter name.
-4. Click "Create Student" (auto-creates account with ¥0 balance).
-
-### Processing a Sale (Web UI - POS)
-
-1. Go to POS page.
-2. Select "Tap Card" mode.
-3. Student taps card (auto-selects).
-4. Enter amount (e.g., 6.5 for ¥6.5).
-5. Add description and staff name.
-6. Click "Charge".
-
-**Manual Mode**: Select student from dropdown if no card.
-
-### Top-up (Web UI)
-
-1. Go to Top-up page.
-2. Select student.
-3. Enter amount (e.g., 20.0).
-4. Add description.
-5. Click "Add".
-
-### CLI Ledger adjustments (Top-up / Debit)
+For a **new** root ledger only, apply both schemas. The existence guard prevents this example from being used to initialize an existing file:
 
 ```bash
-./scps-cli ledger
+# Repository root; this matches DATABASE_PATH=../stuco.db above.
+export DATABASE_PATH="$PWD/stuco.db"
+test ! -e "$DATABASE_PATH" &&
+  sqlite3 -bail "$DATABASE_PATH" < migrations/schema.sql &&
+  sqlite3 -bail "$DATABASE_PATH" < web-next/migrations/better_auth_schema.sql
 ```
 
-Weekly overdraft: ¥20.0 (resets Monday 00:00 Asia/Shanghai).
+If initialization fails, stop and inspect the error before starting the app; do not reset an existing ledger to hide a schema problem. For a different path, set both the environment configuration and commands consistently.
 
-## Verification
+Create the first operator:
 
-After setup:
+```bash
+./scps-cli users
+```
 
-1. **Web UI**: http://localhost:3000/dashboard shows stats.
-2. **Database**: `sqlite3 stuco.db "SELECT * FROM students;"`
-3. **NFC**: Tap a card, see broadcast in terminal.
-4. **better-sqlite3**: `node -e "require('better-sqlite3')(':memory:'); console.log('OK');"`
+Choose **Create a new user**, then **Admin**. There is no automatic first-user administrator promotion and no signup code granting operator access. Public `/signup` creates a customer, who remains pending until an administrator links the login to its ledger record.
 
-## Troubleshooting
+Inspect the configured database:
 
-### better-sqlite3 Errors ("bindings file not found")
+```bash
+sqlite3 "$DATABASE_PATH" ".tables"
+sqlite3 "$DATABASE_PATH" "PRAGMA integrity_check; PRAGMA foreign_key_check;"
+```
 
-1. Run `./scripts/web-next-check-prereqs.sh`.
-2. Reinstall: `cd web-next && rm -rf node_modules && pnpm install`.
-3. Approve builds: `cd web-next && pnpm approve-builds better-sqlite3`.
-4. Manual: `./scripts/web-next-setup.sh`.
+Expect core `customers`, `cards`, `accounts`, `transactions`, `user_customer_links`, payment/overdraft tables and auth `user`, `session`, `account`, `verification`. Integrity should report `ok`; FK check should return no rows. Money is integer cents (`550` means ¥5.50).
 
-### Raspberry Pi Compilation Slow/Out of Memory
+Start the custom development server:
 
-- Increase swap (see prerequisites).
-- Pre-build on another Linux machine and copy `node_modules/better-sqlite3`.
+```bash
+cd web-next
+pnpm dev
+```
 
-### NFC Not Detecting Cards
+Open [http://localhost:3000](http://localhost:3000). `pnpm dev` invokes `node --import tsx server.ts`; do not bypass it with `next dev`, because it supplies NFC WebSockets and signup client identity. Production is `pnpm build` followed by `pnpm start`; see [Deployment](deployment.md) before exposing it.
 
-- Check connection: `ls /dev/ttyAMA0` (UART) or `lsusb` (USB).
-- Test: `nfc-list` (libnfc) or simulation mode.
-- Permissions: `sudo usermod -aG dialout $USER` (logout/login).
+## Accounts, routes and common tasks
 
-### Database Locked
+Roles are exactly `admin | staff | customer`; a teacher who only buys is a customer, not a separate role.
 
-- Close other connections (CLI, sqlite3).
-- Use WAL mode: Enabled in schema.
+| Task | Page |
+|---|---|
+| Shared operator dashboard | `/admin` |
+| Customer ledger and enrollment | `/admin/customers`, `/admin/customers/[id]` |
+| Sales, top-up and transaction history | `/admin/pos`, `/admin/topup`, `/admin/transactions` |
+| Administrator-only login linking/role management | `/admin/users` |
+| Administrator-only payment review | `/admin/payments` |
+| Linked customer balance/history | `/customer` |
+| Unlinked customer waiting for approval | `/customer/pending` |
 
-For more, see [Troubleshooting](troubleshooting.md).
+`/login`, `/signup` and `/api/*` remain unchanged. Old page URLs permanently redirect with detail suffixes/query values preserved; POST actions do not redirect.
 
-## Next Steps
+- Add a customer in `/admin/customers`, then enroll the card on its detail page. The new account starts at zero balance.
+- Charge through `/admin/pos`: select by tap or manual customer choice, enter the currency amount and transaction details, then charge.
+- Record an operator top-up through `/admin/topup`. Customer-submitted payment requests require administrator review; claiming payment alone does not credit, and confirmed approval credits the base amount once.
+- Link a public customer signup to its owned ledger record through administrator `/admin/users`. Shared `/admin` access does not authorize staff to manage users or approve payments.
+- Use repository-root `./scps-cli ledger` for administrative signed adjustments. Unlike web POS, CLI debit adjustments do not enforce the weekly overdraft policy.
 
-- Enroll students and cards.
-- Test POS with sample transactions.
-- Set up NFC service for production.
-- Backup `stuco.db` regularly.
+See [User Guide](user-guide.md) and [Authentication](authentication.md) for workflows and authorization.
 
-Enjoy managing your snack bar!
+## TypeScript administrative tools
 
-**Last updated: November 22, 2025**
+From the repository root:
+
+```bash
+./scps-cli
+./scps-cli users
+./scps-cli ledger
+./scps-cli import
+./scps-cli diagnose
+```
+
+The launcher changes cwd to `web-next`; relative CSV/backup arguments resolve there. It uses the same configured ledger and package dependencies as web, not an independent database.
+
+Standalone CSV commands run **from `web-next`**:
+
+```bash
+node --import tsx tools/batch-import-customers.ts --template --with-uid customers.csv
+node --import tsx tools/batch-import-customers.ts --dry-run customers.csv
+node --import tsx tools/batch-import-customers.ts customers.csv
+```
+
+Dry run is read-only; template generation does not open the database. Valid rows are atomic; later valid rows can succeed after an earlier bad row, but any row failure returns nonzero. See [Batch Import Customers](batch-import-customers.md).
+
+For remote administration configure local `SCPS_VPS_HOST`, `SCPS_VPS_USER`, `SCPS_VPS_DIR`, `SCPS_VPS_PORT`, `SCPS_VPS_SSH_KEY` in `web-next/.env.local`, then run `./scps-remote-cli` from the repository root. It uses `ssh -t` with quoted remote directory/arguments. Defaults and separate remote deployment behavior are in [Remote management](deployment.md#remote-management).
+
+## NFC quick start
+
+Reader support is **PN532 UART/I2C and libnfc-supported USB**, not every NFC device family. Unsupported/ambiguous explicit selections fail. Install native tools on the reader host:
+
+```bash
+sudo apt install libnfc-bin usbutils lsof udev
+```
+
+Create repository-root `.env.broadcaster`, restrict it to its owner and use the same reader secret as the server:
+
+```dotenv
+NEXTJS_URL=http://localhost:3000
+NFC_TAP_SECRET=<same-secret-as-server>
+POS_LANE_ID=default
+```
+
+With package dependencies installed, from `web-next`:
+
+```bash
+node --import tsx tools/ops/run-nfc.ts --simulate
+node --import tsx tools/ops/test-nfc.ts
+```
+
+The first accepts manually typed UIDs (uppercase normalization; `q`, `quit`, `exit` or EOF stops). The second sends one authenticated `DEADBEEF` test tap and exits 0/1. Neither proves physical reader operation.
+
+For hardware, **stop broadcaster owners before manually opening the reader**, then select its exact native connstring:
+
+```bash
+node --import tsx tools/ops/run-nfc.ts --device pn532_uart:/dev/ttyUSB0
+# Or the configured Pi UART / I2C backend:
+node --import tsx tools/ops/run-nfc.ts --device pn532_uart:/dev/ttyAMA0
+node --import tsx tools/ops/run-nfc.ts --device pn532_i2c:/dev/i2c-1
+```
+
+CLI device wins over `PN532_DEVICE`, then deterministic native discovery, then the legacy AMA0 default. Multiple readers need exact per-reader device/lane settings. Legacy UART/I2C selectors are normalized; USB bus/device selectors must resolve uniquely to supported native devices. Native libnfc owns UART baud/I2C timing, not an application serial driver.
+
+Follow [NFC Setup](nfc-setup.md), [Dual Readers](dual-reader-setup.md) and [Deployment reader services](deployment.md#reader-services) before enabling services. Device permissions and noninteractive USB-reset privileges are not installed automatically. A connected/authenticated reader service or existing TTY does not establish hardware health.
+
+## Backups, maintenance and upgrades
+
+Run tools from `web-next`:
+
+```bash
+node --import tsx tools/ops/web_backup.ts /absolute/existing/backups/manual.tar.zst
+node --import tsx tools/ops/setup-r2-crypt.ts
+node --import tsx tools/ops/cloud_backup_r2.ts
+```
+
+Local backup uses a verified online SQLite snapshot, then atomic tar+zstd publication; compression/upload failures return nonzero, and an upload failure preserves the local archive. Do not copy a live DB and its sidecars separately. Crypt defaults/configuration, password/salt preservation and cron examples are in [Scripts](scripts.md#backup-restore-and-database-maintenance).
+
+Before restore, conversion, reset or SQL maintenance, stop all writers and keep a verified snapshot. `restore_from_r2.ts backup.tar.zst --writers-stopped` requires known stopped local web state and makes a pre-restore backup. `reset_db.ts --writers-stopped` additionally requires exact typed `yes` and **removes all ledger and authentication data**. The operator assertion cannot detect arbitrary external writers.
+
+For an already-cent-based pre-cutover schema use `node --import tsx tools/migrate-customer.ts --writers-stopped`; older currency data requires the separate source/target legacy converter. Do not use generic SQL initialization to upgrade. Supported old cent-schema backups normalize privately for forward restore. Rollback requires the matching old app **and** its pre-upgrade ledger, with writers stopped; later ledger writes do not survive snapshot rollback automatically. Read the full [upgrade/rollback procedure](deployment.md#existing-schema-upgrade-and-rollback) first.
+
+## Container alternative
+
+The Dockerfile needs the **root repository build context**:
+
+```bash
+# Repository root
+podman build -f web-next/Dockerfile -t scps:local .
+```
+
+The runtime is nonroot uid/gid 1001 with Node/tsx and no application Python dependency. It needs a separately initialized/migrated ledger, a writable **directory** mount for DB/WAL/SHM, private real secrets and an appropriate uid mapping. Do not mount only the DB file or expose port 3000 publicly. Use the full rootless run/Compose, proxy and storage instructions in [Deployment](deployment.md#container-deployment).
+
+## Troubleshooting and acceptance
+
+- **Native binding failure:** from `web-next`, run `node --import tsx tools/ops/web-next-check-prereqs.ts`; repair the listed build prerequisites, then use `node --import tsx tools/ops/web-next-setup.ts` for frozen install/rebuild. Python, if needed, is only for that third-party build.
+- **Wrong/locked DB:** check canonical path, file and parent directory permissions, and other clients/writers. Never unlink live WAL/SHM to clear a lock.
+- **Reader unavailable:** inspect actual devices, wiring and native support. Stop owners before `node --import tsx hardware/diagnose-nfc.ts`; check serial permissions (`dialout` on typical Debian serial hosts), USB topology and kernel errors. Simulation is not a hardware diagnosis.
+- **Service fails:** inspect `journalctl -u stuco-web` and reader journals; confirm the rendered executable/PATH, package cwd, build, secrets and selected database. A shell session's PATH may differ from sudo/cron/systemd.
+
+After setup, deliberately check operator/customer roles and routes, owned balance/history, payment claim/approval behavior and backup recovery on disposable data. Physical acceptance additionally needs both actual readers, repeated taps, unplug/replug, network outage and bounded shutdown.
+
+These are instructions for checks to perform, **not claims that final tests, container verification or physical acceptance have passed**.
+
+Next: [Deployment](deployment.md), [Database](database.md), [Scripts](scripts.md), [Security](security-guide.md), [Troubleshooting](troubleshooting.md) and [Testing](testing.md).

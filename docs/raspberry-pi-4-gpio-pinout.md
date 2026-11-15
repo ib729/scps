@@ -1,59 +1,57 @@
-```  
-     2| +-----+-----+---------+------+---+---Pi 4B---+---+------+---------+-----+-----+
-     3| | BCM | wPi |   Name  | Mode | V | Physical  | V | Mode | Name    | wPi | BCM |
-     4| +-----+-----+---------+------+---+----++----+---+------+---------+-----+-----+
-     5| |     |     | 3v3 PWR |      |   |  1 || 2  |   |      | 5v PWR  |     |     |
-     6| |  2  |  8  | SDA1    | ALT0 |   |  3 || 4  |   |      | 5v PWR  |     |     |
-     7| |  3  |  9  | SCL1    | ALT0 |   |  5 || 6  |   |      | GND     |     |     |
-     8| |  4  |  7  | GPIO 4  | IN   |   |  7 || 8  |   | ALT0 | TXD0    | 15  | 14  |
-     9| |     |     | GND     |      |   |  9 || 10 |   | ALT0 | RXD0    | 16  | 15  |
-    10| | 17  |  0  | GPIO17  | IN   |   | 11 || 12 |   | ALT0 | GPIO18  | 1   | 18  |
-    11| | 27  |  2  | GPIO27  | IN   |   | 13 || 14 |   |      | GND     |     |     |
-    12| | 22  |  3  | GPIO22  | IN   |   | 15 || 16 |   | IN   | GPIO23  | 4   | 23  |
-    13| |     |     | 3v3 PWR |      |   | 17 || 18 |   | IN   | GPIO24  | 5   | 24  |
-    14| | 10  | 12  | MOSI    | ALT0 |   | 19 || 20 |   |      | GND     |     |     |
-    15| |  9  | 13  | MISO    | ALT0 |   | 21 || 22 |   | IN   | GPIO25  | 6   | 25  |
-    16| | 11  | 14  | SCLK    | ALT0 |   | 23 || 24 |   | ALT0 | CE0     | 10  | 8   |
-    17| |     |     | GND     |      |   | 25 || 26 |   | ALT0 | CE1     | 11  | 7   |
-    18| |  0  | 30  | SDA0    | ALT0 |   | 27 || 28 |   | ALT0 | SCL0    | 31  | 1   |
-    19| |  5  | 21  | GPIO5   | IN   |   | 29 || 30 |   |      | GND     |     |     |
-    20| |  6  | 22  | GPIO6   | IN   |   | 31 || 32 |   | ALT0 | GPIO12  | 26  | 12  |
-    21| | 13  | 23  | GPIO13  | ALT0 |   | 33 || 34 |   |      | GND     |     |     |
-    22| | 19  | 24  | GPIO19  | ALT0 |   | 35 || 36 |   | IN   | GPIO16  | 27  | 16  |
-    23| | 26  | 25  | GPIO26  | IN   |   | 37 || 38 |   | ALT0 | GPIO20  | 28  | 20  |
-    24| |     |     | GND     |      |   | 39 || 40 |   | ALT0 | GPIO21  | 29  | 21  |
-    25| +-----+-----+---------+------+---+----++----+---+------+---------+-----+-----+
-    26| | BCM | wPi |   Name  | Mode | V | Physical  | V | Mode | Name    | wPi | BCM |
-    27| +-----+-----+---------+------+---+---Pi 4B---+---+------+---------+-----+-----+
-    28|
-    29|---
-    30|
-    31|## Orientation
-    32|
-    33|- Place your Raspberry Pi **with the GPIO header on the right**
-    34|- HDMI port(s) on the **left side**
-    35|
-    36|---
-    37|
-    38|## Legend
-    39|
-    40|| Symbol | Meaning |
-    41||:-------|:---------|
-    42|| 🟢 **GPIO** | General Purpose Input/Output |
-    43|| 🟣 **SPI** | Serial Peripheral Interface |
-    44|| 🔵 **I²C** | Inter-Integrated Circuit |
-    45|| 🟠 **UART** | Universal Asynchronous Receiver/Transmitter |
-    46|| ⚪ **PCM** | Pulse Code Modulation |
-    47|| ⚫ **Ground** | Electrical Ground |
-    48|| 🔴 **5V** | 5 Volt Power Supply |
-    49|| 🟡 **3.3V** | 3.3 Volt Power Supply |
-    50|
-    51|---
-    52|
-    53|## Notes
-    54|
-    55|- The **40-pin header** is standard across Raspberry Pi **A+, B+, Zero, and later** models.
-    56|- Pins are numbered **1–40** (odd on the left, even on the right).
-    57|- Always check your **power pins (5V, 3.3V, GND)** before connecting external hardware to avoid damage.
-    58|
-    59|**Last updated: November 11, 2025**
+# Raspberry Pi 4 GPIO Pinout
+
+Physical pin numbers below refer to the 40-pin header, not BCM GPIO numbers or
+software numbering. Locate physical pin 1 using the board marking/square pad;
+do not infer orientation solely from how a photograph is rotated.
+
+```text
+                 Raspberry Pi 4B 40-pin header
+        3.3V        1  2        5V
+ GPIO2 / SDA1       3  4        5V
+ GPIO3 / SCL1       5  6        GND
+ GPIO4              7  8        GPIO14 / TXD
+ GND                9 10        GPIO15 / RXD
+ GPIO17            11 12        GPIO18
+ GPIO27            13 14        GND
+ GPIO22            15 16        GPIO23
+ 3.3V              17 18        GPIO24
+ GPIO10 / MOSI     19 20        GND
+ GPIO9 / MISO      21 22        GPIO25
+ GPIO11 / SCLK     23 24        GPIO8 / CE0
+ GND               25 26        GPIO7 / CE1
+ GPIO0 / ID_SD     27 28        GPIO1 / ID_SC
+ GPIO5             29 30        GND
+ GPIO6             31 32        GPIO12
+ GPIO13            33 34        GND
+ GPIO19            35 36        GPIO16
+ GPIO26            37 38        GPIO20
+ GND               39 40        GPIO21
+```
+
+## PN532 wiring and safety
+
+- Power down before connecting wires or changing the PN532 UART/I2C mode
+  switches. Their positions depend on the module; follow its datasheet/labels.
+- Pi GPIO signals are **3.3 V and not 5 V tolerant**. A module accepting 5 V on
+  its supply input does not establish that its signal pins are safe for the Pi.
+  Verify supply, regulator, pull-ups and adapter logic levels separately.
+- UART: Pi physical pin 8 (TX) goes to PN532 RX; pin 10 (RX) goes to PN532 TX.
+  Connect common GND, for example physical pin 6. Enable the serial hardware,
+  disable the serial login console and confirm the actual UART device node.
+- I2C: physical pin 3 is SDA1 and pin 5 is SCL1. Use common GND, enable I2C and
+  verify the selected bus. Do not pull I2C signals up to 5 V.
+- Select the board-specified compatible supply, use short reliable wiring and
+  avoid confusing physical pins with BCM numbers. Pins 27/28 are reserved for
+  HAT identification and are not the ordinary SDA1/SCL1 connection.
+
+The native libnfc [PN532 UART driver](https://github.com/nfc-tools/libnfc/blob/master/libnfc/drivers/pn532_uart.c)
+owns default **115200 baud** initialization; the
+[PN532 I2C driver](https://github.com/nfc-tools/libnfc/blob/master/libnfc/drivers/pn532_i2c.c)
+owns **0x24** addressing/readiness timing. Do not substitute a serial fallback
+for an I2C reader or override calibration to compensate for wiring errors.
+
+For exact Node/tsx commands and device configuration see [NFC Setup](nfc-setup.md).
+See [Dual Reader Setup](dual-reader-setup.md) for service/lane mapping.
+Authenticated network presence is not reader health: both-reader physical tap,
+unplug/replug, network recovery and service stop under 10 seconds still require
+deployment acceptance and remain unverified here.
