@@ -14,7 +14,7 @@ Welcome to the documentation for the Student Council Management System. This sys
 - **[Dual Reader Setup](dual-reader-setup.md)**: Running two NFC readers simultaneously with per-staff filtering.
 
 ### System Administration
-- **[Authentication Guide](authentication.md)**: Better Auth setup, signup code configuration, Microsoft OAuth, and user management.
+- **[Authentication Guide](authentication.md)**: Better Auth setup, student registration approval, QR payment review, Microsoft OAuth, and user management.
 - **[Database Guide](database.md)**: Schema details, migrations, backup procedures, and maintenance.
 - **[Batch Import Students](batch-import-students.md)**: CSV imports, SQL methods, and bulk enrollment procedures.
 - **[Deployment Guide](deployment.md)**: Production deployment with Docker, systemd, SSL, and reverse proxy setup.

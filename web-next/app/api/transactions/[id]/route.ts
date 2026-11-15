@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { auth } from "@/lib/auth";
+import { requireStaffContext, getAuthErrorDetails } from "@/lib/auth-session";
 import {
   getTransactionNoteHistory,
   getTransactionWithStudentById,
@@ -12,21 +12,16 @@ function parseTransactionId(value: string) {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
-async function requireSession(request: NextRequest) {
-  const session = await auth.api.getSession({
-    headers: request.headers,
-  });
-
-  return session;
-}
 
 export async function GET(
   request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
-  const session = await requireSession(request);
-  if (!session) {
-    return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+  try {
+    await requireStaffContext();
+  } catch (error) {
+    const details = getAuthErrorDetails(error, "Failed to authorize request");
+    return NextResponse.json({ success: false, error: details.message }, { status: details.status });
   }
 
   const { id } = await context.params;
@@ -53,9 +48,12 @@ export async function PATCH(
   request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
-  const session = await requireSession(request);
-  if (!session) {
-    return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+  let session;
+  try {
+    session = await requireStaffContext();
+  } catch (error) {
+    const details = getAuthErrorDetails(error, "Failed to authorize request");
+    return NextResponse.json({ success: false, error: details.message }, { status: details.status });
   }
 
   const { id } = await context.params;

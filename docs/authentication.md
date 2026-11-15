@@ -11,7 +11,7 @@ The authentication system provides:
 - **Profile Management**: Update name and profile picture
 - **Password Management**: Change password with verification
 - **Protected Routes**: All app routes require authentication
-- **Signup Code Protection**: Prevents unauthorized account creation
+- **Student approval**: Public registrations remain pending until an administrator links an existing financial student record
 
 ## Prerequisites
 
@@ -112,28 +112,68 @@ CREATE TABLE session (
 -- See migrations/better_auth_schema.sql for full schema
 ```
 
-## Signup Code Protection
+## Student accounts and administrator approval
 
-The signup page requires an 8-digit code to create new accounts, adding an extra layer of security to prevent unauthorized signups.
+Students register with `{name,email,password}` and then sign in; no shared signup
+or email verification code is required. New logins have the `student` role and
+start at `/student/pending`. Registration never creates a student, balance, or link.
+Email addresses are login identifiers, not verified proof of identity.
 
-### How Signup Code Works
+Provision the first administrator (or recover operator access/passwords) with
+`./scps-cli users`. There is no automatic first-user administrator promotion.
+An existing administrator uses **Accounts** (`/admin/users`) to verify a person,
+search for the correct existing student record, and **Approve and link**.
+Only nonarchived students with an accounts row can be linked. One login owns at
+most one financial student; one financial student has at most one login.
+Links cannot be reassigned through this screen. Resolve identity mistakes manually
+against a verified backup, never by matching a typed email/name automatically.
 
-1. User fills out signup form (name, email, password)
-2. User clicks "Create account"
-3. Form switches to OTP input screen
-4. User enters the 8-digit code
-5. If code matches, account is created
-6. If code is wrong, error message is shown
+Administrators can create accounts with an explicit role, or grant/demote a known
+registered person after confirmation. Staff cannot grant roles. The last
+administrator cannot be demoted, and website deletion of an administrator is
+refused until demoted. Role changes retain financial links and take effect on the
+next protected request, independently of cached session roles. Deleting an
+ordinary login removes its link, not financial records or history.
 
-### Alternative Approaches
+Staff/admin land at `/dashboard`; linked students land at `/student`. Students
+cannot access global transactions, customer actions, operator mutations, or NFC
+browser subscriptions. Archived or account-less linked records remain unavailable.
 
-For enhanced security, consider implementing:
+### Manually reviewed QR top-ups
 
-1. **Server-side validation**: Move code validation to a server action
-2. **Time-based codes**: Generate codes that expire
-3. **Email-based codes**: Send unique codes via email
-4. **Admin approval**: Require admin to approve signups
-5. **Remove code requirement**: For open signups (not recommended)
+Students request a base amount, e.g. ¥30.00, and see a distinct payable amount,
+e.g. ¥30.01. Only the base amount is credited, only after an administrator verifies
+the real receipt and approves in **Payment review** (`/wcp`). A sent claim alone
+does not change money. Rejection gives no credit and does not refund WeChat.
+
+Supply your own merchant QR at `web-next/public/wechat-pay-qr.png` (also .jpg,
+.jpeg, .webp), or set `NEXT_PUBLIC_WCP_QR_IMAGE_URL` to a same-origin root-relative
+path and rebuild. A static QR does not prefill the payable amount. Missing images
+show a configuration error, not a payment-success path.
+
+Reservations expire after 15 minutes unless marked sent. Claimed pending requests
+keep their payable amount reserved until review, even past the original deadline.
+The 1–99-cent suffix is unique only among pending reservations, not forever.
+After expiry, do not pay. If already sent, contact an administrator with this
+request ID. Investigate late/out-of-window payments manually using the existing
+administrative balance workflow; never automatically match a reused amount.
+
+The website queue/status is primary. Optional `TELEGRAM_BOT_TOKEN` and
+`WCP_TELEGRAM_CHAT_ID` send plain alerts with a website review link. Telegram
+cannot approve/reject payments; previously sent callback buttons are obsolete.
+Missing settings or delivery failure do not fail saved payment operations.
+
+### Existing database deployment
+
+Stop writers; use SQLite's backup API to take and verify a backup of the actual
+configured `DATABASE_PATH`, then run initialization against a copy first.
+Initialization preserves supported user columns, IDs, roles and financial cents.
+Unknown/missing user columns or orphan foreign keys refuse startup and roll back
+the identity migration. Duplicate still-pending payable amounts refuse the
+payment-index migration and report request IDs/amounts for reconciliation on a
+backup. Never renumber already displayed amounts or auto-repair identity links.
+Earlier successfully committed idempotent schema steps may remain; rerunning is safe.
+
 
 ## Microsoft OAuth Setup
 
@@ -205,10 +245,9 @@ Navigate to `http://localhost:3000` - you'll be redirected to the login page.
 
 ### First User Creation
 
-1. Navigate to `/signup`
-2. Fill in user details
-3. Enter the signup code 
-4. Account is created and you're automatically logged in
+1. Run `./scps-cli users` to create the first administrator.
+2. Students register at `/signup`, then sign in to check pending status.
+3. The administrator verifies and links each student in `/admin/users`.
 
 ### Production
 
@@ -228,7 +267,7 @@ See [Deployment Guide](deployment.md) for production setup with proper secrets m
 - ✅ Secure password hashing (scrypt via Better Auth)
 - ✅ Session tokens with expiration
 - ✅ CSRF protection
-- ✅ Signup code protection
+- ✅ Administrator-approved student links and fresh database role checks
 
 ### Session Configuration
 
@@ -295,7 +334,7 @@ See the [Troubleshooting Guide](troubleshooting.md#authentication-issues) for co
 
 ### Production Deployment
 
-1. **Change default signup code** immediately
+1. **Provision the first administrator** with the operator-controlled CLI
 2. **Use environment variables** for all secrets
 3. **Enable HTTPS** (Better Auth sets secure cookies in production)
 4. **Strong BETTER_AUTH_SECRET** (32+ characters)
@@ -304,18 +343,18 @@ See the [Troubleshooting Guide](troubleshooting.md#authentication-issues) for co
 7. **Regular secret rotation** (document procedure)
 8. **Configure TRUSTED_ORIGINS** - Set to only the domains where your app is accessible (e.g., `https://yourdomain.com`). This prevents CSRF attacks by validating the origin of requests.
 
-### Signup Code Security
+### Registration security
 
-- **Never commit** signup codes to version control
-- **Rotate regularly** (monthly or quarterly)
-- **Audit access** - track who has the code
-- **Consider alternatives** for large deployments (email verification, admin approval)
+- Verify people manually before linking balances or granting roles.
+- Typed addresses are not proof of mailbox ownership.
+- Preserve the controlled signup action: direct email-signup HTTP requests are blocked.
+- Password recovery uses the existing administrator CLI, not new email/SMS delivery.
 
 ## Future Enhancements
 
 Potential authentication improvements:
 
-- [ ] Role-based access control (admin, staff, readonly)
+- [x] Role-based access control (admin, staff, student)
 - [ ] Email verification for new signups
 - [ ] Password reset flow via email
 - [ ] Two-factor authentication (2FA)

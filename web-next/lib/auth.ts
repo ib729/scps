@@ -1,4 +1,5 @@
 import { betterAuth } from "better-auth";
+import { APIError } from "better-auth/api";
 import { getDb } from "./db";
 import { getTrustedOrigins } from "./trusted-origins";
 
@@ -15,11 +16,16 @@ export const auth = betterAuth({
         type: "string",
         required: false,
         input: false,
-        defaultValue: "staff",
+        defaultValue: "student",
       },
     },
     deleteUser: {
       enabled: true,
+      beforeDelete: async (user) => {
+        if (getDb().prepare("SELECT role FROM user WHERE id=?").pluck().get(user.id) === "admin") {
+          throw new APIError("BAD_REQUEST", { message: "Demote this administrator before deleting the account" });
+        }
+      },
     },
   },
   ...(process.env.MICROSOFT_CLIENT_ID && process.env.MICROSOFT_CLIENT_SECRET && {

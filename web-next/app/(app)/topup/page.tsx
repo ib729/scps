@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { getStudentIdsWithTransactions } from "@/lib/repositories/transactions";
 import { TopupForm } from "./topup-form";
 import { PageLoading } from "@/components/ui/page-loading";
-import { requirePageAuthContext } from "@/lib/auth-session";
+import { requirePageStaffContext } from "@/lib/auth-session";
 
 export const metadata: Metadata = {
   title: "Top-up",
@@ -16,7 +16,7 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function TopupPage() {
-  const session = await requirePageAuthContext();
+  const session = await requirePageStaffContext();
   const studentIdsWithTransactions = getStudentIdsWithTransactions();
 
   return (

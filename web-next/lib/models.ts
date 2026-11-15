@@ -1,5 +1,16 @@
 import { z } from "zod";
 import type { NFCReader, PosDefaultMode } from "./pos-preferences";
+import type { UserRole } from "./auth-session";
+
+export type UserAccessSummary = {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  createdAt: string | number;
+  studentId: number | null;
+  studentName: string | null;
+};
 
 // Student schemas
 export const studentSchema = z.object({
@@ -150,4 +161,16 @@ export type WechatTopupRequest = {
 
 export type WechatTopupRequestWithStudent = WechatTopupRequest & {
   student_name: string;
+};
+
+export type StudentPaymentRequest = Pick<WechatTopupRequest,
+  "id" | "requested_amount" | "payable_amount" | "status" | "created_at" | "expires_at" | "claimed_at" | "reviewed_at" | "review_note" | "approved_transaction_id">;
+export type StudentTransaction = Pick<Transaction,
+  "id" | "type" | "amount" | "payment_method" | "created_at">;
+
+export type StudentPortalData = {
+  student: { id: number; name: string; balance: number };
+  transactions: StudentTransaction[];
+  pendingRequests: StudentPaymentRequest[];
+  recentRequests: StudentPaymentRequest[];
 };

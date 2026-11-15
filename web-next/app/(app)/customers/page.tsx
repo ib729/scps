@@ -1,3 +1,4 @@
+import { requirePageStaffContext } from "@/lib/auth-session";
 import { getAllStudents } from "@/lib/repositories/students";
 import { getStudentIdsWithTransactions } from "@/lib/repositories/transactions";
 import { StudentsTable } from "./students-table";
@@ -14,6 +15,7 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function StudentsPage() {
+  await requirePageStaffContext();
   const students = getAllStudents();
   const studentIdsWithTransactions = getStudentIdsWithTransactions();
 

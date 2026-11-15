@@ -16,6 +16,7 @@ const { isIP } = require('node:net');
 const fs = require('fs');
 const { resolveDatabasePath } = require('./lib/database-path.cjs');
 const Database = require('better-sqlite3');
+const { ensureUserSchema } = require('./lib/user-schema.cjs');
 const { registerReader } = require('./lib/nfc-readers.cjs');
 
 const dev = process.env.NODE_ENV !== 'production';
@@ -69,51 +70,18 @@ function resolveDbPath() {
   return dbPath;
 }
 
-function hasColumn(database, tableName, columnName) {
-  const columns = database.prepare(`PRAGMA table_info(${tableName})`).all();
-  return columns.some((column) => column.name === columnName);
-}
-
-function ensureSecuritySchema(database) {
-  if (!hasColumn(database, 'user', 'role')) {
-    try {
-      database.exec(`
-        ALTER TABLE user
-        ADD COLUMN role TEXT NOT NULL DEFAULT 'staff' CHECK(role IN ('admin', 'staff'));
-      `);
-    } catch (error) {
-      if (!error.message.includes('duplicate column name: role')) {
-        throw error;
-      }
-    }
-  }
-
-  database.exec(`
-    UPDATE user
-    SET role = 'staff'
-    WHERE role IS NULL OR role NOT IN ('admin', 'staff');
-  `);
-
-  const adminCount = database
-    .prepare("SELECT COUNT(*) AS count FROM user WHERE role = 'admin'")
-    .get();
-
-  if (adminCount.count === 0) {
-    const bootstrapAdmin = database
-      .prepare("SELECT id FROM user ORDER BY createdAt ASC LIMIT 1")
-      .get();
-
-    if (bootstrapAdmin) {
-      database.prepare("UPDATE user SET role = 'admin' WHERE id = ?").run(bootstrapAdmin.id);
-    }
-  }
-}
 
 function getAuthDb() {
   if (!authDb) {
     authDb = new Database(resolveDbPath());
-    authDb.pragma('foreign_keys = ON');
-    ensureSecuritySchema(authDb);
+    try {
+      authDb.pragma('foreign_keys = ON');
+      ensureUserSchema(authDb);
+    } catch (error) {
+      authDb.close();
+      authDb = null;
+      throw error;
+    }
   }
 
   return authDb;
@@ -219,7 +187,7 @@ function validateBrowserSession(request, sessionToken = getSessionToken(request)
           s.expiresAt,
           u.email,
           u.name,
-          COALESCE(u.role, 'staff') AS role
+          u.role
         FROM session s
         JOIN user u ON u.id = s.userId
         WHERE s.token = ?
@@ -239,10 +207,10 @@ function validateBrowserSession(request, sessionToken = getSessionToken(request)
     return { error: 'Expired or malformed session' };
   }
 
-  return { session, sessionToken };
-  } catch {
-    return { error: 'Session authorization unavailable' };
+  if (session.role !== 'admin' && session.role !== 'staff') {
+    return { error: 'Forbidden' };
   }
+
   return { session, sessionToken };
   } catch {
     return { error: 'Session authorization unavailable' };

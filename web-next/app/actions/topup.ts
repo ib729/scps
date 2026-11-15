@@ -7,7 +7,7 @@ import { getStudentById } from "@/lib/repositories/students";
 import { createTransaction } from "@/lib/repositories/transactions";
 import { adjustBalance } from "@/lib/repositories/accounts";
 import { toDbValue } from "@/lib/currency";
-import { requireAuthContext } from "@/lib/auth-session";
+import { requireStaffContext } from "@/lib/auth-session";
 import {
   OTHER_PAYMENT_METHOD_MAX_LENGTH,
   PAYMENT_METHOD_VALUES,
@@ -44,7 +44,7 @@ function resolvePaymentMethod(
 
 export async function topupAction(data: unknown) {
   try {
-    const { user } = await requireAuthContext();
+    const { user } = await requireStaffContext();
 
     const validated = topupSchema.parse(data);
     const db = getDb();
@@ -96,7 +96,7 @@ export async function topupAction(data: unknown) {
 
 export async function topupAndPayAction(data: unknown) {
   try {
-    const { user } = await requireAuthContext();
+    const { user } = await requireStaffContext();
 
     const validated = topupSchema.parse(data);
     const db = getDb();
@@ -167,7 +167,7 @@ const adjustSchema = z.object({
 
 export async function adjustBalanceManualAction(data: unknown) {
   try {
-    const { user } = await requireAuthContext();
+    const { user } = await requireStaffContext();
 
     const validated = adjustSchema.parse(data);
     const db = getDb();

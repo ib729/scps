@@ -2,11 +2,28 @@
 
 This guide provides comprehensive testing procedures for the WebSocket-based NFC tap detection system and overall functionality.
 
+## Student accounts and QR top-ups (isolated SQLite)
+
 From `web-next/`, under Node.js >=26.13.1 <27 and pnpm 12.21.0:
+
+```bash
+pnpm install --frozen-lockfile
 pnpm test
 pnpm exec tsc --noEmit
+```
+
+These use disposable databases, not a live ledger or reader. They exercise role
+migration/rollback, administrator linkage/grants, private projections, payment
+parsing, cross-process reservations/review, replay refusal and credit rollback.
+Use disposable identities/data for browser smoke; verify pending registration,
+administrator linking, own balance/request/claim, website approval and rejection,
+student 403s, and retained operator pages. No real transfer is required.
+Missing merchant QR must show a configuration error; use only a disposable
+same-origin test image when checking loading. Never commit a fake merchant QR.
+
 From repository root: `.venv/bin/python -m unittest discover -s tests -p 'test_*.py'`.
 HTTP/WebSocket test files run sequentially against the actual custom development server, with a new disposable core/auth database and test credentials. Close any browser smoke server before running them to avoid the shared Next development lock. Production builds require a separately initialized temporary database and explicit test-only auth/NFC secrets; never use a production `.env.local` or ledger as a fixture. Container proof: `podman build -f web-next/Dockerfile -t scps:repair-smoke .` from root, then run with a disposable directory mounted at `/app/data` and explicit `DATABASE_PATH=/app/data/stuco.db`.
+
 
 ## Prerequisites
 

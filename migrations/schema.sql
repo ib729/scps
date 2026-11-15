@@ -11,6 +11,11 @@ CREATE TABLE IF NOT EXISTS students (
   archived INTEGER NOT NULL DEFAULT 0
 );
 
+CREATE TABLE IF NOT EXISTS user_student_links (
+  user_id TEXT PRIMARY KEY REFERENCES user(id) ON DELETE CASCADE,
+  student_id INTEGER NOT NULL UNIQUE REFERENCES students(id) ON DELETE RESTRICT
+);
+
 CREATE TABLE IF NOT EXISTS cards (
   card_uid TEXT PRIMARY KEY,              -- hex UID or your own token
   student_id INTEGER NOT NULL,
@@ -105,3 +110,6 @@ CREATE INDEX IF NOT EXISTS idx_wechat_topup_requests_status_expires_at
 
 CREATE INDEX IF NOT EXISTS idx_wechat_topup_requests_created_at
   ON wechat_topup_requests(created_at DESC, id DESC);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_wechat_topup_requests_pending_payable
+  ON wechat_topup_requests(payable_amount) WHERE status = 'pending';

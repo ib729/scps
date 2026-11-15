@@ -2,6 +2,7 @@ import fs from "node:fs";
 
 import Database from "better-sqlite3";
 import { DEFAULT_NFC_READER, DEFAULT_POS_MODE } from "./pos-preferences";
+import { ensureUserSchema } from "./user-schema.cjs";
 
 import { resolveDatabasePath } from "./database-path.cjs";
 import { ensureCurrencyScale } from "./currency-scale.cjs";
@@ -23,6 +24,7 @@ function hasColumn(database: Database.Database, tableName: string, columnName: s
 
 
 function ensureApplicationSchema(database: Database.Database) {
+  ensureUserSchema(database);
   database.exec(`
     CREATE TABLE IF NOT EXISTS app_meta (
       key TEXT PRIMARY KEY,
@@ -85,21 +87,6 @@ function ensureApplicationSchema(database: Database.Database) {
     }
   }
 
-  if (!hasColumn(database, "user", "role")) {
-    try {
-      database.exec(`
-        ALTER TABLE user
-        ADD COLUMN role TEXT NOT NULL DEFAULT 'staff' CHECK(role IN ('admin', 'staff'));
-      `);
-    } catch (error) {
-      if (
-        !(error instanceof Error) ||
-        !error.message.includes("duplicate column name: role")
-      ) {
-        throw error;
-      }
-    }
-  }
 
   if (!hasColumn(database, "transactions", "payment_method")) {
     try {
@@ -136,9 +123,6 @@ function ensureApplicationSchema(database: Database.Database) {
   ensureCurrencyScale(database);
 
   database.exec(`
-    UPDATE user
-    SET role = 'staff'
-    WHERE role IS NULL OR role NOT IN ('admin', 'staff');
     UPDATE transactions
     SET payment_method = TRIM(description)
     WHERE
@@ -211,28 +195,13 @@ function ensureApplicationSchema(database: Database.Database) {
     ON wechat_topup_requests(created_at DESC, id DESC);
   `);
 
-  const adminCount = database
-    .prepare("SELECT COUNT(*) AS count FROM user WHERE role = 'admin'")
-    .get() as { count: number };
+  database.transaction(() => {
+    database.exec("UPDATE wechat_topup_requests SET status='expired',reviewed_at=datetime('now') WHERE status='pending' AND claimed_at IS NULL AND expires_at<=datetime('now')");
+    const conflicts = database.prepare("SELECT payable_amount,group_concat(id) AS request_ids FROM wechat_topup_requests WHERE status='pending' GROUP BY payable_amount HAVING COUNT(*)>1").all();
+    if (conflicts.length) throw new Error(`Conflicting pending payment amounts; reconcile a backup before starting SCPS: ${JSON.stringify(conflicts)}`);
+    database.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_wechat_topup_requests_pending_payable ON wechat_topup_requests(payable_amount) WHERE status='pending'");
+  }).immediate();
 
-  if (adminCount.count === 0) {
-    const bootstrapAdmin = database
-      .prepare(
-        `
-          SELECT id
-          FROM user
-          ORDER BY createdAt ASC
-          LIMIT 1
-        `,
-      )
-      .get() as { id: string } | undefined;
-
-    if (bootstrapAdmin) {
-      database
-        .prepare("UPDATE user SET role = 'admin' WHERE id = ?")
-        .run(bootstrapAdmin.id);
-    }
-  }
 }
 
 export function getDb(): Database.Database {
@@ -240,8 +209,14 @@ export function getDb(): Database.Database {
     db = new Database(dbPath, {
       verbose: process.env.NODE_ENV === "development" ? console.log : undefined,
     });
-    db.pragma("foreign_keys = ON");
-    ensureApplicationSchema(db);
+    try {
+      db.pragma("foreign_keys = ON");
+      ensureApplicationSchema(db);
+    } catch (error) {
+      db.close();
+      db = null;
+      throw error;
+    }
   }
   return db;
 }

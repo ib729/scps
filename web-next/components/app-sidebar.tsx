@@ -31,6 +31,7 @@ import {
   type NFCReader,
 } from "@/lib/pos-preferences"
 import type { UserPreferences } from "@/lib/models"
+import type { AuthenticatedUser } from "@/lib/auth-session"
 
 import {
   Sidebar,
@@ -112,16 +113,7 @@ const BRAND_LOGO_SOURCES = [
 ] as const
 
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
-  user?: {
-    id: string
-    name: string
-    email: string
-    image?: string | null
-    emailVerified: boolean
-    createdAt: Date
-    updatedAt: Date
-    role: "admin" | "staff"
-  }
+  user?: AuthenticatedUser
   initialPreferences: UserPreferences
 }
 
@@ -522,7 +514,10 @@ export function AppSidebar({ user: initialUser, initialPreferences, ...props }: 
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {navItems.map((item) => (
+              {[...navItems, ...(user?.role === "admin" ? [
+                { title: "Accounts", url: "/admin/users", icon: Users },
+                { title: "Payment review", url: "/wcp", icon: Receipt },
+              ] : [])].map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
                     asChild

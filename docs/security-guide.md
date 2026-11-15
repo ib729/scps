@@ -147,16 +147,12 @@ Better Auth is configured with:
 - Session-based authentication
 - CSRF protection
 
-#### Signup Code Protection
+#### Student registration and operator access
 
-The system uses a signup code to prevent unauthorized account creation:
-
-```bash
-# In web-next/.env.local
-SIGNUP_CODE=your-secure-code
-```
-
-Setup a strong code and share it only with authorized staff.
+Public registration creates an unlinked student login, not an operator or financial account.
+Provision the first administrator with `./scps-cli users`; administrators use **Accounts**
+to verify people, link existing student balances, and grant later staff/admin roles.
+Email addresses identify logins but are not verified proof of identity.
 
 #### Session Security
 
@@ -475,7 +471,7 @@ tar -xzf db_backups/latest-backup.tar.gz
 - [ ] Security headers enabled in Nginx
 - [ ] Rate limiting configured
 - [ ] Systemd services run as non-root user
-- [ ] Signup code changed from default
+- [ ] First administrator provisioned through CLI; registration linking and role grants restricted to administrators
 - [ ] Automated backups configured
 - [ ] Backup verification tested
 - [ ] Log monitoring in place

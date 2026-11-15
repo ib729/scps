@@ -7,11 +7,11 @@ import {
   adjustBalance,
 } from "@/lib/repositories/accounts";
 import { updateAccountSchema } from "@/lib/models";
-import { requireAuthContext } from "@/lib/auth-session";
+import { requireStaffContext } from "@/lib/auth-session";
 
 export async function getAccountByStudentIdAction(studentId: number) {
   try {
-    await requireAuthContext();
+    await requireStaffContext();
     const account = getAccountByStudentId(studentId);
     if (!account) {
       return { success: false, error: "Account not found" };
@@ -24,7 +24,7 @@ export async function getAccountByStudentIdAction(studentId: number) {
 
 export async function updateAccountAction(studentId: number, data: unknown) {
   try {
-    await requireAuthContext();
+    await requireStaffContext();
     const validated = updateAccountSchema.parse(data);
     updateAccount(studentId, validated);
     revalidatePath("/customers");
@@ -37,7 +37,7 @@ export async function updateAccountAction(studentId: number, data: unknown) {
 
 export async function adjustBalanceAction(studentId: number, delta: number) {
   try {
-    await requireAuthContext();
+    await requireStaffContext();
     adjustBalance(studentId, delta);
     revalidatePath("/customers");
     revalidatePath(`/customers/${studentId}`);

@@ -14,11 +14,11 @@ import {
 import { adjustBalance } from "@/lib/repositories/accounts";
 import { createTransactionSchema } from "@/lib/models";
 import { getDb } from "@/lib/db";
-import { requireAuthContext } from "@/lib/auth-session";
+import { requireStaffContext } from "@/lib/auth-session";
 
 export async function getTransactionsAction(limit?: number) {
   try {
-    await requireAuthContext();
+    await requireStaffContext();
     return { success: true, data: getAllTransactions(limit) };
   } catch {
     return { success: false, error: "Failed to fetch transactions" };
@@ -27,7 +27,7 @@ export async function getTransactionsAction(limit?: number) {
 
 export async function getTransactionsByStudentIdAction(studentId: number) {
   try {
-    await requireAuthContext();
+    await requireStaffContext();
     return { success: true, data: getTransactionsByStudentId(studentId) };
   } catch {
     return { success: false, error: "Failed to fetch transactions" };
@@ -36,7 +36,7 @@ export async function getTransactionsByStudentIdAction(studentId: number) {
 
 export async function getTransactionByIdAction(id: number) {
   try {
-    await requireAuthContext();
+    await requireStaffContext();
     const transaction = getTransactionById(id);
     if (!transaction) {
       return { success: false, error: "Transaction not found" };
@@ -49,7 +49,7 @@ export async function getTransactionByIdAction(id: number) {
 
 export async function createTransactionAction(data: unknown) {
   try {
-    await requireAuthContext();
+    await requireStaffContext();
     const validated = createTransactionSchema.parse(data);
     const db = getDb();
 
@@ -72,7 +72,7 @@ export async function createTransactionAction(data: unknown) {
 
 export async function deleteTransactionAction(id: number) {
   try {
-    await requireAuthContext();
+    await requireStaffContext();
     // Note: Deleting transactions should also adjust the balance back
     const transaction = getTransactionById(id);
     if (!transaction) {
@@ -98,7 +98,7 @@ export async function deleteTransactionAction(id: number) {
 
 export async function getRecentTransactionsAction(limit: number = 10) {
   try {
-    await requireAuthContext();
+    await requireStaffContext();
     return { success: true, data: getRecentTransactions(limit) };
   } catch {
     return { success: false, error: "Failed to fetch recent transactions" };
@@ -107,7 +107,7 @@ export async function getRecentTransactionsAction(limit: number = 10) {
 
 export async function getTransactionsPageAction(page: number, pageSize: number) {
   try {
-    await requireAuthContext();
+    await requireStaffContext();
     return { success: true, data: getTransactionsPage({ page, pageSize }) };
   } catch {
     return { success: false, error: "Failed to fetch transactions" };
@@ -121,7 +121,7 @@ export async function getTransactionsBatchAction(params: {
   type?: string | null;
 }) {
   try {
-    await requireAuthContext();
+    await requireStaffContext();
     return { success: true, data: getTransactionsBatch(params) };
   } catch {
     return { success: false, error: "Failed to fetch transactions" };

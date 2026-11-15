@@ -140,16 +140,6 @@ if [[ -z "$current_auth_secret" || "$current_auth_secret" == "replace-with-a-ran
   echo "Generated BETTER_AUTH_SECRET"
 fi
 
-current_signup_code="$(read_env_value "SIGNUP_CODE")"
-if [[ -z "$current_signup_code" || "$current_signup_code" == "12345678" ]]; then
-  generated_signup_code="$(python3 - <<'PY'
-import secrets
-print(f"{secrets.randbelow(10**8):08d}")
-PY
-)"
-  ensure_env_value "SIGNUP_CODE" "$generated_signup_code"
-  echo "Generated SIGNUP_CODE=$generated_signup_code"
-fi
 
 current_app_url="$(read_env_value "NEXT_PUBLIC_APP_URL")"
 if [[ -z "$current_app_url" || "$current_app_url" == "http://localhost:3000" ]]; then

@@ -7,19 +7,18 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import {
-  AuthError,
   getAuthContext,
   getUserRoleById,
   requireRole,
 } from "@/lib/auth-session";
 import { consumeSignupAttempt } from "@/lib/signup-rate-limit";
+import { approveStudentRegistration, listUserAccess, setUserRole } from "@/lib/repositories/account-access";
 
 const signupSchema = z.object({
   name: z.string().trim().min(1).max(255),
-  email: z.string().trim().email(),
+  email: z.string().trim().email().transform(value => value.toLowerCase()),
   password: z.string().min(8).max(128),
-  signupCode: z.string().trim().min(1).max(64),
-});
+}).strict();
 
 const updateProfileSchema = z.object({
   name: z.string().trim().min(1).max(255).optional(),
@@ -32,15 +31,6 @@ function getSignupRateLimitKey(headerList: Headers): string {
 }
 
 export async function signupAction(data: unknown) {
-  const signupCode = process.env.SIGNUP_CODE?.trim();
-  if (!signupCode) {
-    console.error("SIGNUP_CODE environment variable is not set");
-    return {
-      success: false,
-      error: "Account creation is not available right now.",
-    };
-  }
-
   try {
     const requestHeaders = await headers();
     const rateLimitKey = getSignupRateLimitKey(requestHeaders);
@@ -53,13 +43,6 @@ export async function signupAction(data: unknown) {
     }
     const validated = signupSchema.parse(data);
 
-    if (validated.signupCode !== signupCode) {
-      recordSignupAttempt(rateLimitKey);
-      return {
-        success: false,
-        error: "Unable to create account with the provided details.",
-      };
-    }
     await auth.api.signUpEmail({
       headers: requestHeaders,
       body: {
@@ -149,7 +132,7 @@ export async function updateUserProfile(
     const updatedUser = db
       .prepare(
         `
-          SELECT id, name, email, image, emailVerified, createdAt, updatedAt, COALESCE(role, 'staff') AS role
+          SELECT id, name, email, image, emailVerified, createdAt, updatedAt, role
           FROM user
           WHERE id = ?
           LIMIT 1
@@ -191,42 +174,58 @@ export async function updateUserProfile(
   }
 }
 
-export async function createUser(data: {
-  name: string;
-  email: string;
-  password: string;
-  image?: string | null;
-}) {
+export async function createUser(data: unknown) {
+  try {
+    const { user: actor } = await requireRole("admin");
+    const validated = signupSchema.extend({
+      image: z.string().url().nullable().optional(),
+      role: z.enum(["admin", "staff", "student"]),
+    }).parse(data);
+    const result = await auth.api.signUpEmail({
+      headers: await headers(),
+      body: { name: validated.name, email: validated.email, password: validated.password, image: validated.image ?? undefined },
+    });
+    setUserRole(actor.id, result.user.id, validated.role);
+    revalidatePath("/admin/users");
+    return { success: true, data: { id: result.user.id } };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : "Failed to create user" };
+  }
+}
+
+export async function listUserAccessAction() {
   try {
     await requireRole("admin");
-    const validated = signupSchema.extend({
-      signupCode: z.string().optional(),
-    }).parse({
-      ...data,
-      signupCode: process.env.SIGNUP_CODE || "admin-created",
-    });
-
-    await auth.api.signUpEmail({
-      headers: await headers(),
-      body: {
-        name: validated.name,
-        email: validated.email,
-        password: validated.password,
-        image: data.image ?? undefined,
-      },
-    });
-
-    revalidatePath("/");
-    
-    return {
-      success: true,
-      user: null,
-    };
+    return { success: true, data: listUserAccess() };
   } catch (error) {
-    if (error instanceof AuthError) {
-      return { success: false, error: error.message };
-    }
-    console.error("Failed to create user:", error);
-    return { success: false, error: error instanceof Error ? error.message : "Failed to create user" };
+    return { success: false, error: error instanceof Error ? error.message : "Failed to list accounts" };
+  }
+}
+
+export async function approveStudentRegistrationAction(data: unknown) {
+  try {
+    const { user } = await requireRole("admin");
+    const input = z.object({ user_id: z.string().min(1), student_id: z.number().int().positive() }).strict().parse(data);
+    approveStudentRegistration(user.id, input.user_id, input.student_id);
+    revalidatePath("/admin/users");
+    revalidatePath("/student");
+    revalidatePath("/student/pending");
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : "Failed to approve registration" };
+  }
+}
+
+export async function setUserRoleAction(data: unknown) {
+  try {
+    const { user } = await requireRole("admin");
+    const input = z.object({ user_id: z.string().min(1), role: z.enum(["admin", "staff", "student"]) }).strict().parse(data);
+    setUserRole(user.id, input.user_id, input.role);
+    revalidatePath("/admin/users");
+    revalidatePath("/student");
+    revalidatePath("/wcp");
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : "Failed to change role" };
   }
 }

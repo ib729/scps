@@ -1,3 +1,4 @@
+import { requirePageStaffContext } from "@/lib/auth-session";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getStudentById } from "@/lib/repositories/students";
@@ -30,6 +31,7 @@ interface StudentDetailPageProps {
 export default async function StudentDetailPage({
   params,
 }: StudentDetailPageProps) {
+  await requirePageStaffContext();
   const { id } = await params;
   const studentId = parseInt(id, 10);
 

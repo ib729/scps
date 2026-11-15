@@ -37,6 +37,6 @@ export function adjustBalance(studentId: number, delta: number): void {
   const stmt = db.prepare(
     "UPDATE accounts SET balance = balance + ? WHERE student_id = ?"
   );
-  stmt.run(delta, studentId);
+  if (stmt.run(delta, studentId).changes === 0) throw new Error("Account not found");
 }
 

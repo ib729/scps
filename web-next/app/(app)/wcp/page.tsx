@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 
-import { requirePageAuthContext } from "@/lib/auth-session";
+import { requirePageRole } from "@/lib/auth-session";
 import { listWechatTopupRequests } from "@/lib/repositories/wechat-topup-requests";
 import { WcpClient } from "./wcp-client";
 
 export const metadata: Metadata = {
-  title: "WCP",
+  title: "Payment review",
   robots: {
     index: false,
     follow: false,
@@ -15,12 +15,13 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function WcpPage() {
-  await requirePageAuthContext();
-  const initialRequests = listWechatTopupRequests(60);
+  await requirePageRole("admin");
+  const pending = listWechatTopupRequests({ pendingOnly: true });
+  const recent = listWechatTopupRequests();
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <WcpClient initialRequests={initialRequests} />
+      <WcpClient pending={pending} recent={recent} />
     </div>
   );
 }

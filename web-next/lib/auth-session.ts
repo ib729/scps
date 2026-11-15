@@ -3,8 +3,9 @@ import { redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth";
 import { getDb } from "@/lib/db";
+import { getLinkedStudentId } from "@/lib/repositories/account-access";
 
-export type UserRole = "admin" | "staff";
+export type UserRole = "admin" | "staff" | "student";
 
 export type AuthenticatedUser = {
   id: string;
@@ -33,14 +34,14 @@ export class AuthError extends Error {
 }
 
 export function normalizeUserRole(role: unknown): UserRole {
-  return role === "admin" ? "admin" : "staff";
+  return role === "admin" || role === "staff" ? role : "student";
 }
 
 export function getUserRoleById(userId: string): UserRole {
   const db = getDb();
   const row = db
     .prepare(
-      "SELECT COALESCE(role, 'staff') AS role FROM user WHERE id = ? LIMIT 1",
+      "SELECT role FROM user WHERE id = ? LIMIT 1",
     )
     .get(userId) as { role?: string } | undefined;
 
@@ -85,6 +86,30 @@ export async function requireRole(role: UserRole): Promise<AuthContext> {
   return context;
 }
 
+export async function requireStaffContext(): Promise<AuthContext> {
+  const context = await requireAuthContext();
+  if (context.user.role === "student") throw new AuthError("Forbidden", 403);
+  return context;
+}
+
+export async function requirePageStaffContext(): Promise<AuthContext> {
+  const context = await requirePageAuthContext();
+  if (context.user.role === "student") redirect(getUserHomePath(context));
+  return context;
+}
+
+export async function requireStudentContext(): Promise<AuthContext & { studentId: number }> {
+  const context = await requireRole("student");
+  const studentId = getLinkedStudentId(context.user.id);
+  if (studentId === undefined) throw new AuthError("Student account is awaiting approval or unavailable", 403);
+  return { ...context, studentId };
+}
+
+export function getUserHomePath(context: AuthContext): string {
+  if (context.user.role !== "student") return "/dashboard";
+  return getLinkedStudentId(context.user.id) === undefined ? "/student/pending" : "/student";
+}
+
 export async function requirePageAuthContext(): Promise<AuthContext> {
   const context = await getAuthContext();
   if (!context) {
@@ -96,7 +121,7 @@ export async function requirePageAuthContext(): Promise<AuthContext> {
 export async function requirePageRole(role: UserRole): Promise<AuthContext> {
   const context = await requirePageAuthContext();
   if (context.user.role !== role) {
-    redirect("/dashboard");
+    redirect(getUserHomePath(context));
   }
   return context;
 }

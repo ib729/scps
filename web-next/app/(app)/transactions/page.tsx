@@ -1,3 +1,4 @@
+import { requirePageStaffContext } from "@/lib/auth-session";
 import type { Metadata } from "next";
 
 import { getTransactionsCursorBatch } from "@/lib/repositories/transactions";
@@ -14,6 +15,7 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function TransactionsPage() {
+  await requirePageStaffContext();
   const initialBatch = getTransactionsCursorBatch({
     limit: 150,
     cursor: null,

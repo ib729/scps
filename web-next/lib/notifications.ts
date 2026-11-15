@@ -1,15 +1,6 @@
 import { formatCurrency } from "./currency";
 import type { WechatTopupRequestWithStudent } from "./models";
 
-type TelegramReplyMarkup = {
-  inline_keyboard: Array<
-    Array<{
-      text: string;
-      callback_data?: string;
-      url?: string;
-    }>
-  >;
-};
 
 function getTelegramBotToken() {
   return process.env.TELEGRAM_BOT_TOKEN?.trim() || null;
@@ -33,6 +24,7 @@ async function telegramApiRequest(method: string, payload: Record<string, unknow
         "Content-Type": "application/json",
       },
       body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(5000),
     },
   );
 
@@ -49,16 +41,6 @@ async function telegramApiRequest(method: string, payload: Record<string, unknow
   return body;
 }
 
-export function buildWechatTopupReviewKeyboard(requestId: number): TelegramReplyMarkup {
-  return {
-    inline_keyboard: [
-      [
-        { text: "✅ Approve", callback_data: `wcp:approve:${requestId}` },
-        { text: "❌ Reject", callback_data: `wcp:reject:${requestId}` },
-      ],
-    ],
-  };
-}
 
 function formatRequestSummary(request: WechatTopupRequestWithStudent) {
   const lines = [
@@ -106,10 +88,7 @@ export function formatWechatTopupNotificationText(
   return [title, ...formatRequestSummary(request)].join("\n");
 }
 
-export async function sendTelegramMessage(
-  text: string,
-  replyMarkup?: TelegramReplyMarkup,
-) {
+export async function sendTelegramMessage(text: string) {
   const chatId = getTelegramNotificationChatId();
   const botToken = getTelegramBotToken();
 
@@ -120,45 +99,11 @@ export async function sendTelegramMessage(
   await telegramApiRequest("sendMessage", {
     chat_id: chatId,
     text,
-    ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
   });
 
   return true;
 }
 
-export async function editTelegramMessageText(params: {
-  chatId: number | string;
-  messageId: number;
-  text: string;
-  replyMarkup?: TelegramReplyMarkup;
-}) {
-  await telegramApiRequest("editMessageText", {
-    chat_id: params.chatId,
-    message_id: params.messageId,
-    text: params.text,
-    ...(params.replyMarkup ? { reply_markup: params.replyMarkup } : {}),
-  });
-}
-
-export async function answerTelegramCallbackQuery(params: {
-  callbackQueryId: string;
-  text: string;
-  showAlert?: boolean;
-}) {
-  await telegramApiRequest("answerCallbackQuery", {
-    callback_query_id: params.callbackQueryId,
-    text: params.text,
-    show_alert: params.showAlert ?? false,
-  });
-}
-
-export async function notifyWechatTopupRequestCreated(
-  request: WechatTopupRequestWithStudent,
-) {
-  await sendTelegramMessage(
-    formatWechatTopupNotificationText(request, "New WCP request"),
-  );
-}
 
 export async function notifyWechatTopupRequestApproved(
   request: WechatTopupRequestWithStudent,
@@ -171,13 +116,10 @@ export async function notifyWechatTopupRequestApproved(
 export async function notifyWechatTopupRequestClaimed(
   request: WechatTopupRequestWithStudent,
 ) {
-  const sent = await sendTelegramMessage(
-    formatWechatTopupNotificationText(request, "WCP request marked paid"),
-    buildWechatTopupReviewKeyboard(request.id),
+  const reviewUrl = new URL("/wcp", process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").toString();
+  await sendTelegramMessage(
+    `${formatWechatTopupNotificationText(request, "WCP request marked paid")}\nReview in SCPS: ${reviewUrl}`,
   );
-  if (!sent) {
-    throw new Error("Telegram review notifications are not configured");
-  }
 }
 
 export async function notifyWechatTopupRequestRejected(

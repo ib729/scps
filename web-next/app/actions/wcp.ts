@@ -2,157 +2,76 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { requireRole, requireStudentContext } from "@/lib/auth-session";
+import { notifyWechatTopupRequestApproved, notifyWechatTopupRequestClaimed, notifyWechatTopupRequestRejected } from "@/lib/notifications";
+import { approveWechatTopupRequest, createWechatTopupRequest, getWechatTopupRequestById, listWechatTopupRequests, markWechatTopupRequestClaimed, parseWechatTopupAmount, rejectWechatTopupRequest, toStudentPaymentRequest } from "@/lib/repositories/wechat-topup-requests";
 
-import { requireAuthContext } from "@/lib/auth-session";
-import { toDbValue } from "@/lib/currency";
-import {
-  notifyWechatTopupRequestApproved,
-  notifyWechatTopupRequestClaimed,
-  notifyWechatTopupRequestRejected,
-} from "@/lib/notifications";
-import {
-  approveWechatTopupRequest,
-  createWechatTopupRequest,
-  listWechatTopupRequests,
-  markWechatTopupRequestClaimed,
-  rejectWechatTopupRequest,
-} from "@/lib/repositories/wechat-topup-requests";
-
-const createWechatTopupRequestSchema = z.object({
-  student_id: z.number().int().positive(),
-  amount: z.number().positive(),
-  internal_note: z.string().trim().max(500).optional(),
-});
-
-const reviewWechatTopupRequestSchema = z.object({
-  request_id: z.number().int().positive(),
-  review_note: z.string().trim().max(500).optional(),
-});
+const requestSchema = z.object({ request_id: z.number().int().positive() }).strict();
+const reviewSchema = requestSchema.extend({ review_note: z.string().trim().max(500).optional() });
 
 export async function createWechatTopupRequestAction(data: unknown) {
   try {
-    const { user } = await requireAuthContext();
-    const validated = createWechatTopupRequestSchema.parse(data);
-
-    const request = createWechatTopupRequest({
-      studentId: validated.student_id,
-      requestedAmount: toDbValue(validated.amount),
-      createdByUserId: user.id,
-      createdByName: user.name,
-      internalNote: validated.internal_note,
-    });
-
-    revalidatePath("/wcp");
-
-    return { success: true, data: request };
+    const { user, studentId } = await requireStudentContext();
+    const input = z.object({ amount: z.string() }).strict().parse(data);
+    const request = createWechatTopupRequest({ studentId, requestedAmount: parseWechatTopupAmount(input.amount), createdByUserId: user.id, createdByName: user.name });
+    revalidatePath("/student"); revalidatePath("/wcp");
+    return { success: true, data: toStudentPaymentRequest(request) };
   } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : "Failed to create request",
-    };
-  }
-}
-
-export async function approveWechatTopupRequestAction(data: unknown) {
-  try {
-    const { user } = await requireAuthContext();
-    const validated = reviewWechatTopupRequestSchema.parse(data);
-
-    const result = approveWechatTopupRequest({
-      requestId: validated.request_id,
-      reviewedByUserId: user.id,
-      reviewedByName: user.name,
-      reviewNote: validated.review_note,
-    });
-
-    try {
-      await notifyWechatTopupRequestApproved(result.request);
-    } catch (notificationError) {
-      console.error("Failed to send WCP approval notification", notificationError);
-    }
-
-    revalidatePath("/wcp");
-    revalidatePath("/topup");
-    revalidatePath("/transactions");
-    revalidatePath("/customers");
-    revalidatePath(`/customers/${result.request.student_id}`);
-    revalidatePath("/dashboard");
-
-    return { success: true, data: result };
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : "Failed to approve request",
-    };
+    return { success: false, error: error instanceof Error ? error.message : "Failed to create request" };
   }
 }
 
 export async function markWechatTopupRequestClaimedAction(data: unknown) {
   try {
-    await requireAuthContext();
-    const validated = reviewWechatTopupRequestSchema.parse(data);
-
-    const request = markWechatTopupRequestClaimed(validated.request_id);
-
-    try {
-      await notifyWechatTopupRequestClaimed(request);
-    } catch (notificationError) {
-      console.error("Failed to send WCP claimed notification", notificationError);
-      revalidatePath("/wcp");
-      return {
-        success: false,
-        error: "Payment claim saved, but Telegram delivery failed. Do not pay again; use Resend for review.",
-      };
+    const { studentId } = await requireStudentContext();
+    const input = requestSchema.parse(data);
+    const owned = getWechatTopupRequestById(input.request_id);
+    if (!owned || owned.student_id !== studentId) throw new Error("Request not found");
+    const { request, newlyClaimed } = markWechatTopupRequestClaimed(input.request_id);
+    revalidatePath("/student"); revalidatePath("/wcp");
+    if (newlyClaimed) {
+      try { await notifyWechatTopupRequestClaimed(request); }
+      catch (error) { console.error("Failed to send optional WCP claim notification", error); }
     }
-
-    revalidatePath("/wcp");
-
-    return { success: true, data: request };
+    return { success: true, data: toStudentPaymentRequest(request) };
   } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : "Failed to mark request as paid",
-    };
+    return { success: false, error: error instanceof Error ? error.message : "Failed to mark request as paid" };
+  }
+}
+
+export async function approveWechatTopupRequestAction(data: unknown) {
+  try {
+    const { user } = await requireRole("admin");
+    const input = reviewSchema.extend({ receipt_confirmed: z.literal(true) }).parse(data);
+    const result = approveWechatTopupRequest({ requestId: input.request_id, reviewedByUserId: user.id, reviewedByName: user.name, reviewNote: input.review_note });
+    for (const path of ["/student", "/wcp", "/topup", "/transactions", "/customers", `/customers/${result.request.student_id}`, "/dashboard"]) revalidatePath(path);
+    try { await notifyWechatTopupRequestApproved(result.request); }
+    catch (error) { console.error("Failed to send optional WCP approval notification", error); }
+    return { success: true, data: result };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : "Failed to approve request" };
   }
 }
 
 export async function rejectWechatTopupRequestAction(data: unknown) {
   try {
-    const { user } = await requireAuthContext();
-    const validated = reviewWechatTopupRequestSchema.parse(data);
-
-    const request = rejectWechatTopupRequest({
-      requestId: validated.request_id,
-      reviewedByUserId: user.id,
-      reviewedByName: user.name,
-      reviewNote: validated.review_note,
-    });
-
-    try {
-      await notifyWechatTopupRequestRejected(request);
-    } catch (notificationError) {
-      console.error("Failed to send WCP rejection notification", notificationError);
-    }
-
-    revalidatePath("/wcp");
-
+    const { user } = await requireRole("admin");
+    const input = reviewSchema.parse(data);
+    const request = rejectWechatTopupRequest({ requestId: input.request_id, reviewedByUserId: user.id, reviewedByName: user.name, reviewNote: input.review_note });
+    revalidatePath("/student"); revalidatePath("/wcp");
+    try { await notifyWechatTopupRequestRejected(request); }
+    catch (error) { console.error("Failed to send optional WCP rejection notification", error); }
     return { success: true, data: request };
   } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : "Failed to reject request",
-    };
+    return { success: false, error: error instanceof Error ? error.message : "Failed to reject request" };
   }
 }
 
-export async function getWechatTopupRequestsAction(limit = 50) {
+export async function getWechatTopupRequestsAction() {
   try {
-    await requireAuthContext();
-    return { success: true, data: listWechatTopupRequests(limit) };
+    await requireRole("admin");
+    return { success: true, data: { pending: listWechatTopupRequests({ pendingOnly: true }), recent: listWechatTopupRequests() } };
   } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : "Failed to load requests",
-    };
+    return { success: false, error: error instanceof Error ? error.message : "Failed to list requests" };
   }
 }

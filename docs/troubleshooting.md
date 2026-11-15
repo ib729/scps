@@ -144,33 +144,12 @@ pnpm install
    - Client secret must not be expired
    - Redirect URI must be whitelisted
 
-### Signup Code Rejected
+### Student registration awaiting approval
 
-**Problem**: Valid signup code is being rejected.
-
-**Solutions**:
-
-1. **Check Environment Variable**:
-   
-   Verify the `SIGNUP_CODE` is set in `web-next/.env.local`:
-   ```env
-   SIGNUP_CODE=your_code_here
-   ```
-   
-   Note: Do NOT use quotes around the value (use `SIGNUP_CODE=abc123` not `SIGNUP_CODE="abc123"`)
-
-2. **Restart Server**: After changing `.env.local`, restart the server:
-   ```bash
-   cd web-next
-   # Stop the server (Ctrl+C), then:
-   pnpm dev
-   # Or in production:
-   sudo systemctl restart stuco-web
-   ```
-
-3. **Verify Code Has No Spaces**: Ensure the code has no leading/trailing spaces
-
-4. **Check Server Logs**: Look for "SIGNUP_CODE environment variable is not set" errors
+Registration needs only a name, email and password. Sign in to check approval status.
+An administrator must verify the person and link the login to an existing, active
+student with an account through **Accounts**. An archived or account-less record
+remains unavailable. Use `./scps-cli users` for first-admin provisioning or password recovery.
 
 ### "CORS error" or "Origin not allowed"
 
@@ -182,7 +161,7 @@ pnpm install
 
 ### "Failed to sign up" Error
 
-**Problem**: Signup code is accepted but account creation fails.
+**Problem**: Account creation fails with valid registration details.
 
 **Cause**: Better Auth database tables are missing (usually after a database reset).
 
@@ -220,14 +199,14 @@ After setup, verify authentication works:
 2. Should redirect to `/login`
 3. Click "Sign up" to create account
 4. Fill in name, email, password
-5. Enter signup code
-6. Should auto-login and redirect to `/dashboard`
+5. Sign in after successful registration.
+6. Confirm pending status until an administrator links the existing student account.
 
 **Success Indicators**:
 - ✅ No errors in browser console
-- ✅ POST request to `/api/auth/sign-up/email` returns 200
-- ✅ Automatic redirect to `/dashboard` after signup
-- ✅ User name appears in sidebar
+- ✅ Controlled signup action succeeds; direct email-signup HTTP requests remain blocked
+- ✅ Sign-in routes pending students to `/student/pending` and linked students to `/student`
+- ✅ Only staff/admin have the operator sidebar
 - ✅ Logout works and redirects to `/login`
 
 **Debugging Tips**:

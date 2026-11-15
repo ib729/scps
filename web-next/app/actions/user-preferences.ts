@@ -1,6 +1,6 @@
 "use server";
 
-import { requireAuthContext } from "@/lib/auth-session";
+import { requireStaffContext } from "@/lib/auth-session";
 import {
   getUserPreferencesByUserId,
   updateUserPreferencesByUserId,
@@ -12,7 +12,7 @@ import {
 
 export async function getCurrentUserPreferencesAction() {
   try {
-    const context = await requireAuthContext();
+    const context = await requireStaffContext();
     return {
       success: true,
       data: getUserPreferencesByUserId(context.user.id),
@@ -30,7 +30,7 @@ export async function updateCurrentUserPreferencesAction(input: {
   posDefaultMode: string;
 }) {
   try {
-    const context = await requireAuthContext();
+    const context = await requireStaffContext();
     const preferences = updateUserPreferencesByUserId(context.user.id, {
       selectedReader: parseNfcReader(input.selectedReader),
       posDefaultMode: parsePosDefaultMode(input.posDefaultMode),

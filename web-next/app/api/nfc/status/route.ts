@@ -4,14 +4,14 @@ import { NextRequest, NextResponse } from "next/server";
 
 import {
   getAuthErrorDetails,
-  requireAuthContext,
+  requireStaffContext,
 } from "@/lib/auth-session";
 import { parseNfcReader } from "@/lib/pos-preferences";
 
 
 export async function GET(request: NextRequest) {
   try {
-    await requireAuthContext();
+    await requireStaffContext();
 
     const requestedReader = parseNfcReader(
       request.nextUrl.searchParams.get("reader"),

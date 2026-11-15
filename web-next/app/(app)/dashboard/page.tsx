@@ -1,3 +1,4 @@
+import { requirePageStaffContext } from "@/lib/auth-session";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getDashboardChartData, getDashboardStats, getRecentTransactions } from "@/lib/repositories/transactions";
 import { Users, ShoppingCart, ArrowUpRight, ArrowDownRight, Minus, Landmark, HandCoins } from "@/lib/icons";
@@ -17,6 +18,7 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
+  await requirePageStaffContext();
   const dashboardStats = getDashboardStats();
   const recentTransactions = getRecentTransactions(10);
   const chartData = getDashboardChartData(90);

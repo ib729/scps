@@ -2,6 +2,9 @@
 
 ## 2026-11-15
 
+### Payment review
+- Keep the mounted administrator queue polling when empty; resolved history shows the newest decisions regardless of status, while pending claims retain priority.
+
 ### Toolchain
 - Pin Node 26.13.1, pnpm 12.21.0 and current stable direct dependencies; use the installed `auth` CLI. Python reader dependencies require Python 3.11 or newer.
 - TypeScript 7 checks the application; ESLint compiler-API consumers resolve isolated TypeScript 6.0.3. Workspace policy explicitly permits native builds and denies unused Prisma client generation and telemetry scripts.
@@ -19,6 +22,13 @@
 - Container builds use repository-root context, an isolated build database and no production secrets. The nonroot runtime ships the canonical resolver and SQLite snapshot/recovery tools. Added WebSocket declarations for strict test type checking; installer user commands retain the pinned pnpm path through sudo.
 
 ## 2026-11-06
+
+### Student accounts and reviewed top-ups
+- Student self-registration now creates pending logins; administrators link existing student balances and grant operator roles in `/admin/users`. The first administrator/recovery path remains `./scps-cli users`; automatic administrator promotion is removed.
+- Added private `/student` balance, transaction and QR top-up status screens; staff financial actions, pages, transaction APIs and browser NFC subscriptions reject student sessions.
+- `/wcp` is now authenticated administrator review with receipt confirmation. Claims never credit money; approval credits the base amount once, rejection gives no credit. Telegram is optional plain notification delivery, not payment authority.
+- Payable reservations are allocated under an immediate transaction and unique pending-amount index. Startup refuses unreconciled active duplicates or unsupported identity schemas without silently changing financial identities or displayed amounts.
+- Existing deployments must stop writers, verify a SQLite backup of the configured database, and validate initialization on a copy. Merchant QR assets and secrets remain deployment configuration.
 
 ### Changed
 - Integrated the SourceHut `master` history into the GitHub `main` history using their matching April application snapshot, retaining destination-only agent tooling and the latest README removals.

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { checkoutStudent } from "@/lib/repositories/checkout";
 import { toDbValue } from "@/lib/currency";
-import { requireAuthContext } from "@/lib/auth-session";
+import { requireStaffContext } from "@/lib/auth-session";
 
 const posCheckoutSchema = z
   .object({
@@ -19,7 +19,7 @@ const posCheckoutSchema = z
 
 export async function posCheckoutAction(data: unknown) {
   try {
-    const { user } = await requireAuthContext();
+    const { user } = await requireStaffContext();
 
     const validated = posCheckoutSchema.parse(data);
 

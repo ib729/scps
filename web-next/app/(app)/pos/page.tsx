@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { getStudentIdsWithTransactions } from "@/lib/repositories/transactions";
 import { PosForm } from "./pos-form";
 import { PageLoading } from "@/components/ui/page-loading";
-import { requirePageAuthContext } from "@/lib/auth-session";
+import { requirePageStaffContext } from "@/lib/auth-session";
 import { getUserPreferencesByUserId } from "@/lib/repositories/user-preferences";
 
 export const metadata: Metadata = {
@@ -17,7 +17,7 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function PosPage() {
-  const session = await requirePageAuthContext();
+  const session = await requirePageStaffContext();
   const studentIdsWithTransactions = getStudentIdsWithTransactions();
   const preferences = getUserPreferencesByUserId(session.user.id);
 

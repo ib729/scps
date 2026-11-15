@@ -27,7 +27,6 @@ export default function SignupPage() {
     name: "",
     email: "",
     password: "",
-    signupCode: "",
   });
 
   const handleSignup = async (e: React.FormEvent) => {
@@ -41,7 +40,7 @@ export default function SignupPage() {
         return;
       }
 
-      toast.success("Account created successfully. Please sign in.");
+      toast.success("Account created. Sign in to check your approval status.");
       window.location.replace("/login");
     } catch {
       toast.error("An unexpected error occurred");
@@ -102,21 +101,6 @@ export default function SignupPage() {
               value={formData.password}
               onChange={(e) =>
                 setFormData({ ...formData, password: e.target.value })
-              }
-              disabled={loading}
-            />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="signup-code">Signup Code</Label>
-            <Input
-              id="signup-code"
-              name="signupCode"
-              type="password"
-              autoComplete="one-time-code"
-              required
-              value={formData.signupCode}
-              onChange={(e) =>
-                setFormData({ ...formData, signupCode: e.target.value })
               }
               disabled={loading}
             />

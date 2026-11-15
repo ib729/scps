@@ -1,20 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { auth } from "@/lib/auth";
+import { requireStaffContext, getAuthErrorDetails } from "@/lib/auth-session";
 import { getTransactionsCursorBatch } from "@/lib/repositories/transactions";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
-  const session = await auth.api.getSession({
-    headers: request.headers,
-  });
-
-  if (!session) {
-    return NextResponse.json(
-      { success: false, error: "Unauthorized" },
-      { status: 401 },
-    );
+  try {
+    await requireStaffContext();
+  } catch (error) {
+    const details = getAuthErrorDetails(error, "Failed to authorize request");
+    return NextResponse.json({ success: false, error: details.message }, { status: details.status });
   }
 
   const searchParams = request.nextUrl.searchParams;

@@ -51,7 +51,7 @@ export default function LoginPage() {
       await new Promise(resolve => setTimeout(resolve, 200));
       
       // Force a full page reload to ensure session is available on server
-      window.location.replace("/dashboard");
+      window.location.replace("/");
     } catch (error) {
       toast.error("An unexpected error occurred");
       setLoading(false);

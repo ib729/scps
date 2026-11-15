@@ -13,11 +13,11 @@ import {
   getStudentByName,
 } from "@/lib/repositories/students";
 import { createStudentSchema } from "@/lib/models";
-import { requireAuthContext } from "@/lib/auth-session";
+import { requireStaffContext } from "@/lib/auth-session";
 
 export async function getStudentsAction() {
   try {
-    await requireAuthContext();
+    await requireStaffContext();
     return { success: true, data: getAllStudents() };
   } catch {
     return { success: false, error: "Failed to fetch customers" };
@@ -26,7 +26,7 @@ export async function getStudentsAction() {
 
 export async function getStudentByIdAction(id: number) {
   try {
-    await requireAuthContext();
+    await requireStaffContext();
     const student = getStudentById(id);
     if (!student) {
       return { success: false, error: "Customer not found" };
@@ -39,7 +39,7 @@ export async function getStudentByIdAction(id: number) {
 
 export async function createStudentAction(data: unknown) {
   try {
-    await requireAuthContext();
+    await requireStaffContext();
     const validated = createStudentSchema.parse(data);
     const student = createStudent(validated);
     revalidatePath("/customers");
@@ -51,7 +51,7 @@ export async function createStudentAction(data: unknown) {
 
 export async function updateStudentAction(id: number, data: unknown) {
   try {
-    await requireAuthContext();
+    await requireStaffContext();
     const validated = createStudentSchema.parse(data);
     updateStudent(id, validated);
     revalidatePath("/customers");
@@ -64,7 +64,7 @@ export async function updateStudentAction(id: number, data: unknown) {
 
 export async function deleteStudentAction(id: number) {
   try {
-    await requireAuthContext();
+    await requireStaffContext();
 
     if (hasTransactions(id)) {
       archiveStudent(id);
@@ -100,7 +100,7 @@ export async function deleteStudentAction(id: number) {
 
 export async function searchStudentsAction(query: string, limit: number = 10) {
   try {
-    await requireAuthContext();
+    await requireStaffContext();
     return { success: true, data: searchStudents(query, limit) };
   } catch {
     return { success: false, error: "Failed to search customers" };
@@ -109,7 +109,7 @@ export async function searchStudentsAction(query: string, limit: number = 10) {
 
 export async function getStudentByNameAction(name: string) {
   try {
-    await requireAuthContext();
+    await requireStaffContext();
     const student = getStudentByName(name);
     if (!student) {
       return { success: true, data: null };

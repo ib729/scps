@@ -10,11 +10,11 @@ import {
   deleteCard,
 } from "@/lib/repositories/cards";
 import { createCardSchema } from "@/lib/models";
-import { requireAuthContext } from "@/lib/auth-session";
+import { requireStaffContext } from "@/lib/auth-session";
 
 export async function getCardsAction() {
   try {
-    await requireAuthContext();
+    await requireStaffContext();
     return { success: true, data: getAllCards() };
   } catch {
     return { success: false, error: "Failed to fetch cards" };
@@ -23,7 +23,7 @@ export async function getCardsAction() {
 
 export async function getCardByUidAction(cardUid: string) {
   try {
-    await requireAuthContext();
+    await requireStaffContext();
     const card = getCardByUid(cardUid);
     if (!card) {
       return { success: false, error: "Card not found" };
@@ -36,7 +36,7 @@ export async function getCardByUidAction(cardUid: string) {
 
 export async function getCardsByStudentIdAction(studentId: number) {
   try {
-    await requireAuthContext();
+    await requireStaffContext();
     return { success: true, data: getCardsByStudentId(studentId) };
   } catch {
     return { success: false, error: "Failed to fetch cards" };
@@ -45,7 +45,7 @@ export async function getCardsByStudentIdAction(studentId: number) {
 
 export async function createCardAction(data: unknown) {
   try {
-    await requireAuthContext();
+    await requireStaffContext();
     const validated = createCardSchema.parse(data);
     const card = createCard(validated);
     revalidatePath("/customers");
@@ -61,7 +61,7 @@ export async function updateCardStatusAction(
   status: "active" | "revoked"
 ) {
   try {
-    await requireAuthContext();
+    await requireStaffContext();
     updateCardStatus(cardUid, status);
     revalidatePath("/customers");
     return { success: true };
@@ -72,7 +72,7 @@ export async function updateCardStatusAction(
 
 export async function deleteCardAction(cardUid: string) {
   try {
-    await requireAuthContext();
+    await requireStaffContext();
     deleteCard(cardUid);
     revalidatePath("/customers");
     return { success: true };

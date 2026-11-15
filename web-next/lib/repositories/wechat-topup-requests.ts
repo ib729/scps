@@ -1,7 +1,8 @@
 import { getDb } from "../db";
-import { formatCurrency } from "../currency";
+import { formatCurrency, toDbValue } from "../currency";
 import type {
   StudentWithAccount,
+  StudentPaymentRequest,
   Transaction,
   WechatTopupRequestWithStudent,
 } from "../models";
@@ -10,6 +11,15 @@ import { adjustBalance } from "./accounts";
 import { createTransaction } from "./transactions";
 
 const REQUEST_EXPIRY_MINUTES = 15;
+
+export function parseWechatTopupAmount(input: string): number {
+  const value = input.trim();
+  const cents = toDbValue(Number(value));
+  if (!/^\d+(?:\.\d{1,2})?$/.test(value) || !Number.isFinite(Number(value)) || !Number.isSafeInteger(cents) || cents <= 0 || !Number.isSafeInteger(cents + 99)) {
+    throw new Error("Enter a positive amount with at most two decimal places");
+  }
+  return cents;
+}
 
 function expirePendingRequests(database = getDb()) {
   database
@@ -45,7 +55,7 @@ function listActivePayableAmounts(database = getDb()) {
   );
 }
 
-function getRequestWithStudentById(
+export function getWechatTopupRequestById(
   id: number,
   database = getDb(),
 ): WechatTopupRequestWithStudent | undefined {
@@ -107,16 +117,13 @@ export function createWechatTopupRequest(params: {
   internalNote?: string | null;
 }) {
   const db = getDb();
-  expirePendingRequests(db);
-
-  if (params.requestedAmount < 1) {
-    throw new Error("Top-up amount must be at least ¥0.01");
-  }
-
-  const student = getStudentById(params.studentId);
-  if (!student) {
-    throw new Error("Customer not found");
-  }
+  return db.transaction(() => {
+    expirePendingRequests(db);
+    if (!Number.isSafeInteger(params.requestedAmount) || params.requestedAmount < 1 || !Number.isSafeInteger(params.requestedAmount + 99)) {
+      throw new Error("Enter a positive amount with at most two decimal places");
+    }
+    const student = db.prepare("SELECT s.id FROM students s JOIN accounts a ON a.student_id=s.id WHERE s.id=? AND s.archived=0").get(params.studentId);
+    if (!student) throw new Error("Student account is unavailable");
 
   const payableAmount = generateUniquePayableAmount(params.requestedAmount, db);
 
@@ -144,10 +151,11 @@ export function createWechatTopupRequest(params: {
     params.internalNote?.trim() || null,
   );
 
-  return getRequestWithStudentById(Number(result.lastInsertRowid), db)!;
+    return getWechatTopupRequestById(Number(result.lastInsertRowid), db)!;
+  }).immediate();
 }
 
-export function listWechatTopupRequests(limit = 50) {
+export function listWechatTopupRequests(options: { studentId?: number; pendingOnly?: boolean; limit?: number } = {}): WechatTopupRequestWithStudent[] {
   const db = getDb();
   expirePendingRequests(db);
 
@@ -174,31 +182,25 @@ export function listWechatTopupRequests(limit = 50) {
           s.name AS student_name
         FROM wechat_topup_requests r
         JOIN students s ON s.id = r.student_id
+        WHERE (? IS NULL OR r.student_id = ?)
+          AND CASE WHEN ? THEN r.status = 'pending' ELSE r.status <> 'pending' END
         ORDER BY
-          CASE
-            WHEN r.status = 'pending' AND r.claimed_at IS NOT NULL THEN 0
-            WHEN r.status = 'pending' THEN 1
-            WHEN r.status = 'approved' THEN 2
-            WHEN r.status = 'rejected' THEN 3
-            WHEN r.status = 'expired' THEN 4
-            ELSE 5
-          END,
-          r.claimed_at DESC,
-          r.created_at DESC,
-          r.id DESC
+          ${options.pendingOnly
+            ? "(r.claimed_at IS NULL), r.claimed_at DESC, r.created_at DESC, r.id DESC"
+            : "COALESCE(r.reviewed_at, r.created_at) DESC, r.id DESC"}
         LIMIT ?
       `,
     )
-    .all(limit) as WechatTopupRequestWithStudent[];
+    .all(options.studentId ?? null, options.studentId ?? null, Number(!!options.pendingOnly), options.limit ?? (options.pendingOnly ? -1 : 50)) as WechatTopupRequestWithStudent[];
 }
 
-export function markWechatTopupRequestClaimed(requestId: number) {
+export function markWechatTopupRequestClaimed(requestId: number): { request: WechatTopupRequestWithStudent; newlyClaimed: boolean } {
   const db = getDb();
 
   return db.transaction(() => {
     expirePendingRequests(db);
 
-    const request = getRequestWithStudentById(requestId, db);
+    const request = getWechatTopupRequestById(requestId, db);
     if (!request) {
       throw new Error("Request not found");
     }
@@ -208,7 +210,7 @@ export function markWechatTopupRequestClaimed(requestId: number) {
     }
 
     if (request.claimed_at) {
-      return request;
+      return { request, newlyClaimed: false };
     }
 
     db.prepare(
@@ -219,8 +221,8 @@ export function markWechatTopupRequestClaimed(requestId: number) {
       `,
     ).run(request.id);
 
-    return getRequestWithStudentById(request.id, db)!;
-  })();
+    return { request: getWechatTopupRequestById(request.id, db)!, newlyClaimed: true };
+  }).immediate();
 }
 
 export function approveWechatTopupRequest(params: {
@@ -234,7 +236,7 @@ export function approveWechatTopupRequest(params: {
   return db.transaction(() => {
     expirePendingRequests(db);
 
-    const request = getRequestWithStudentById(params.requestId, db);
+    const request = getWechatTopupRequestById(params.requestId, db);
     if (!request) {
       throw new Error("Request not found");
     }
@@ -294,14 +296,14 @@ export function approveWechatTopupRequest(params: {
     );
 
     return {
-      request: getRequestWithStudentById(request.id, db)!,
+      request: getWechatTopupRequestById(request.id, db)!,
       transaction,
       student: {
         ...student,
         balance: student.balance + request.requested_amount,
       } as StudentWithAccount,
     };
-  })();
+  }).immediate();
 }
 
 export function rejectWechatTopupRequest(params: {
@@ -315,7 +317,7 @@ export function rejectWechatTopupRequest(params: {
   return db.transaction(() => {
     expirePendingRequests(db);
 
-    const request = getRequestWithStudentById(params.requestId, db);
+    const request = getWechatTopupRequestById(params.requestId, db);
     if (!request) {
       throw new Error("Request not found");
     }
@@ -342,6 +344,11 @@ export function rejectWechatTopupRequest(params: {
       request.id,
     );
 
-    return getRequestWithStudentById(request.id, db)!;
-  })();
+    return getWechatTopupRequestById(request.id, db)!;
+  }).immediate();
+}
+
+export function toStudentPaymentRequest(request: WechatTopupRequestWithStudent): StudentPaymentRequest {
+  const { id, requested_amount, payable_amount, status, created_at, expires_at, claimed_at, reviewed_at, review_note, approved_transaction_id } = request;
+  return { id, requested_amount, payable_amount, status, created_at, expires_at, claimed_at, reviewed_at, review_note, approved_transaction_id };
 }
