@@ -153,21 +153,6 @@ unit status and `journalctl -u stuco-web -u tap-broadcaster -u tap-broadcaster-r
 Host service mutation, USB reset, wiring acceptance, real SSH/deploy and cloud
 backup/restore require a separately authorized deployment window.
 
-## Rootless production-container acceptance
-
-From repository root:
-
-```sh
-podman build -f web-next/Dockerfile -t scps:cutover-smoke .
-```
-
-Start the actual image rootlessly with a disposable migrated legacy ledger mounted
-at `/app/data`, `DATABASE_PATH=/app/data/stuco.db`, and test-only auth/NFC secrets.
-Repeat role/route/payment browser checks, launch the actual CLI, deliver an
-authenticated simulated tap, and perform a local-only backup/restore roundtrip.
-Verify no application workflow invokes a Python runtime. Container simulation is
-not physical NFC proof.
-
 ## Failure evidence
 
 Collect the exact command/exit status, Node/pnpm versions, redacted server and

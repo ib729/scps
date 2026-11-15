@@ -1,6 +1,6 @@
 # Deployment Guide
 
-Deploy the Student Council Payment System as **one custom web process** with a writable SQLite ledger and, where needed, separate native NFC reader processes. Use Node.js **>=26.13.1 <27** (the image pins **26.13.1**) and pnpm **12.21.0**. All repository application and operational logic is TypeScript. Python >=3.11 may be required to compile third-party native dependencies; it is not needed by application workflows at runtime.
+Deploy the Student Council Payment System as **one custom web process** with a writable SQLite ledger and, where needed, separate native NFC reader processes. Use Node.js **>=26.13.1 <27** and pnpm **12.21.0**. All repository application and operational logic is TypeScript. Python >=3.11 may be required to compile third-party native dependencies; it is not needed by application workflows at runtime.
 
 Run `pnpm dev` / `pnpm start`, not `next dev` / `next start`: the custom `server.ts` supplies authenticated NFC WebSockets and trusted signup client identity. Package-local tools run from `web-next` with `node --import tsx`.
 
@@ -142,61 +142,6 @@ The wrappers load `.env.broadcaster`; direct hardware entrypoints need environme
 
 Settings backup and repair invoke Node/tsx from `web-next`. Existing `WEB_BACKUP_SCRIPT` and `FIX_READERS_SCRIPT_PATH` overrides must point to compatible typed entrypoints; relative overrides resolve against the package, not the shell's launch directory. Reader repair runs Node without elevation and requires only its fixed native service/module/ownership commands through a narrowly reviewed sudo policy; never grant arbitrary Node or general `systemctl`/`modprobe` execution to the web identity.
 These actions target the web host only. When readers run on a separate Pi, run the reader-host tools there; local Settings repair is not remote hardware recovery.
-
-## Container deployment
-
-Build with the **repository root as context**, not `web-next`:
-
-```bash
-# Repository root
-podman build -f web-next/Dockerfile -t scps:local .
-```
-
-The multi-stage image builds native dependencies and the Next production bundle, using a disposable build database and test-only secrets. The runner is Node 26.13.1, nonroot uid/gid **1001**, includes tsx, typed tools/hardware/schema and native backup/NFC utilities, and starts `node --import tsx server.ts`. Python is installed in the native dependency build stage, not the runner. No production env file or fallback ledger is baked in.
-
-Provide a separately initialized or migrated ledger and real secrets:
-
-```bash
-podman run -d --name stuco-web \
-  --userns=keep-id:uid=1001,gid=1001 \
-  -p 127.0.0.1:3000:3000 \
-  -e HOSTNAME=0.0.0.0 \
-  -e DATABASE_PATH=/app/data/stuco.db \
-  -e BETTER_AUTH_SECRET -e NFC_TAP_SECRET \
-  -e NEXT_PUBLIC_APP_URL -e TRUSTED_ORIGINS \
-  -e TRUST_PROXY=false \
-  -v /absolute/path/to/owned-ledger-directory:/app/data:rw \
-  scps:local
-```
-
-Export the named secret/URL variables securely before invocation. Mount the **whole writable ledger directory** so WAL/SHM remain beside the DB. Rootless Podman's mapping above maps your host identity to container uid/gid 1001; Docker requires equivalent accessible storage ownership. Do not chown a live ledger simply to try a container. Systems using SELinux may need an appropriate mount label under their local policy.
-
-The host-loopback published port must stay private behind TLS. **Do not blindly enable `TRUST_PROXY` in bridged containers:** forwarded client identity is trusted only for a loopback immediate peer inside the app's network namespace. A host proxy reaching a bridged container may not be loopback there. Leave it false unless the actual topology meets the supported single-loopback-hop contract; otherwise obtain a separately reviewed trust design before relying on per-client signup limits.
-
-Equivalent Compose example, in the repository root:
-
-```yaml
-services:
-  web:
-    build:
-      context: .
-      dockerfile: web-next/Dockerfile
-    ports:
-      - "127.0.0.1:3000:3000"
-    environment:
-      HOSTNAME: 0.0.0.0
-      DATABASE_PATH: /app/data/stuco.db
-      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
-      NFC_TAP_SECRET: ${NFC_TAP_SECRET}
-      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
-      TRUSTED_ORIGINS: ${TRUSTED_ORIGINS}
-      TRUST_PROXY: "false"
-    volumes:
-      - /absolute/path/to/owned-ledger-directory:/app/data:rw
-    restart: unless-stopped
-```
-
-Run `docker compose up -d` only after arranging storage permissions, database migration, secrets and reverse proxy. No systemd/cloud/physical-hardware proof is implied by this configuration.
 
 ## HTTPS and reverse proxy
 
@@ -384,7 +329,7 @@ Before calling a deployment ready, verify on a disposable copy first and then un
 - [ ] Encrypted backup is readable with retained crypt material; pre-restore backup and recovery are exercised.
 - [ ] Both physical readers pass repeated taps, removal, unplug/replug, unavailable reader, network outage and service-stop timing.
 
-These are **required observations, not a statement that final tests, container acceptance or physical checks have passed**. Service-active status and simulation cannot substitute for hardware acceptance.
+These are **required observations, not a statement that final tests or physical checks have passed**. Service-active status and simulation cannot substitute for hardware acceptance.
 
 For start failures inspect logs for wrong DB/schema, permissions, port conflict or missing build/dependencies. For NFC failures inspect actual device/ownership, `lsusb`, serial permissions and native probe errors with owners stopped. For WebSocket failures check URL/secret, trusted origins and proxy upgrade handling. Check certificate expiry/renewal using your provider's tooling. Avoid changing live ownership or resetting unrelated USB devices as a generic fix.
 

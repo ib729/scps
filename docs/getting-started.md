@@ -4,7 +4,7 @@ Set up the Student Council Payment System with a Next.js custom server, SQLite l
 
 ## Prerequisites
 
-- **Node.js >=26.13.1 <27** (production container pins **26.13.1**).
+- **Node.js >=26.13.1 <27**.
 - **pnpm 12.21.0**.
 - **SQLite CLI** for manual setup/maintenance; `zstd` and `rclone` for archive/cloud workflows.
 - Native-addon build tools when prebuilt dependencies are unavailable: Linux gcc/g++/make and Python >=3.11; Xcode command-line tools on macOS. Python is for third-party native compilation only, not an SCPS runtime.
@@ -227,17 +227,6 @@ Before restore, conversion, reset or SQL maintenance, stop all writers and keep 
 
 For an already-cent-based pre-cutover schema use `node --import tsx tools/migrate-customer.ts --writers-stopped`; older currency data requires the separate source/target legacy converter. Do not use generic SQL initialization to upgrade. Supported old cent-schema backups normalize privately for forward restore. Rollback requires the matching old app **and** its pre-upgrade ledger, with writers stopped; later ledger writes do not survive snapshot rollback automatically. Read the full [upgrade/rollback procedure](deployment.md#existing-schema-upgrade-and-rollback) first.
 
-## Container alternative
-
-The Dockerfile needs the **root repository build context**:
-
-```bash
-# Repository root
-podman build -f web-next/Dockerfile -t scps:local .
-```
-
-The runtime is nonroot uid/gid 1001 with Node/tsx and no application Python dependency. It needs a separately initialized/migrated ledger, a writable **directory** mount for DB/WAL/SHM, private real secrets and an appropriate uid mapping. Do not mount only the DB file or expose port 3000 publicly. Use the full rootless run/Compose, proxy and storage instructions in [Deployment](deployment.md#container-deployment).
-
 ## Troubleshooting and acceptance
 
 - **Native binding failure:** from `web-next`, run `node --import tsx tools/ops/web-next-check-prereqs.ts`; repair the listed build prerequisites, then use `node --import tsx tools/ops/web-next-setup.ts` for frozen install/rebuild. Python, if needed, is only for that third-party build.
@@ -247,6 +236,6 @@ The runtime is nonroot uid/gid 1001 with Node/tsx and no application Python depe
 
 After setup, deliberately check operator/customer roles and routes, owned balance/history, payment claim/approval behavior and backup recovery on disposable data. Physical acceptance additionally needs both actual readers, repeated taps, unplug/replug, network outage and bounded shutdown.
 
-These are instructions for checks to perform, **not claims that final tests, container verification or physical acceptance have passed**.
+These are instructions for checks to perform, **not claims that final tests or physical acceptance have passed**.
 
 Next: [Deployment](deployment.md), [Database](database.md), [Scripts](scripts.md), [Security](security-guide.md), [Troubleshooting](troubleshooting.md) and [Testing](testing.md).

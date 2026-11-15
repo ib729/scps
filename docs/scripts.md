@@ -1,6 +1,6 @@
 # Scripts Reference
 
-The Student Council Payment System runs its web server, administrative CLI, database tools and operational workflows in TypeScript. Use **Node.js >=26.13.1 <27** (container: **26.13.1**) and **pnpm 12.21.0**. Python >=3.11 is only a possible third-party native-addon compilation dependency; it is not an application runtime.
+The Student Council Payment System runs its web server, administrative CLI, database tools and operational workflows in TypeScript. Use **Node.js >=26.13.1 <27** and **pnpm 12.21.0**. Python >=3.11 is only a possible third-party native-addon compilation dependency; it is not an application runtime.
 
 ## Invocation and database paths
 

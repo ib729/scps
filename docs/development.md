@@ -4,7 +4,7 @@ The Student Council Payment System uses one TypeScript package for the web serve
 
 ## Toolchain
 
-- Node.js `>=26.13.1 <27`; containers pin `26.13.1`.
+- Node.js `>=26.13.1 <27`.
 - pnpm `12.21.0`, TypeScript `7.0.2`, tsx `4.23.15`.
 - Next.js `16.4.6`, React `19.3.1`, Tailwind CSS 4, Radix/Shadcn components, React Hook Form and Zod.
 - `better-sqlite3` for the ledger/auth database; `ws` for NFC transport.
@@ -124,13 +124,6 @@ pnpm start
 
 Focused checks should name their test files. Use disposable ledgers, fake privileged executables and local rclone aliases. Never verify by resetting real USB devices, mutating host services, deploying over SSH or accessing a production/cloud ledger.
 
-Container builds use repository-root context and an isolated build database:
-
-```bash
-podman build -f web-next/Dockerfile -t scps:local .
-```
-
-See [Deployment Guide](deployment.md) for nonroot writable mounts, runtime secrets and HTTPS. Builder Python for native dependencies is separate from the Python-free application runtime.
 
 ## Extending the System
 
