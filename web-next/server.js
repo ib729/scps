@@ -243,6 +243,10 @@ function validateBrowserSession(request, sessionToken = getSessionToken(request)
   } catch {
     return { error: 'Session authorization unavailable' };
   }
+  return { session, sessionToken };
+  } catch {
+    return { error: 'Session authorization unavailable' };
+  }
 }
 
 function safeCompareSecret(expected, provided) {

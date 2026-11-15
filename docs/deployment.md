@@ -10,7 +10,7 @@ Signup allows five attempts per client in ten minutes, including successes and v
 
 - Production-ready server (Standard Linux Cloud VPS: Debian 12 / Ubuntu 22.04+)
 - Domain name and DNS records configured (for SSL)
-- Node.js 22+, Python 3.9+, pnpm installed on the VPS
+- Node.js >=26.13.1 <27, Python >=3.11, pnpm 12.21.0 installed on the VPS
 - Build tools installed (see [Getting Started](getting-started.md))
 
 ## Recommended VPS Flow
@@ -45,33 +45,34 @@ That SSHes into the server and runs the same `deploy-vps.sh` flow remotely.
 
 ### Option 1: Docker Deployment
 
-Docker provides isolated, reproducible deployments with easy scaling.
+The supported deployment is one custom web process with remote Pi readers; do not scale web workers without shared signup budgets.
 
 #### Build Docker Image
 
 ```bash
-cd web-next
-docker build -t stuco-web:latest .
+# From repository root
+podman build -f web-next/Dockerfile -t scps:repair-smoke .
 ```
 
 The Dockerfile uses multi-stage builds:
 - `deps` stage: Installs dependencies with build tools
 - `builder` stage: Builds Next.js production bundle
-- `runner` stage: Minimal runtime image with Node.js only
+- `runner` stage: Nonroot Node runtime with Python, sqlite3, zstd and rclone for backups/recovery
 
 #### Run Container
 
 ```bash
-docker run -d \
-  --name stuco-web \
-  -p 3000:3000 \
-  -e NODE_ENV=production \
+podman run -d --name stuco-web \
+  --userns=keep-id:uid=1001,gid=1001 \
+  -p 127.0.0.1:3000:3000 \
+  -e HOSTNAME=0.0.0.0 \
   -e DATABASE_PATH=/app/data/stuco.db \
-  -e NFC_TAP_SECRET=your-production-secret \
-  -v /path/to/stuco.db:/app/data/stuco.db:rw \
-  --restart unless-stopped \
-  stuco-web:latest
+  -e BETTER_AUTH_SECRET -e NFC_TAP_SECRET -e NEXT_PUBLIC_APP_URL -e TRUSTED_ORIGINS \
+  -v /absolute/path/to/owned-ledger-directory:/app/data:rw \
+  scps:repair-smoke
 ```
+
+Supply existing operator secrets and an existing configured database. Mount the entire writable ledger directory so WAL/SHM stay beside it, with ownership compatible with nonroot uid/gid 1001; never change a live ledger's ownership just for a smoke test. Build uses a disposable database and test-only secret, not production environment files. The image includes no fallback ledger. For Docker, provide equivalent uid/gid mapping or appropriately owned storage. Keep TLS termination and the single trusted proxy topology above.
 
 **Environment Variables:**
 - `NODE_ENV=production` - Optimizes Next.js for production
@@ -85,31 +86,22 @@ Create `docker-compose.yml`:
 
 ```yaml
 version: '3.8'
-
 services:
   web:
-    build: ./web-next
+    build:
+      context: .
+      dockerfile: web-next/Dockerfile
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     environment:
-      - NODE_ENV=production
+      - HOSTNAME=0.0.0.0
       - DATABASE_PATH=/app/data/stuco.db
+      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
       - NFC_TAP_SECRET=${NFC_TAP_SECRET}
+      - NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}
+      - TRUSTED_ORIGINS=${TRUSTED_ORIGINS}
     volumes:
-      - ./stuco.db:/app/data/stuco.db:rw
-      - ./db_backups:/app/backups:rw
-    restart: unless-stopped
-    
-  tap-broadcaster:
-    image: python:3.11-slim
-    command: python /app/hardware-pi/tap-broadcaster.py --device tty:AMA0:pn532
-    environment:
-      - NEXTJS_URL=http://web:3000
-      - NFC_TAP_SECRET=${NFC_TAP_SECRET}
-    volumes:
-      - .:/app
-      - /dev:/dev
-    privileged: true
+      - ./data:/app/data:rw
     restart: unless-stopped
 ```
 

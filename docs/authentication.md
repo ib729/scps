@@ -1,12 +1,12 @@
 # Authentication Guide
 
-This project uses [Better Auth](https://www.better-auth.com/) for authentication with email/password and Microsoft OAuth support.
+This project uses [Better Auth](https://www.better-auth.com/) for email/password authentication. Microsoft OAuth remains unfinished: the login/signup buttons are disabled. Provider configuration below is reference material, not a supported end-to-end sign-in feature.
 
 ## Overview
 
 The authentication system provides:
 - **Email/Password Authentication**: Sign up and login with credentials
-- **Microsoft OAuth**: Sign in with Microsoft account
+- **Microsoft OAuth**: Unfinished; disabled in the UI
 - **Session Management**: Secure session handling with cookies
 - **Profile Management**: Update name and profile picture
 - **Password Management**: Change password with verification
@@ -15,7 +15,7 @@ The authentication system provides:
 
 ## Prerequisites
 
-1. Node.js 20+ and pnpm installed
+1. Node.js >=26.13.1 <27 and pnpm 12.21.0 installed
 2. SQLite database (`stuco.db`) initialized
 3. Web UI setup completed (see [Getting Started](getting-started.md))
 
@@ -166,8 +166,8 @@ For production deployment:
 ## Authentication Routes
 
 ### Public Routes
-- `/login` - Login page with email/password and Microsoft OAuth
-- `/signup` - Signup page with code protection
+- `/login` - Email/password login; Microsoft button disabled
+- `/signup` - Unprivileged pending student registration with per-client attempt budget
 
 ### Protected Routes
 All routes under `app/(app)/` require authentication:

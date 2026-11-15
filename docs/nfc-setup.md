@@ -33,7 +33,7 @@ The POS indicator and authenticated `/api/nfc/status?reader=reader-1` report the
 ## Requirements
 
 - **Hardware**: PN532 NFC reader (UART/USB), Raspberry Pi 4B+.
-- **Software**: Python 3.9+, nfcpy (TTY/USB) or libnfc-bin (I2C).
+- **Software**: Python >=3.11, nfcpy (TTY/USB) or libnfc-bin (I2C).
 - **Web UI**: Running Next.js with NFC endpoints.
 
 ## WebSocket Server Setup (Self-Hosted Node.js)

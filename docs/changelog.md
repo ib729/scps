@@ -16,6 +16,7 @@
 - POS checkout counts only newly borrowed cents under an immediate transaction. Weekly usage resets at Shanghai Monday 00:00; top-ups do not refund consumed allowance. Existing historical usage/week keys remain audit data and need operator reconciliation before live rollout.
 - Reader send failures now reach the network reconnect loop. Socket closure cancels and awaits the previous reader; simulation owns one cancellable stdin pipe and exits on EOF/quit. Taps from a failed connection are not queued or replayed.
 - Signup consumes one synchronous five-attempt/ten-minute budget per trusted client across all emails and outcomes. The custom server overwrites ingress identity; spoofed forwarding headers cannot reset the budget. Direct Next-only launch scripts are removed.
+- Container builds use repository-root context, an isolated build database and no production secrets. The nonroot runtime ships the canonical resolver and SQLite snapshot/recovery tools. Added WebSocket declarations for strict test type checking; installer user commands retain the pinned pnpm path through sudo.
 
 ## 2026-11-06
 

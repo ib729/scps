@@ -26,7 +26,7 @@ The Student Council Payment System is split into a central server and client tap
 
 ## Quick Start
 
-Requires Node.js 22, pnpm 10+, and `sqlite3`.
+Requires Node.js >=26.13.1 <27, pnpm 12.21.0, Python >=3.11, and `sqlite3`.
 
 ### 1. Install Dependencies and Configure the Environment
 

@@ -139,7 +139,6 @@ function ensureApplicationSchema(database: Database.Database) {
     UPDATE user
     SET role = 'staff'
     WHERE role IS NULL OR role NOT IN ('admin', 'staff');
-
     UPDATE transactions
     SET payment_method = TRIM(description)
     WHERE

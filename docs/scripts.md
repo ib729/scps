@@ -158,7 +158,7 @@ This establishes an encrypted connection, navigates to the target repository dir
 
 **What it does:**
 1. Verifies a Debian-based host with `sudo`
-2. Installs OS packages, Node.js 20, `pnpm`, `rclone`, `sqlite3`, `zstd`, and Python tooling
+2. Installs OS packages, requires Node.js >=26.13.1 <27, bootstraps pnpm 12.21.0, and installs `rclone`, `sqlite3`, `zstd`, and Python >=3.11 tooling.
 3. Creates `.venv` and installs root Python dependencies
 4. Installs `web-next` dependencies and builds the app
 5. Creates `web-next/.env.local` from `web-next/.env.local.example` if missing

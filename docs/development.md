@@ -6,7 +6,7 @@ This guide is for developers extending or maintaining the Student Council Paymen
 
 ### Backend/Database
 
-- **Language**: Python 3.9+ (CLI tools).
+- **Language**: Python >=3.11 (reader and SQLite backup tools); the administrative CLI is TypeScript.
 - **Database**: SQLite 3 with WAL mode for concurrency.
 - **ORM/Access**: Raw `sqlite3` (CLI), `better-sqlite3` (Node.js).
 - **Dependencies**: nfcpy (NFC), requests (API calls).
@@ -199,8 +199,9 @@ pnpm start   # Runs production server with WebSocket on port 3000
 **Docker**:
 
 ```bash
-docker build -t stuco-web .
-docker run -p 3000:3000 -v /path/to/stuco.db:/app/stuco.db stuco-web
+# From repository root; runtime secrets and writable ledger directory are required.
+podman build -f web-next/Dockerfile -t scps:repair-smoke .
+# See deployment.md for the nonroot mounted-database run command.
 ```
 
 - **Env**: Set `NODE_ENV=production`.

@@ -14,7 +14,7 @@ DEFAULT_DB_PATH="$REPO_ROOT/stuco.db"
 APP_USER="${SUDO_USER:-$USER}"
 
 run_as_user() {
-  sudo -u "$APP_USER" "$@"
+  sudo -u "$APP_USER" env PATH="$PATH" "$@"
 }
 
 ensure_env_value() {

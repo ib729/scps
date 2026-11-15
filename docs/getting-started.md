@@ -8,12 +8,12 @@ This guide covers installing prerequisites, setting up the database, installing 
 
 We recommend deploying the Next.js server and SQLite database on a standard Linux Cloud VPS (such as Debian 12 or Ubuntu 24.04).
 
-- **Node.js 22+**: For the web interface and TypeScript CLI.
+- **Node.js >=26.13.1 <27**: For the web interface and TypeScript CLI.
   - Check: `node --version`
-  - Install (NodeSource): `curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash - && sudo apt install -y nodejs`
-- **pnpm 10+**: Package manager for Node.js.
+  - Install (NodeSource): `curl -fsSL https://deb.nodesource.com/setup_26.x | sudo -E bash - && sudo apt install -y nodejs`; verify the installed version satisfies >=26.13.1 <27.
+- **pnpm 12.21.0**: Pinned package manager for Node.js.
   - Check: `pnpm --version`
-  - Install: `npm install -g pnpm`
+  - Bootstrap locally: `npm install --prefix .local/pnpm --no-save pnpm@12.21.0`, then `export PATH="$PWD/.local/pnpm/node_modules/.bin:$PATH"`.
 - **Build Essentials**: Required to compile native SQLite database bindings.
   - Install: `sudo apt update && sudo apt install -y build-essential python3 pkg-config git curl`
 
@@ -21,7 +21,7 @@ We recommend deploying the Next.js server and SQLite database on a standard Linu
 
 For localized card reader nodes located at physical POS registers:
 - **Raspberry Pi OS (64-bit)**
-- **Python 3.9+**: To run the WebSocket serial tap broadcaster client.
+- **Python >=3.11**: To run the WebSocket serial tap broadcaster client.
 - **NFCPN532 Reader Hardware** (UART or USB configuration).
 
 ### Alternative: Standalone Raspberry Pi Full-Stack Hosting
@@ -38,7 +38,7 @@ If you wish to host the *entire* system (Next.js server, database, and reader da
 
 ## Database Setup
 
-Install Node.js 22, pnpm 10+, and `sqlite3` first. From the repository root:
+Install Node.js >=26.13.1 <27, pnpm 12.21.0, and `sqlite3` first. From the repository root:
 
 ```bash
 cd web-next
@@ -117,7 +117,7 @@ For a Debian web server or VPS:
 ```
 
 This script:
-- installs system packages and Node.js 20 if needed
+- installs system packages and requires Node.js >=26.13.1 <27, bootstrapping pinned pnpm 12.21.0
 - creates the root Python venv
 - installs `pnpm` dependencies in `web-next`
 - creates `web-next/.env.local` from the sample if missing

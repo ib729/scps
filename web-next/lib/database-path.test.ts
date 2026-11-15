@@ -19,3 +19,16 @@ test("configured paths target the same absolute file from either working directo
     }
   } finally { fs.rmSync(temporary, { recursive: true, force: true }); }
 });
+
+test("CLI refuses an unreadable environment file instead of selecting another ledger", () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "scps-path-error-"));
+  try {
+    fs.mkdirSync(path.join(directory,"lib"));
+    fs.copyFileSync(path.join(web,"lib/database-path.cjs"),path.join(directory,"lib/database-path.cjs"));
+    fs.symlinkSync(path.join(web,"node_modules"),path.join(directory,"node_modules"));
+    fs.writeFileSync(path.join(directory,".env.local"),"DATABASE_PATH=private.db\n",{mode:0});
+    const env={...process.env};delete env.DATABASE_PATH;
+    assert.throws(()=>execFileSync(process.execPath,[path.join(directory,"lib/database-path.cjs")],{env,stdio:"pipe"}));
+    assert.equal(fs.existsSync(path.join(directory,"private.db")),false);
+  } finally { fs.chmodSync(path.join(directory,".env.local"),0o600);fs.rmSync(directory,{recursive:true,force:true}); }
+});

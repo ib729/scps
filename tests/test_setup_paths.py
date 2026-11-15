@@ -11,6 +11,20 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class SetupPathsTest(unittest.TestCase):
+    def test_user_commands_keep_the_pinned_session_tool_path(self):
+        with tempfile.TemporaryDirectory(prefix="scps-user-path-") as directory:
+            binaries = Path(directory)
+            sudo = binaries / "sudo"
+            sudo.write_text('#!/bin/sh\nshift; shift\nexec env -i PATH=/usr/bin:/bin "$@"\n')
+            sudo.chmod(0o755)
+            probe = binaries / "scps-runtime-probe"
+            probe.write_text("#!/bin/sh\nprintf pinned-tool\n")
+            probe.chmod(0o755)
+            command = 'source "$1/scripts/setup-debian.sh"; run_as_user scps-runtime-probe'
+            result = subprocess.run(["bash", "-c", command, "test", str(ROOT)], env={**os.environ, "PATH": f"{binaries}:{os.environ['PATH']}"}, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout, "pinned-tool")
+
     def test_configure_database_preserves_target_from_both_working_directories(self):
         with tempfile.TemporaryDirectory(prefix="scps-setup-") as directory:
             root = Path(directory)

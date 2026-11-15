@@ -14,6 +14,7 @@ function resolveDatabasePath() {
 module.exports = { resolveDatabasePath };
 
 if (require.main === module) {
-  require('dotenv').config({ path: path.join(webDirectory, '.env.local'), override: false, quiet: true });
+  const result = require('dotenv').config({ path: path.join(webDirectory, '.env.local'), override: false, quiet: true });
+  if (result.error && result.error.code !== 'ENOENT') throw result.error;
   console.log(resolveDatabasePath());
 }
