@@ -9,6 +9,7 @@
 - Run `cd web-next && pnpm test` for account/payment regressions and CLI self-checks. HTTP fixtures use temporary databases and test credentials, never an operator ledger.
 - Resolve all configured relative SQLite paths against `web-next`, including installer initialization; preserve existing ledgers. Verify with `cd web-next && node --import tsx --test lib/database-path.test.ts` and root `python3 -m unittest discover -s tests -p test_setup_paths.py`.
 - Backups now archive a validated SQLite snapshot, not independently copied WAL files. R2 restoration requires `--writers-stopped`, stages and validates the archive, saves old state, and calls `scps-cli import-db <source> --yes`. Migration failures retain a snapshot rather than copying files over an active ledger.
+- Currency startup conversion now locks before reading the scale marker and commits all cent values and metadata together. Unknown markers, invalid amounts and overflow roll back. Historical ledger usage is not rewritten.
 
 ## 2026-11-06
 
@@ -157,7 +158,7 @@
 ### Added
 - **Decimal Currency Support**:
   - Database: Monetary fields scaled to tenths (¥5.5 = 55).
-  - Migration: `migrate_decimal_currency.sql` multiplies existing values by 10.
+  - Currency conversion now belongs exclusively to the atomic application startup scale check.
   - UI/CLI: Decimal inputs (step=0.1), formatting helpers.
   - Default overdraft: ¥20.0 (200 tenths).
 

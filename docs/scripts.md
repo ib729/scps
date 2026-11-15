@@ -244,8 +244,7 @@ Refer to the **Unified Administrative CLI** section at the top of this document 
 
 **Usage:**
 ```bash
-./scripts/run_migration.sh migrate_cascade_delete.sql
-./scripts/run_migration.sh migrate_decimal_currency.sql
+./scripts/run_migration.sh migrate_restrict_delete.sql
 ```
 
 **Steps:** Resolve the configured ledger, create an integrity/FK-checked SQLite snapshot, then run `sqlite3 -bail`. Failure exits nonzero and retains that snapshot for deliberate recovery. Stop writers and use `./scps-cli import-db /absolute/path/to/validated.db --yes` to restore; never overwrite a live database file.
@@ -699,7 +698,7 @@ python hardware-pi/diagnose_nfc.py
 
 **migrate_cascade_delete.sql**: Adds ON DELETE CASCADE to foreign keys.
 
-**migrate_decimal_currency.sql**: Converts integer currency to tenths (decimal support).
+Currency conversion is performed once by application startup under an atomic scale check; no manual decimal-currency SQL migration is supported.
 
 See [Database Guide](database.md) for migration details.
 

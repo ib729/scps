@@ -125,41 +125,11 @@ Expected output: `ok`. Use the database path from `.env.local`.
 
 Migrations update existing DBs. Run with `./scripts/run_migration.sh <script.sql>` (backs up first).
 
-### 1. Cascade Delete (migrate_cascade_delete.sql)
+### Deletion and currency invariants
 
-**Problem**: Deleting students failed if transactions/overdrafts existed.
+Financial history is restrictive: archive a student with transactions rather than deleting its ledger. Do not apply the obsolete cascade-delete migration to a current ledger.
 
-**Fix**: Added `ON DELETE CASCADE` to foreign keys in transactions and overdraft_weeks.
-
-**What It Does**:
-- Delete student → auto-deletes cards, account, transactions, overdraft records.
-- Backup created: `stuco.db.backup.<timestamp>`.
-
-**Status**: Complete; new DBs use updated schema.
-
-**Recovery**: Stop all writers and use `./scps-cli import-db /absolute/path/to/validated.db --yes`; never copy over a live SQLite file or delete its sidecars.
-
-### 2. Decimal Currency (migrate_decimal_currency.sql)
-
-**Problem**: Integer-only currency (no decimals).
-
-**Fix**: Scale all monetary fields by 10 (e.g., ¥5.5 → 55 tenths).
-- Multiplied balances, amounts, overdrafts by 10.
-- Updated schema comments and defaults (max_overdraft_week=200).
-- Code updated: Helpers for conversion (web: currency.ts, CLI: float parsing).
-
-**What It Does**:
-- Preserves data: Existing ¥5 becomes ¥5.0 (50 tenths).
-- Enables ¥X.X precision.
-- Backup created.
-
-**Status**: Complete; supports decimals in UI/CLI.
-
-**Examples**:
-- Input: 5.5 → DB: 55
-- Display: 55 → "¥5.5"
-
-**Rollback**: Restore backup, revert code.
+Money is stored as integer cents (550 = ¥5.50). Startup acquires an immediate SQLite transaction before reading `app_meta.currency_scale`; missing/`10` converts tenths to cents once, `100` does nothing, and unknown markers or unsafe values refuse startup with all monetary values and metadata unchanged. There is no separate currency SQL command. Preserve a snapshot and validate legacy initialization on a copy first; an already-rescaled unmarked database cannot be inferred safely.
 
 ### Running Migrations
 
@@ -168,8 +138,7 @@ Migrations update existing DBs. Run with `./scripts/run_migration.sh <script.sql
 2. Run:
 
    ```bash
-   ./scripts/run_migration.sh migrate_cascade_delete.sql
-   ./scripts/run_migration.sh migrate_decimal_currency.sql
+   ./scripts/run_migration.sh migrate_restrict_delete.sql
    ```
 
 3. Verify: `sqlite3 stuco.db "SELECT * FROM accounts;"`
@@ -202,8 +171,7 @@ The reset script backs up and replaces the root `stuco.db` after confirmation. I
 Run migrations with automatic backup:
 
 ```bash
-./scripts/run_migration.sh migrate_cascade_delete.sql
-./scripts/run_migration.sh migrate_decimal_currency.sql
+./scripts/run_migration.sh migrate_restrict_delete.sql
 ```
 
 The script:

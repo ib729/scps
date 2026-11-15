@@ -4,6 +4,7 @@ import Database from "better-sqlite3";
 import { DEFAULT_NFC_READER, DEFAULT_POS_MODE } from "./pos-preferences";
 
 import { resolveDatabasePath } from "./database-path.cjs";
+import { ensureCurrencyScale } from "./currency-scale.cjs";
 
 export const dbPath = resolveDatabasePath();
 if (!fs.existsSync(dbPath)) {
@@ -20,25 +21,6 @@ function hasColumn(database: Database.Database, tableName: string, columnName: s
   return columns.some((column) => column.name === columnName);
 }
 
-function getMeta(database: Database.Database, key: string): string | null {
-  const row = database
-    .prepare("SELECT value FROM app_meta WHERE key = ? LIMIT 1")
-    .get(key) as { value: string } | undefined;
-
-  return row?.value ?? null;
-}
-
-function setMeta(database: Database.Database, key: string, value: string) {
-  database
-    .prepare(
-      `
-        INSERT INTO app_meta(key, value)
-        VALUES (?, ?)
-        ON CONFLICT(key) DO UPDATE SET value = excluded.value
-      `,
-    )
-    .run(key, value);
-}
 
 function ensureApplicationSchema(database: Database.Database) {
   database.exec(`
@@ -151,38 +133,7 @@ function ensureApplicationSchema(database: Database.Database) {
     }
   }
 
-  if (!getMeta(database, "currency_scale")) {
-    const totals = database
-      .prepare(
-        `
-          SELECT
-            (SELECT COUNT(*) FROM accounts) AS accountCount,
-            (SELECT COUNT(*) FROM transactions) AS transactionCount,
-            (SELECT COUNT(*) FROM overdraft_weeks) AS overdraftCount
-        `,
-      )
-      .get() as {
-      accountCount: number;
-      transactionCount: number;
-      overdraftCount: number;
-    };
-
-    if (totals.accountCount > 0 || totals.transactionCount > 0 || totals.overdraftCount > 0) {
-      const migrateCurrencyScale = database.transaction(() => {
-        database.exec(`
-          UPDATE accounts SET balance = balance * 10;
-          UPDATE accounts SET max_overdraft_week = max_overdraft_week * 10;
-          UPDATE transactions SET amount = amount * 10;
-          UPDATE transactions SET overdraft_component = overdraft_component * 10;
-          UPDATE overdraft_weeks SET used = used * 10;
-        `);
-      });
-
-      migrateCurrencyScale();
-    }
-
-    setMeta(database, "currency_scale", "100");
-  }
+  ensureCurrencyScale(database);
 
   database.exec(`
     UPDATE user
