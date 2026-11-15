@@ -302,47 +302,19 @@ def read_uid_from_libnfc() -> Optional[str]:
     return None
 
 
-async def broadcast_tap_ws(websocket, card_uid: str, lane: str, reader_id: Optional[str] = None) -> bool:
-    """
-    Send tap event via WebSocket.
+async def broadcast_tap_ws(websocket, card_uid: str, lane: str, reader_id: Optional[str] = None) -> None:
+    """Send one tap; network failures belong to the network reconnect loop."""
+    normalized_lane = str(reader_id or lane or "default").strip() or "default"
+    normalized_reader_id = str(reader_id or normalized_lane).strip()
+    await websocket.send(json.dumps({
+        "type": "tap",
+        "card_uid": card_uid,
+        "lane": normalized_lane,
+        "reader_id": normalized_reader_id,
+        "reader_ts": datetime.now(timezone.utc).isoformat(),
+    }))
+    print(f"[OK] Tap broadcast: {card_uid} (lane: {normalized_lane}, reader_id: {normalized_reader_id})")
 
-    Args:
-        websocket: WebSocket connection
-        card_uid: Card UID to broadcast
-        lane: Lane identifier (for backward compatibility)
-        reader_id: Reader identifier (e.g., 'reader-1', 'reader-2')
-
-    Returns:
-        True if successful, False otherwise
-    """
-    # Normalize lane/reader identifiers so every message is consistently tagged
-    # - Prefer explicit reader_id (e.g., 'reader-1')
-    # - Fall back to lane value (e.g., POS_LANE_ID) if reader_id is missing
-    # - Never send empty/None lane values
-    try:
-        normalized_lane = (reader_id or lane or "default") or "default"
-        # Ensure we always send simple string identifiers
-        normalized_lane = str(normalized_lane).strip() or "default"
-        normalized_reader_id = str(reader_id or normalized_lane).strip()
-
-        message = {
-            "type": "tap",
-            "card_uid": card_uid,
-            "lane": normalized_lane,
-            "reader_id": normalized_reader_id,
-            "reader_ts": datetime.now(timezone.utc).isoformat(),
-        }
-
-        await websocket.send(json.dumps(message))
-        print(
-            f"[OK] Tap broadcast: {card_uid} "
-            f"(lane: {normalized_lane}, reader_id: {normalized_reader_id})"
-        )
-        return True
-
-    except Exception as e:
-        print(f"[ERROR] Failed to broadcast tap: {e}")
-        return False
 
 
 async def nfc_reader_loop(websocket, device: str, lane: str, reader_id: Optional[str] = None):
@@ -366,53 +338,33 @@ async def nfc_reader_loop(websocket, device: str, lane: str, reader_id: Optional
 
     while not shutdown_event.is_set():
         try:
-            # Read UID in thread pool (blocking call)
             uid = await loop.run_in_executor(None, read_uid_from_pn532, device)
-
-            if uid:
-                # Check if we should broadcast this tap
-                if card_state.should_broadcast(uid):
-                    await broadcast_tap_ws(websocket, uid, lane, reader_id)
-                else:
-                    # Card still present, don't rebroadcast
-                    pass
-
-                # Reset failure counter on successful read
-                consecutive_failures = 0
-                last_success_time = time.time()
-
-                # Small delay to prevent excessive polling
-                await asyncio.sleep(0.1)
-            else:
-                # No card detected, reset state
-                card_state.reset()
-
-                # Check if we've been getting None for too long (potential hardware issue)
-                time_since_success = time.time() - last_success_time
-                if time_since_success > 60:  # 60 seconds of no reads might indicate hardware issue
-                    consecutive_failures += 1
-                    if consecutive_failures > 3:
-                        print(f"[WARNING] No card reads for {time_since_success:.0f}s (failure #{consecutive_failures})")
-                        # This might be normal (no cards), but log it for awareness
-                    last_success_time = time.time()  # Reset to avoid spam
-
-                # Small delay before next poll
-                await asyncio.sleep(0.1)
-
         except asyncio.CancelledError:
-            print("[NFC] Reader loop cancelled")
-            break
+            raise
         except Exception as e:
             consecutive_failures += 1
             print(f"[ERROR] Reader error (failure #{consecutive_failures}): {e}")
-            
-            # If we have many consecutive failures, hardware might be stuck
             if consecutive_failures >= 10:
                 print(f"[ERROR] Too many consecutive failures ({consecutive_failures}), hardware may need reset")
-                # Raise exception to trigger hardware reconnection
                 raise
-            
-            await asyncio.sleep(1)  # Wait before retry on error
+            await asyncio.sleep(1)
+            continue
+
+        # Only hardware reads are retried above; a failed send must reconnect the socket.
+        if uid:
+            if card_state.should_broadcast(uid):
+                await broadcast_tap_ws(websocket, uid, lane, reader_id)
+            consecutive_failures = 0
+            last_success_time = time.time()
+        else:
+            card_state.reset()
+            time_since_success = time.time() - last_success_time
+            if time_since_success > 60:
+                consecutive_failures += 1
+                if consecutive_failures > 3:
+                    print(f"[WARNING] No card reads for {time_since_success:.0f}s (failure #{consecutive_failures})")
+                last_success_time = time.time()
+        await asyncio.sleep(0.1)
 
 
 async def nfc_reader_loop_with_reconnection(websocket, device: str, lane: str, reader_id: Optional[str] = None):
@@ -442,8 +394,9 @@ async def nfc_reader_loop_with_reconnection(websocket, device: str, lane: str, r
             break
             
         except asyncio.CancelledError:
-            print("[NFC] Hardware reconnection cancelled")
-            break
+            raise
+        except (websockets.exceptions.WebSocketException, OSError):
+            raise
             
         except Exception as e:
             reconnect_attempt += 1
@@ -493,40 +446,22 @@ async def nfc_reader_loop_with_reconnection(websocket, device: str, lane: str, r
             print(f"[NFC] Next reconnection attempt in {reconnect_delay}s...")
 
 
-async def simulation_mode(websocket, lane: str, reader_id: Optional[str] = None):
-    """
-    Interactive simulation mode - manually type UIDs.
-
-    Args:
-        websocket: WebSocket connection
-        lane: Lane identifier (for backward compatibility)
-        reader_id: Reader identifier (e.g., 'reader-1', 'reader-2')
-    """
+async def simulation_mode(websocket, lane: str, reader_id: Optional[str] = None, *, stdin: asyncio.StreamReader):
+    """Read simulation UIDs from the single cancellable stdin stream."""
     print("[SIMULATE] Manual UID entry mode. Type UID hex (or 'quit'):")
     if reader_id:
         print(f"[SIMULATE] Simulating {reader_id}")
-
-    loop = asyncio.get_event_loop()
-
     while not shutdown_event.is_set():
-        try:
-            # Read input in thread pool (blocking call)
-            uid = await loop.run_in_executor(None, lambda: input("> ").strip())
-
-            if uid.lower() in ("q", "quit", "exit"):
-                break
-
-            if not uid:
-                continue
-
-            await broadcast_tap_ws(websocket, uid.upper(), lane, reader_id)
-
-        except (EOFError, KeyboardInterrupt):
+        line = await stdin.readline()
+        if not line:
             break
-        except Exception as e:
-            print(f"[ERROR] Simulation error: {e}")
-
+        uid = line.decode().strip()
+        if uid.lower() in ("q", "quit", "exit"):
+            break
+        if uid:
+            await broadcast_tap_ws(websocket, uid.upper(), lane, reader_id)
     print("\n[EXIT] Exiting simulation mode.")
+
 
 
 async def authenticate_websocket(websocket, secret: Optional[str], lane: str):
@@ -560,68 +495,62 @@ async def authenticate_websocket(websocket, secret: Optional[str], lane: str):
 
 
 async def websocket_broadcaster(url: str, secret: Optional[str], lane: str, device: str, simulate: bool, reader_id: Optional[str] = None):
-    """
-    Main WebSocket broadcaster with automatic reconnection.
-
-    Args:
-        url: Server URL (http://localhost:3000)
-        secret: Shared secret for authentication
-        lane: Lane identifier (for backward compatibility)
-        device: NFC device string
-        simulate: Whether to run in simulation mode
-        reader_id: Reader identifier (e.g., 'reader-1', 'reader-2')
-    """
-    # Convert HTTP URL to WebSocket URL
-    ws_url = url.replace("http://", "ws://").replace("https://", "wss://")
-    ws_url = f"{ws_url}/api/nfc/ws"
-
-    # Use reader_id as lane if available (maintains compatibility with existing server logic)
+    """Own the socket, reader task and one simulation input transport."""
+    ws_url = url.replace("http://", "ws://").replace("https://", "wss://") + "/api/nfc/ws"
     effective_lane = reader_id or lane
-
     retry_delay = 1
-    max_retry_delay = 60
+    stdin = None
+    transport = None
+    if simulate:
+        stdin = asyncio.StreamReader()
+        transport, _ = await asyncio.get_running_loop().connect_read_pipe(
+            lambda: asyncio.StreamReaderProtocol(stdin), sys.stdin)
+    try:
+        while not shutdown_event.is_set():
+            try:
+                print(f"[WS] Connecting to {ws_url}...")
+                async with websockets.connect(ws_url, ping_interval=30, ping_timeout=10, close_timeout=5) as websocket:
+                    print("[WS] Connected successfully")
+                    if not await authenticate_websocket(websocket, secret, effective_lane):
+                        raise ConnectionError("Broadcaster authentication failed")
+                    retry_delay = 1
+                    card_state.reset()
+                    reading = asyncio.create_task(
+                        simulation_mode(websocket, effective_lane, reader_id, stdin=stdin) if simulate
+                        else nfc_reader_loop_with_reconnection(websocket, device, effective_lane, reader_id))
+                    closed = asyncio.create_task(websocket.wait_closed())
+                    stopped = asyncio.create_task(shutdown_event.wait())
+                    tasks = [reading, closed, stopped]
+                    try:
+                        done, _ = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+                        if stopped in done:
+                            return
+                        if reading in done:
+                            await reading
+                            return
+                        raise ConnectionError("WebSocket closed")
+                    finally:
+                        for task in tasks:
+                            task.cancel()
+                        await asyncio.gather(*tasks, return_exceptions=True)
+            except asyncio.CancelledError:
+                raise
+            except (websockets.exceptions.WebSocketException, OSError) as e:
+                print(f"[WS] Connection error: {e}")
+            except Exception as e:
+                print(f"[WS] Unexpected error: {e}")
+            if shutdown_event.is_set():
+                break
+            print(f"[WS] Reconnecting in {retry_delay}s...")
+            try:
+                await asyncio.wait_for(shutdown_event.wait(), timeout=retry_delay)
+            except TimeoutError:
+                pass
+            retry_delay = min(retry_delay * 2, 60)
+    finally:
+        if transport is not None:
+            transport.close()
 
-    while not shutdown_event.is_set():
-        try:
-            print(f"[WS] Connecting to {ws_url}...")
-
-            async with websockets.connect(
-                ws_url,
-                ping_interval=30,
-                ping_timeout=10,
-                close_timeout=5,
-            ) as websocket:
-                print("[WS] Connected successfully")
-
-                # Authenticate
-                if not await authenticate_websocket(websocket, secret, effective_lane):
-                    print("[WS] Disconnecting due to auth failure")
-                    await asyncio.sleep(5)
-                    continue
-
-                # Reset retry delay on successful connection
-                retry_delay = 1
-
-                # Start NFC reader or simulation
-                if simulate:
-                    await simulation_mode(websocket, effective_lane, reader_id)
-                else:
-                    await nfc_reader_loop_with_reconnection(websocket, device, effective_lane, reader_id)
-                
-        except websockets.exceptions.WebSocketException as e:
-            print(f"[WS] Connection error: {e}")
-        except ConnectionRefusedError:
-            print(f"[WS] Connection refused - is the server running?")
-        except Exception as e:
-            print(f"[WS] Unexpected error: {e}")
-        
-        if shutdown_event.is_set():
-            break
-        
-        # Exponential backoff for reconnection
-        print(f"[WS] Reconnecting in {retry_delay}s...")
-        await asyncio.sleep(retry_delay)
-        retry_delay = min(retry_delay * 2, max_retry_delay)
 
 
 async def test_mode(url: str, secret: Optional[str], lane: str, reader_id: Optional[str] = None):
@@ -654,14 +583,9 @@ async def test_mode(url: str, secret: Optional[str], lane: str, reader_id: Optio
                 return 1
 
             # Send test tap
-            success = await broadcast_tap_ws(websocket, test_uid, effective_lane, reader_id)
-
-            if success:
-                print("[TEST] Test tap sent successfully")
-                return 0
-            else:
-                print("[TEST] Failed to send test tap")
-                return 1
+            await broadcast_tap_ws(websocket, test_uid, effective_lane, reader_id)
+            print("[TEST] Test tap sent successfully")
+            return 0
 
     except Exception as e:
         print(f"[TEST] Error: {e}")

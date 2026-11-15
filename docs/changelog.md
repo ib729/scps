@@ -14,6 +14,7 @@
 - Every matching-lane NFC delivery rechecks the original signed session's current user, staff role and finite expiry. Revoked, expired or demoted sockets close 1008 without receiving the next identifier; duplicate authentication and malformed cookies are rejected.
 - NFC readiness tracks authenticated remote broadcasters per lane, not local USB/systemd state. Protocol ping/pong removes stale connections; connected means network presence, not confirmed reader hardware health.
 - POS checkout counts only newly borrowed cents under an immediate transaction. Weekly usage resets at Shanghai Monday 00:00; top-ups do not refund consumed allowance. Existing historical usage/week keys remain audit data and need operator reconciliation before live rollout.
+- Reader send failures now reach the network reconnect loop. Socket closure cancels and awaits the previous reader; simulation owns one cancellable stdin pipe and exits on EOF/quit. Taps from a failed connection are not queued or replayed.
 
 ## 2026-11-06
 
