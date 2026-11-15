@@ -34,11 +34,13 @@ if(name==='modprobe'&&args.includes('-r')&&fs.existsSync(${JSON.stringify(failed
 if(name==='nfc-list')console.log('NFC device: PN532 opened\\n0 ISO14443A passive target(s) found.');
 `;
   for (const name of ["sudo", "ls", "udevadm", "lsof", "systemctl", "modprobe", "nfc-list"]) await fs.writeFile(path.join(directory, name), body, { mode: 0o700 });
-  const keys = ["PATH", "WEB_BACKUP_SCRIPT", "FIX_READERS_SCRIPT_PATH"] as const;
+  const keys = ["PATH", "WEB_BACKUP_SCRIPT", "FIX_READERS_SCRIPT_PATH", "ZSTD_CLEVEL", "ZSTD_NBTHREADS"] as const;
   const previous = keys.map(key => [key, process.env[key]] as const);
   process.env.PATH = `${directory}:${process.env.PATH ?? ""}`;
-  delete process.env.WEB_BACKUP_SCRIPT;
-  delete process.env.FIX_READERS_SCRIPT_PATH;
+  process.env.WEB_BACKUP_SCRIPT = "";
+  process.env.FIX_READERS_SCRIPT_PATH = "";
+  process.env.ZSTD_CLEVEL = "15";
+  process.env.ZSTD_NBTHREADS = "0";
   let server: TestServer | undefined;
   try {
     try { server = await startTestServer(); }
