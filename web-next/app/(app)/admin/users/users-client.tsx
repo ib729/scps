@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { approveStudentRegistrationAction, createUser, setUserRoleAction } from "@/app/actions/users";
-import { searchStudentsAction } from "@/app/actions/students";
+import { approveCustomerRegistrationAction, createUser, setUserRoleAction } from "@/app/actions/users";
+import { searchCustomersAction } from "@/app/actions/customers";
 import type { UserRole } from "@/lib/auth-session";
-import type { StudentWithAccount, UserAccessSummary } from "@/lib/models";
+import type { CustomerWithAccount, UserAccessSummary } from "@/lib/models";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,10 +20,10 @@ export function UsersClient({ users }: { users: UserAccessSummary[] }) {
   const [error, setError] = useState("");
   const [linkUser, setLinkUser] = useState<UserAccessSummary | null>(null);
   const [query, setQuery] = useState("");
-  const [students, setStudents] = useState<StudentWithAccount[]>([]);
-  const [studentId, setStudentId] = useState<number | null>(null);
+  const [customers, setCustomers] = useState<CustomerWithAccount[]>([]);
+  const [customerId, setCustomerId] = useState<number | null>(null);
   const [grant, setGrant] = useState<{ user: UserAccessSummary; role: UserRole } | null>(null);
-  const [form, setForm] = useState({ name: "", email: "", password: "", role: "student" as UserRole });
+  const [form, setForm] = useState({ name: "", email: "", password: "", role: "customer" as UserRole });
 
   async function save(action: () => Promise<{ success: boolean; error?: string }>) {
     setBusy(true); setError("");
@@ -39,30 +39,30 @@ export function UsersClient({ users }: { users: UserAccessSummary[] }) {
     <header><h1 className="text-2xl font-semibold">Accounts</h1><p className="text-muted-foreground">Verify each person before linking a balance or granting operator access. Email addresses are not verified.</p></header>
     {error && <p role="alert" className="text-destructive">{error}</p>}
     <Card><CardHeader><CardTitle>Registrations and access</CardTitle></CardHeader><CardContent>
-      <Table><TableHeader><TableRow><TableHead>Person</TableHead><TableHead>Registered</TableHead><TableHead>Student account</TableHead><TableHead>Role</TableHead><TableHead>Approval</TableHead></TableRow></TableHeader>
+      <Table><TableHeader><TableRow><TableHead>Person</TableHead><TableHead>Registered</TableHead><TableHead>Customer account</TableHead><TableHead>Role</TableHead><TableHead>Approval</TableHead></TableRow></TableHeader>
         <TableBody>{users.map(user => <TableRow key={user.id}>
           <TableCell><p className="font-medium">{user.name}</p><p className="text-muted-foreground">{user.email}</p></TableCell>
           <TableCell>{new Date(typeof user.createdAt === "number" && user.createdAt < 1e12 ? user.createdAt * 1000 : user.createdAt).toLocaleString()}</TableCell>
-          <TableCell>{user.studentId ? `${user.studentName} (#${user.studentId})` : user.role === "student" ? "Awaiting approval" : "Not linked"}</TableCell>
-          <TableCell><Select value={user.role} disabled={busy} onValueChange={role => setGrant({ user, role: role as UserRole })}><SelectTrigger aria-label={`Role for ${user.email}`}><SelectValue /></SelectTrigger><SelectContent>{["student", "staff", "admin"].map(role => <SelectItem key={role} value={role}>{role}</SelectItem>)}</SelectContent></Select></TableCell>
-          <TableCell>{user.role === "student" && !user.studentId && <Button disabled={busy} onClick={() => { setLinkUser(user); setQuery(""); setStudents([]); setStudentId(null); setError(""); }}>Review registration</Button>}</TableCell>
+          <TableCell>{user.customerId ? `${user.customerName} (#${user.customerId})` : user.role === "customer" ? "Awaiting approval" : "Not linked"}</TableCell>
+          <TableCell><Select value={user.role} disabled={busy} onValueChange={role => setGrant({ user, role: role as UserRole })}><SelectTrigger aria-label={`Role for ${user.email}`}><SelectValue /></SelectTrigger><SelectContent>{["customer", "staff", "admin"].map(role => <SelectItem key={role} value={role}>{role}</SelectItem>)}</SelectContent></Select></TableCell>
+          <TableCell>{user.role === "customer" && !user.customerId && <Button disabled={busy} onClick={() => { setLinkUser(user); setQuery(""); setCustomers([]); setCustomerId(null); setError(""); }}>Review registration</Button>}</TableCell>
         </TableRow>)}</TableBody>
       </Table>
     </CardContent></Card>
     <Card><CardHeader><CardTitle>Create account</CardTitle></CardHeader><CardContent>
-      <form className="grid gap-4 sm:grid-cols-2" onSubmit={event => { event.preventDefault(); void save(async () => { const result = await createUser(form); if (result.success) setForm({ name: "", email: "", password: "", role: "student" }); return result; }); }}>
+      <form className="grid gap-4 sm:grid-cols-2" onSubmit={event => { event.preventDefault(); void save(async () => { const result = await createUser(form); if (result.success) setForm({ name: "", email: "", password: "", role: "customer" }); return result; }); }}>
         <div className="space-y-2"><Label htmlFor="create-name">Name</Label><Input id="create-name" required maxLength={255} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} /></div>
         <div className="space-y-2"><Label htmlFor="create-email">Email</Label><Input id="create-email" type="email" required value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></div>
         <div className="space-y-2"><Label htmlFor="create-password">Temporary password</Label><Input id="create-password" type="password" required minLength={8} maxLength={128} autoComplete="new-password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} /></div>
-        <div className="space-y-2"><Label>Initial role</Label><Select value={form.role} onValueChange={role => setForm({ ...form, role: role as UserRole })}><SelectTrigger aria-label="Initial role"><SelectValue /></SelectTrigger><SelectContent>{["student", "staff", "admin"].map(role => <SelectItem key={role} value={role}>{role}</SelectItem>)}</SelectContent></Select></div>
+        <div className="space-y-2"><Label>Initial role</Label><Select value={form.role} onValueChange={role => setForm({ ...form, role: role as UserRole })}><SelectTrigger aria-label="Initial role"><SelectValue /></SelectTrigger><SelectContent>{["customer", "staff", "admin"].map(role => <SelectItem key={role} value={role}>{role}</SelectItem>)}</SelectContent></Select></div>
         <Button disabled={busy} type="submit">Create account</Button>
       </form>
     </CardContent></Card>
-    <Dialog open={!!linkUser} onOpenChange={open => { if (!open) setLinkUser(null); }}><DialogContent><DialogHeader><DialogTitle>Link {linkUser?.name}</DialogTitle><DialogDescription>Choose the existing financial student record. This does not create a new balance.</DialogDescription></DialogHeader>
-      <form className="flex gap-2" onSubmit={async event => { event.preventDefault(); setBusy(true); setError(""); try { const result = await searchStudentsAction(query); if (result.success && result.data) setStudents(result.data); else setError(result.error || "Search failed"); } finally { setBusy(false); } }}><Input aria-label="Search existing students" placeholder="Student name" value={query} onChange={e => setQuery(e.target.value)} /><Button disabled={busy} type="submit">Search</Button></form>
-      <div className="max-h-60 space-y-2 overflow-auto">{students.map(student => <Button key={student.id} className="w-full justify-start" variant={studentId === student.id ? "default" : "outline"} onClick={() => setStudentId(student.id)}>{student.name} (#{student.id})</Button>)}</div>
+    <Dialog open={!!linkUser} onOpenChange={open => { if (!open) setLinkUser(null); }}><DialogContent><DialogHeader><DialogTitle>Link {linkUser?.name}</DialogTitle><DialogDescription>Choose the existing financial customer record. This does not create a new balance.</DialogDescription></DialogHeader>
+      <form className="flex gap-2" onSubmit={async event => { event.preventDefault(); setBusy(true); setError(""); try { const result = await searchCustomersAction(query); if (result.success && result.data) setCustomers(result.data); else setError(result.error || "Search failed"); } finally { setBusy(false); } }}><Input aria-label="Search existing customers" placeholder="Customer name" value={query} onChange={e => setQuery(e.target.value)} /><Button disabled={busy} type="submit">Search</Button></form>
+      <div className="max-h-60 space-y-2 overflow-auto">{customers.map(customer => <Button key={customer.id} className="w-full justify-start" variant={customerId === customer.id ? "default" : "outline"} onClick={() => setCustomerId(customer.id)}>{customer.name} (#{customer.id})</Button>)}</div>
       {error && <p role="alert" className="text-destructive">{error}</p>}
-      <DialogFooter><Button disabled={busy || !studentId} onClick={() => { if (linkUser && studentId) void save(() => approveStudentRegistrationAction({ user_id: linkUser.id, student_id: studentId })); }}>Approve and link</Button></DialogFooter>
+      <DialogFooter><Button disabled={busy || !customerId} onClick={() => { if (linkUser && customerId) void save(() => approveCustomerRegistrationAction({ user_id: linkUser.id, customer_id: customerId })); }}>Approve and link</Button></DialogFooter>
     </DialogContent></Dialog>
     <Dialog open={!!grant} onOpenChange={open => { if (!open) setGrant(null); }}><DialogContent><DialogHeader><DialogTitle>Confirm role change</DialogTitle><DialogDescription>Change {grant?.user.email} from {grant?.user.role} to {grant?.role}? Staff can access all financial records; administrators can also grant access and approve payments.</DialogDescription></DialogHeader>
       {error && <p role="alert" className="text-destructive">{error}</p>}

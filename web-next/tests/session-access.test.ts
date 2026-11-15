@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { startTestServer } from "./helpers/server";
 
-test("protected HTTP requests reject revoked or expired original cookies and student roles", async () => {
+test("protected HTTP requests reject revoked or expired original cookies and customer roles", async () => {
   const server = await startTestServer();
   try {
     async function login(email: string) {
@@ -19,6 +19,6 @@ test("protected HTTP requests reject revoked or expired original cookies and stu
     assert.equal((await get(fresh)).status,200);
     server.database.exec("UPDATE session SET expiresAt=0 WHERE userId=(SELECT id FROM user WHERE email='staff@example.test')");
     assert.equal((await get(fresh)).status,401);
-    assert.equal((await get(await login("student@example.test"))).status,403);
+    assert.equal((await get(await login("customer@example.test"))).status,403);
   } finally { await server.close(); }
 });

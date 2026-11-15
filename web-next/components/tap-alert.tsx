@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { getCardByUidAction, createCardAction } from "@/app/actions/cards";
-import { getStudentByIdAction, createStudentAction, getStudentByNameAction } from "@/app/actions/students";
+import { getCustomerByIdAction, createCustomerAction, getCustomerByNameAction } from "@/app/actions/customers";
 import type { Card } from "@/lib/models";
 import { useNFCWebSocket } from "@/lib/use-nfc-websocket";
 import { useNFCReader } from "@/lib/nfc-reader-context";
@@ -45,7 +45,7 @@ function TapAlertContent() {
   const [open, setOpen] = useState(false);
   const [cardUid, setCardUid] = useState<string>("");
   const [cardData, setCardData] = useState<Card | null>(null);
-  const [studentName, setStudentName] = useState<string>("");
+  const [customerName, setCustomerName] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [showEnrollmentForm, setShowEnrollmentForm] = useState(false);
   const [enrollmentName, setEnrollmentName] = useState("");
@@ -73,15 +73,15 @@ function TapAlertContent() {
       setCardData(result.data);
 
       // Fetch customer details
-      const studentResult = await getStudentByIdAction(result.data.student_id);
-      if (studentResult.success && studentResult.data) {
-        setStudentName(studentResult.data.name);
+      const customerResult = await getCustomerByIdAction(result.data.customer_id);
+      if (customerResult.success && customerResult.data) {
+        setCustomerName(customerResult.data.name);
       } else {
-        setStudentName(`Customer ID: ${result.data.student_id}`);
+        setCustomerName(`Customer ID: ${result.data.customer_id}`);
       }
     } else {
       setCardData(null);
-      setStudentName("Unknown Card");
+      setCustomerName("Unknown Card");
     }
     setLoading(false);
   };
@@ -123,34 +123,34 @@ function TapAlertContent() {
     setEnrollmentLoading(true);
 
     try {
-      let studentId: number;
+      let customerId: number;
 
       // Check if customer already exists
-      const existingStudent = await getStudentByNameAction(enrollmentName);
+      const existingCustomer = await getCustomerByNameAction(enrollmentName);
 
-      if (existingStudent.success && existingStudent.data) {
+      if (existingCustomer.success && existingCustomer.data) {
         // Attach to existing customer
-        studentId = existingStudent.data.id;
-        console.log(`[TapAlert] Attaching card to existing customer: ${enrollmentName} (${studentId})`);
+        customerId = existingCustomer.data.id;
+        console.log(`[TapAlert] Attaching card to existing customer: ${enrollmentName} (${customerId})`);
       } else {
         // Create new customer
         console.log(`[TapAlert] Creating new customer: ${enrollmentName}`);
-        const studentResult = await createStudentAction({
+        const customerResult = await createCustomerAction({
           name: enrollmentName,
         });
 
-        if (!studentResult.success || !studentResult.data) {
-          setEnrollmentError(studentResult.error || "Failed to create customer");
+        if (!customerResult.success || !customerResult.data) {
+          setEnrollmentError(customerResult.error || "Failed to create customer");
           setEnrollmentLoading(false);
           return;
         }
-        studentId = studentResult.data.id;
+        customerId = customerResult.data.id;
       }
 
       // Create the card linked to the customer
       const cardResult = await createCardAction({
         card_uid: cardUid,
-        student_id: studentId,
+        customer_id: customerId,
         status: "active",
       });
 
@@ -169,7 +169,7 @@ function TapAlertContent() {
       if (destination === 'pos') {
         router.push(`/pos?card=${cardUid}`);
       } else if (destination === 'topup') {
-        router.push(`/topup?student=${studentId}`);
+        router.push(`/topup?customer=${customerId}`);
       } else {
         // If just attaching, refresh to show updates
         router.refresh();
@@ -220,7 +220,7 @@ function TapAlertContent() {
                   ) : cardData ? (
                     <div className="flex flex-col gap-2">
                       <div className="text-sm text-muted-foreground">Customer:</div>
-                      <div className="font-medium">{studentName}</div>
+                      <div className="font-medium">{customerName}</div>
                       <div className="text-xs text-muted-foreground">
                         Status: {cardData.status === "active" ? "✓ Active" : "✗ Revoked"}
                       </div>
@@ -265,9 +265,9 @@ function TapAlertContent() {
                     </Alert>
                   )}
                   <div className="space-y-2">
-                    <Label htmlFor="student-name">Customer Name</Label>
+                    <Label htmlFor="customer-name">Customer Name</Label>
                     <Input
-                      id="student-name"
+                      id="customer-name"
                       value={enrollmentName}
                       onChange={(e) => setEnrollmentName(e.target.value)}
                       placeholder="Enter customer name"

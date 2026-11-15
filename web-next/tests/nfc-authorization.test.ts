@@ -41,7 +41,7 @@ test("open browser sockets stop receiving NFC identifiers when their exact sessi
       assert.equal(client.reply.type,"auth_success");
       const tap = waitMessage(client.ws);sendTap("reader-2");const matching = sendTap();
       assert.equal((await tap).card_uid,matching);
-      if (reason === "demotion") server.database.exec("UPDATE user SET role='student' WHERE email='staff@example.test'");
+      if (reason === "demotion") server.database.exec("UPDATE user SET role='customer' WHERE email='staff@example.test'");
       if (reason === "session deletion") server.database.exec("DELETE FROM session WHERE userId=(SELECT id FROM user WHERE email='staff@example.test')");
       if (reason === "expiry") server.database.exec("UPDATE session SET expiresAt=0 WHERE userId=(SELECT id FROM user WHERE email='staff@example.test')");
       if (reason === "malformed expiry") server.database.exec("UPDATE session SET expiresAt='nonsense' WHERE userId=(SELECT id FROM user WHERE email='staff@example.test')");
@@ -59,7 +59,7 @@ test("open browser sockets stop receiving NFC identifiers when their exact sessi
     const admin = await login("admin@example.test");
     const duplicate = await socket(admin);const closed = once(duplicate.ws,"close",{signal:AbortSignal.timeout(5000)});
     duplicate.ws.send(JSON.stringify({type:"auth",role:"client"}));assert.equal((await closed)[0],1008);
-    for (const cookie of [await login("student@example.test"), "better-auth.session_token=unsigned", "better-auth.session_token=%ZZ", "better-auth.session_token=fake."+"a".repeat(43)+"="]) {
+    for (const cookie of [await login("customer@example.test"), "better-auth.session_token=unsigned", "better-auth.session_token=%ZZ", "better-auth.session_token=fake."+"a".repeat(43)+"="]) {
       const denied = await socket(cookie);assert.equal(denied.reply.type,"auth_failed");
     }
     for (const expiry of [Math.floor(Date.now()/1000)+3600,Date.now()+3600000,new Date(Date.now()+3600000).toISOString()]) {

@@ -7,7 +7,7 @@ import { Check, Copy, MoreHorizontal } from "@/lib/icons";
 import type {
   TransactionListCursor,
   TransactionNoteHistory,
-  TransactionWithStudent,
+  TransactionWithCustomer,
 } from "@/lib/models";
 import { formatCurrency } from "@/lib/currency";
 import { Badge } from "@/components/ui/badge";
@@ -39,7 +39,7 @@ const GRID_TEMPLATE =
 type TransactionTypeFilter = "all" | "TOPUP" | "DEBIT" | "ADJUST";
 
 interface TransactionsClientProps {
-  initialData: TransactionWithStudent[];
+  initialData: TransactionWithCustomer[];
   initialCursor: TransactionListCursor | null;
   initialHasMore: boolean;
 }
@@ -48,7 +48,7 @@ type TransactionsResponse = {
   success: boolean;
   error?: string;
   data?: {
-    items: TransactionWithStudent[];
+    items: TransactionWithCustomer[];
     nextCursor: TransactionListCursor | null;
     hasMore: boolean;
   };
@@ -58,7 +58,7 @@ type TransactionNotesResponse = {
   success: boolean;
   error?: string;
   data?: {
-    transaction: TransactionWithStudent;
+    transaction: TransactionWithCustomer;
     history: TransactionNoteHistory[];
   };
 };
@@ -113,8 +113,8 @@ function buildTransactionsUrl(params: {
 }
 
 function mergeTransactions(
-  existing: TransactionWithStudent[],
-  incoming: TransactionWithStudent[],
+  existing: TransactionWithCustomer[],
+  incoming: TransactionWithCustomer[],
 ) {
   const seenIds = new Set(existing.map((item) => item.id));
   const merged = [...existing];
@@ -139,10 +139,10 @@ const TransactionRow = React.memo(function TransactionRow({
   onOpenNotes,
   onEditNotes,
 }: {
-  tx: TransactionWithStudent;
+  tx: TransactionWithCustomer;
   top: number;
-  onOpenNotes: (tx: TransactionWithStudent) => void;
-  onEditNotes: (tx: TransactionWithStudent) => void;
+  onOpenNotes: (tx: TransactionWithCustomer) => void;
+  onEditNotes: (tx: TransactionWithCustomer) => void;
 }) {
   const description = tx.description || "";
   const isTruncated = description.length > 50;
@@ -177,8 +177,8 @@ const TransactionRow = React.memo(function TransactionRow({
       </div>
 
       <div className="truncate px-2">
-        <Link href={`/customers/${tx.student_id}`} className="font-medium hover:underline">
-          {tx.student_name}
+        <Link href={`/customers/${tx.customer_id}`} className="font-medium hover:underline">
+          {tx.customer_name}
         </Link>
       </div>
 
@@ -261,7 +261,7 @@ export function TransactionsClient({
   initialHasMore,
 }: TransactionsClientProps) {
   const [visibleItems, setVisibleItems] = React.useState(initialData);
-  const [prefetchedItems, setPrefetchedItems] = React.useState<TransactionWithStudent[]>([]);
+  const [prefetchedItems, setPrefetchedItems] = React.useState<TransactionWithCustomer[]>([]);
   const [searchInput, setSearchInput] = React.useState("");
   const deferredSearch = React.useDeferredValue(searchInput.trim());
   const [typeFilter, setTypeFilter] = React.useState<TransactionTypeFilter>("all");
@@ -271,8 +271,8 @@ export function TransactionsClient({
   const [loadingMoreVisible, setLoadingMoreVisible] = React.useState(false);
   const [prefetchInFlight, setPrefetchInFlight] = React.useState(false);
   const [loadError, setLoadError] = React.useState("");
-  const [selectedDetailsTx, setSelectedDetailsTx] = React.useState<TransactionWithStudent | null>(null);
-  const [editingNotesTx, setEditingNotesTx] = React.useState<TransactionWithStudent | null>(null);
+  const [selectedDetailsTx, setSelectedDetailsTx] = React.useState<TransactionWithCustomer | null>(null);
+  const [editingNotesTx, setEditingNotesTx] = React.useState<TransactionWithCustomer | null>(null);
   const [noteDraft, setNoteDraft] = React.useState("");
   const [noteHistory, setNoteHistory] = React.useState<TransactionNoteHistory[]>([]);
   const [noteHistoryLoading, setNoteHistoryLoading] = React.useState(false);
@@ -295,15 +295,15 @@ export function TransactionsClient({
     viewport: 0,
   });
   const visibleItemsRef = React.useRef(initialData);
-  const prefetchedItemsRef = React.useRef<TransactionWithStudent[]>([]);
+  const prefetchedItemsRef = React.useRef<TransactionWithCustomer[]>([]);
   const nextCursorRef = React.useRef(initialCursor);
   const hasMoreRef = React.useRef(initialHasMore);
   const prefetchInFlightRef = React.useRef(false);
   const loadingMoreVisibleRef = React.useRef(false);
   const initialPrefetchQueuedRef = React.useRef(false);
 
-  const applyTransactionUpdate = React.useCallback((updated: TransactionWithStudent) => {
-    const apply = (items: TransactionWithStudent[]) =>
+  const applyTransactionUpdate = React.useCallback((updated: TransactionWithCustomer) => {
+    const apply = (items: TransactionWithCustomer[]) =>
       items.map((item) => (item.id === updated.id ? updated : item));
 
     visibleItemsRef.current = apply(visibleItemsRef.current);
@@ -342,7 +342,7 @@ export function TransactionsClient({
     }
   }, [applyTransactionUpdate]);
 
-  const openNoteEditor = React.useCallback((transaction: TransactionWithStudent) => {
+  const openNoteEditor = React.useCallback((transaction: TransactionWithCustomer) => {
     setEditingNotesTx(transaction);
     setNoteDraft(transaction.description ?? "");
     setNoteHistory([]);
@@ -859,7 +859,7 @@ export function TransactionsClient({
                 Edit notes for transaction #{editingNotesTx?.id}
               </h3>
               <p className="text-sm text-muted-foreground">
-                {editingNotesTx?.student_name} • {editingNotesTx?.type}
+                {editingNotesTx?.customer_name} • {editingNotesTx?.type}
               </p>
             </div>
 

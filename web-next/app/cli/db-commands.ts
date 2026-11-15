@@ -1,4 +1,5 @@
 import { getDb, closeDb, dbPath } from "../../lib/db";
+import { assertCustomerSchema } from "../../lib/customer-schema";
 import { formatCurrency, toDbValue } from "../../lib/currency";
 import Database from "better-sqlite3";
 import * as p from "@clack/prompts";
@@ -7,7 +8,7 @@ import { spawn } from "child_process";
 import path from "path";
 import fs from "fs";
 
-interface StudentRow {
+interface CustomerRow {
   id: number;
   name: string;
   balance: number;
@@ -24,22 +25,22 @@ export function parseAdjustmentAmount(input: string): number {
   return amount;
 }
 
-export function applyLedgerAdjustment(database: Database.Database, studentId: number, amount: number, description: string): number {
+export function applyLedgerAdjustment(database: Database.Database, customerId: number, amount: number, description: string): number {
   return database.transaction(() => {
     const account = database.prepare(`
-      SELECT a.balance FROM accounts a JOIN students s ON s.id = a.student_id
-      WHERE a.student_id = ? AND s.archived = 0
-    `).get(studentId) as { balance: number } | undefined;
-    if (!account) throw new Error("Active student account not found; no transaction was written");
+      SELECT a.balance FROM accounts a JOIN customers s ON s.id = a.customer_id
+      WHERE a.customer_id = ? AND s.archived = 0
+    `).get(customerId) as { balance: number } | undefined;
+    if (!account) throw new Error("Active customer account not found; no transaction was written");
     const balance = account.balance + amount;
     if (!Number.isSafeInteger(amount) || amount === 0 || !Number.isSafeInteger(balance)) {
       throw new Error("Adjustment exceeds the safe currency range");
     }
     database.prepare(`
-      INSERT INTO transactions (student_id, type, amount, payment_method, description, staff, created_at)
+      INSERT INTO transactions (customer_id, type, amount, payment_method, description, staff, created_at)
       VALUES (?, ?, ?, ?, ?, 'CLI-Admin', datetime('now'))
-    `).run(studentId, amount > 0 ? "TOPUP" : "DEBIT", amount, amount > 0 ? "Cash" : "Balance", description.trim() || "CLI Adjustment");
-    database.prepare("UPDATE accounts SET balance = ? WHERE student_id = ?").run(balance, studentId);
+    `).run(customerId, amount > 0 ? "TOPUP" : "DEBIT", amount, amount > 0 ? "Cash" : "Balance", description.trim() || "CLI Adjustment");
+    database.prepare("UPDATE accounts SET balance = ? WHERE customer_id = ?").run(balance, customerId);
     return balance;
   })();
 }
@@ -54,6 +55,7 @@ export async function restoreDatabase(sourcePath: string, activePath: string, ac
   try {
     // Pin validation and copying to the same SQLite snapshot, including its WAL.
     source.exec("BEGIN");
+    assertCustomerSchema(source);
     const foreignKeyErrors = source.pragma("foreign_key_check");
     if (source.pragma("integrity_check", { simple: true }) !== "ok" || !Array.isArray(foreignKeyErrors) || foreignKeyErrors.length > 0) {
       throw new Error("Backup failed SQLite integrity or foreign-key checks");
@@ -88,31 +90,31 @@ export async function handleLedgerAdjustments() {
   
   while (true) {
     const search = await p.text({
-      message: "Search for a student/customer by name",
+      message: "Search for a customer by name",
       placeholder: "e.g. John",
       validate: (v = "") => (!v.trim() ? "Search query cannot be empty" : undefined),
     });
 
     if (p.isCancel(search)) break;
 
-    // Search students
+    // Search customers
     const matches = db.prepare(`
       SELECT s.id, s.name, COALESCE(a.balance, 0) as balance
-      FROM students s
-      LEFT JOIN accounts a ON s.id = a.student_id
+      FROM customers s
+      LEFT JOIN accounts a ON s.id = a.customer_id
       WHERE s.name LIKE ? AND s.archived = 0
       LIMIT 10
-    `).all(`%${search.trim()}%`) as StudentRow[];
+    `).all(`%${search.trim()}%`) as CustomerRow[];
 
     if (matches.length === 0) {
-      p.log.warn("No active students found matching that name.");
+      p.log.warn("No active customers found matching that name.");
       const retry = await p.confirm({ message: "Search again?" });
       if (p.isCancel(retry) || !retry) break;
       continue;
     }
 
     const selectedId = await p.select({
-      message: "Select a student",
+      message: "Select a customer",
       options: matches.map((m) => ({
         value: m.id,
         label: `${m.name} (Current Balance: ¥${formatCurrency(m.balance)})`,
@@ -121,7 +123,7 @@ export async function handleLedgerAdjustments() {
 
     if (p.isCancel(selectedId)) break;
 
-    const student = matches.find((m) => m.id === selectedId)!;
+    const customer = matches.find((m) => m.id === selectedId)!;
 
     const amountInput = await p.text({
       message: "Enter Top-up / Adjustment amount in ¥ (e.g. 50 or -20 for debit)",
@@ -148,7 +150,7 @@ export async function handleLedgerAdjustments() {
     if (p.isCancel(description)) break;
 
     const confirm = await p.confirm({
-      message: `Confirm transaction: ¥${centsAmount > 0 ? "+" : ""}${formatCurrency(centsAmount)} for ${pc.bold(student.name)}?`,
+      message: `Confirm transaction: ¥${centsAmount > 0 ? "+" : ""}${formatCurrency(centsAmount)} for ${pc.bold(customer.name)}?`,
     });
 
     if (!confirm || p.isCancel(confirm)) break;
@@ -157,7 +159,7 @@ export async function handleLedgerAdjustments() {
     s.start("Processing transaction in ledger...");
 
     try {
-      const newBalance = applyLedgerAdjustment(db, student.id, centsAmount, description);
+      const newBalance = applyLedgerAdjustment(db, customer.id, centsAmount, description);
       s.stop(`✓ Transaction complete! New Balance: ¥${formatCurrency(newBalance)}`);
     } catch (err) {
       s.stop("Failed to process transaction");
@@ -171,7 +173,7 @@ export async function handleLedgerAdjustments() {
 export async function handleCSVImport() {
   const csvPath = await p.text({
     message: "Enter the absolute or relative path to your CSV file",
-    placeholder: "e.g. students.csv",
+    placeholder: "e.g. customers.csv",
     validate: (v = "") => {
       if (!v.trim()) return "Path cannot be empty";
       if (!fs.existsSync(v.trim())) return "File does not exist at that path";

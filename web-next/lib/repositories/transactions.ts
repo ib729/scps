@@ -3,7 +3,7 @@ import type {
   Transaction,
   TransactionListCursor,
   CreateTransaction,
-  TransactionWithStudent,
+  TransactionWithCustomer,
   TransactionNoteHistory,
 } from "../models";
 
@@ -50,12 +50,12 @@ function buildTransactionFilters(filters?: {
 
 export function getAllTransactions(
   limit?: number
-): TransactionWithStudent[] {
+): TransactionWithCustomer[] {
   const db = getDb();
   const query = `
     SELECT 
       t.id,
-      t.student_id,
+      t.customer_id,
       t.card_uid,
       t.type,
       t.amount,
@@ -64,26 +64,26 @@ export function getAllTransactions(
       t.description,
       t.staff,
       t.created_at,
-      s.name as student_name
+      s.name as customer_name
     FROM transactions t
-    JOIN students s ON t.student_id = s.id
+    JOIN customers s ON t.customer_id = s.id
     ORDER BY t.created_at DESC, t.id DESC
     ${limit ? "LIMIT ?" : ""}
   `;
   const stmt = db.prepare(query);
-  return (limit ? stmt.all(limit) : stmt.all()) as TransactionWithStudent[];
+  return (limit ? stmt.all(limit) : stmt.all()) as TransactionWithCustomer[];
 }
 
-export function getTransactionsByStudentId(
-  studentId: number
+export function getTransactionsByCustomerId(
+  customerId: number
 ): Transaction[] {
   const db = getDb();
   const stmt = db.prepare(`
     SELECT * FROM transactions
-    WHERE student_id = ?
+    WHERE customer_id = ?
     ORDER BY created_at DESC, id DESC
   `);
-  return stmt.all(studentId) as Transaction[];
+  return stmt.all(customerId) as Transaction[];
 }
 
 export function getTransactionById(id: number): Transaction | undefined {
@@ -92,12 +92,12 @@ export function getTransactionById(id: number): Transaction | undefined {
   return stmt.get(id) as Transaction | undefined;
 }
 
-export function getTransactionWithStudentById(id: number): TransactionWithStudent | undefined {
+export function getTransactionWithCustomerById(id: number): TransactionWithCustomer | undefined {
   const db = getDb();
   const stmt = db.prepare(`
     SELECT
       t.id,
-      t.student_id,
+      t.customer_id,
       t.card_uid,
       t.type,
       t.amount,
@@ -106,13 +106,13 @@ export function getTransactionWithStudentById(id: number): TransactionWithStuden
       t.description,
       t.staff,
       t.created_at,
-      s.name as student_name
+      s.name as customer_name
     FROM transactions t
-    JOIN students s ON t.student_id = s.id
+    JOIN customers s ON t.customer_id = s.id
     WHERE t.id = ?
     LIMIT 1
   `);
-  return stmt.get(id) as TransactionWithStudent | undefined;
+  return stmt.get(id) as TransactionWithCustomer | undefined;
 }
 
 export function getTransactionNoteHistory(transactionId: number): TransactionNoteHistory[] {
@@ -134,7 +134,7 @@ export function updateTransactionDescription({
   id: number;
   description: string | null;
   editedBy: string | null;
-}): TransactionWithStudent | undefined {
+}): TransactionWithCustomer | undefined {
   const db = getDb();
   const normalizedDescription = description?.trim() ? description.trim() : null;
 
@@ -148,7 +148,7 @@ export function updateTransactionDescription({
     }
 
     if ((existing.description ?? null) === normalizedDescription) {
-      return getTransactionWithStudentById(id);
+      return getTransactionWithCustomerById(id);
     }
 
     db.prepare(
@@ -168,7 +168,7 @@ export function updateTransactionDescription({
       id,
     );
 
-    return getTransactionWithStudentById(id);
+    return getTransactionWithCustomerById(id);
   })();
 }
 
@@ -178,12 +178,12 @@ export function createTransaction(data: CreateTransaction): Transaction {
     data.type === "DEBIT" ? "Balance" : data.payment_method || null;
   const stmt = db.prepare(`
     INSERT INTO transactions (
-      student_id, card_uid, type, amount, overdraft_component, payment_method, description, staff, created_at
+      customer_id, card_uid, type, amount, overdraft_component, payment_method, description, staff, created_at
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
   `);
 
   const info = stmt.run(
-    data.student_id,
+    data.customer_id,
     data.card_uid || null,
     data.type,
     data.amount,
@@ -203,7 +203,7 @@ export function deleteTransaction(id: number): void {
   stmt.run(id);
 }
 
-export function getRecentTransactions(limit: number = 10): TransactionWithStudent[] {
+export function getRecentTransactions(limit: number = 10): TransactionWithCustomer[] {
   return getAllTransactions(limit);
 }
 
@@ -213,19 +213,19 @@ export function getDashboardStats() {
     .prepare(
       `
         SELECT
-          (SELECT COUNT(*) FROM students WHERE archived = 0) AS totalStudents,
+          (SELECT COUNT(*) FROM customers WHERE archived = 0) AS totalCustomers,
           (
             SELECT COALESCE(SUM(COALESCE(a.balance, 0)), 0)
-            FROM students s
-            LEFT JOIN accounts a ON a.student_id = s.id
+            FROM customers s
+            LEFT JOIN accounts a ON a.customer_id = s.id
             WHERE s.archived = 0
           ) AS totalBalance,
           (
             SELECT COUNT(*)
-            FROM students s
-            LEFT JOIN accounts a ON a.student_id = s.id
+            FROM customers s
+            LEFT JOIN accounts a ON a.customer_id = s.id
             WHERE s.archived = 0 AND COALESCE(a.balance, 0) < 0
-          ) AS studentsWithNegativeBalance,
+          ) AS customersWithNegativeBalance,
           (
             SELECT COUNT(*)
             FROM transactions
@@ -239,30 +239,30 @@ export function getDashboardStats() {
       `,
     )
     .get() as {
-    totalStudents: number;
+    totalCustomers: number;
     totalBalance: number;
-    studentsWithNegativeBalance: number;
+    customersWithNegativeBalance: number;
     totalSales: number;
     totalSalesAmount: number;
   };
 
   return {
-    totalStudents: result.totalStudents || 0,
+    totalCustomers: result.totalCustomers || 0,
     totalBalance: result.totalBalance || 0,
-    studentsWithNegativeBalance: result.studentsWithNegativeBalance || 0,
+    customersWithNegativeBalance: result.customersWithNegativeBalance || 0,
     totalSales: result.totalSales || 0,
     totalSalesAmount: result.totalSalesAmount || 0,
   };
 }
 
-export function getStudentIdsWithTransactions(): number[] {
+export function getCustomerIdsWithTransactions(): number[] {
   const db = getDb();
   const stmt = db.prepare(`
-    SELECT DISTINCT student_id
+    SELECT DISTINCT customer_id
     FROM transactions
   `);
-  const rows = stmt.all() as { student_id: number }[];
-  return rows.map((row) => row.student_id);
+  const rows = stmt.all() as { customer_id: number }[];
+  return rows.map((row) => row.customer_id);
 }
 
 export interface DashboardChartDataPoint {
@@ -400,7 +400,7 @@ export function getTransactionsPage({
       `
         SELECT
           t.id,
-          t.student_id,
+          t.customer_id,
           t.card_uid,
           t.type,
           t.amount,
@@ -409,14 +409,14 @@ export function getTransactionsPage({
           t.description,
           t.staff,
           t.created_at,
-          s.name as student_name
+          s.name as customer_name
         FROM transactions t
-        JOIN students s ON t.student_id = s.id
+        JOIN customers s ON t.customer_id = s.id
         ORDER BY t.created_at DESC, t.id DESC
         LIMIT ? OFFSET ?
       `,
     )
-    .all(normalizedPageSize, offset) as TransactionWithStudent[];
+    .all(normalizedPageSize, offset) as TransactionWithCustomer[];
 
   return {
     items,
@@ -449,7 +449,7 @@ export function getTransactionsBatch({
         `
           SELECT COUNT(*) AS count
           FROM transactions t
-          JOIN students s ON t.student_id = s.id
+          JOIN customers s ON t.customer_id = s.id
           ${whereClause}
         `,
       )
@@ -463,7 +463,7 @@ export function getTransactionsBatch({
       `
         SELECT
           t.id,
-          t.student_id,
+          t.customer_id,
           t.card_uid,
           t.type,
           t.amount,
@@ -472,15 +472,15 @@ export function getTransactionsBatch({
           t.description,
           t.staff,
           t.created_at,
-          s.name as student_name
+          s.name as customer_name
         FROM transactions t
-        JOIN students s ON t.student_id = s.id
+        JOIN customers s ON t.customer_id = s.id
         ${whereClause}
         ORDER BY t.created_at DESC, t.id DESC
         LIMIT ? OFFSET ?
       `,
     )
-    .all(...params, normalizedLimit, normalizedOffset) as TransactionWithStudent[];
+    .all(...params, normalizedLimit, normalizedOffset) as TransactionWithCustomer[];
 
   const nextOffset = normalizedOffset + items.length;
 
@@ -520,7 +520,7 @@ export function getTransactionsCursorBatch({
       `
         SELECT
           t.id,
-          t.student_id,
+          t.customer_id,
           t.card_uid,
           t.type,
           t.amount,
@@ -529,16 +529,16 @@ export function getTransactionsCursorBatch({
           t.description,
           t.staff,
           t.created_at,
-          s.name as student_name
+          s.name as customer_name
         FROM transactions t
-        JOIN students s ON t.student_id = s.id
+        JOIN customers s ON t.customer_id = s.id
         ${whereClause}
         ${cursorClause}
         ORDER BY t.created_at DESC, t.id DESC
         LIMIT ?
       `,
     )
-    .all(...queryParams, normalizedLimit + 1) as TransactionWithStudent[];
+    .all(...queryParams, normalizedLimit + 1) as TransactionWithCustomer[];
 
   const hasMore = rows.length > normalizedLimit;
   const items = hasMore ? rows.slice(0, normalizedLimit) : rows;

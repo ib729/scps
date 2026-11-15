@@ -16,7 +16,7 @@ export function RefreshStatusButton() {
   );
 }
 
-export function StudentSignOutButton() {
+export function CustomerSignOutButton() {
   const router = useRouter();
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState("");

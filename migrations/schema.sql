@@ -5,35 +5,35 @@ CREATE TABLE IF NOT EXISTS app_meta (
   value TEXT NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS students (
+CREATE TABLE IF NOT EXISTS customers (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL UNIQUE,
   archived INTEGER NOT NULL DEFAULT 0
 );
 
-CREATE TABLE IF NOT EXISTS user_student_links (
+CREATE TABLE IF NOT EXISTS user_customer_links (
   user_id TEXT PRIMARY KEY REFERENCES user(id) ON DELETE CASCADE,
-  student_id INTEGER NOT NULL UNIQUE REFERENCES students(id) ON DELETE RESTRICT
+  customer_id INTEGER NOT NULL UNIQUE REFERENCES customers(id) ON DELETE RESTRICT
 );
 
 CREATE TABLE IF NOT EXISTS cards (
   card_uid TEXT PRIMARY KEY,              -- hex UID or your own token
-  student_id INTEGER NOT NULL,
+  customer_id INTEGER NOT NULL,
   status TEXT NOT NULL DEFAULT 'active',  -- active|revoked
   issued_at TEXT NOT NULL DEFAULT (datetime('now')),
-  FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE CASCADE
+  FOREIGN KEY(customer_id) REFERENCES customers(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS accounts (
-  student_id INTEGER PRIMARY KEY,
+  customer_id INTEGER PRIMARY KEY,
   balance INTEGER NOT NULL DEFAULT 0,             -- cents of CNY, e.g., 550 = ¥5.50
   max_overdraft_week INTEGER NOT NULL DEFAULT 0, -- cents of CNY, e.g., 2000 = ¥20.00/week
-  FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE CASCADE
+  FOREIGN KEY(customer_id) REFERENCES customers(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS transactions (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  student_id INTEGER NOT NULL,
+  customer_id INTEGER NOT NULL,
   card_uid TEXT,
   type TEXT NOT NULL CHECK (type IN ('TOPUP','DEBIT','ADJUST')),
   amount INTEGER NOT NULL,                        -- + for topup/adjust, - for debit; cents of CNY, e.g., 550 = ¥5.50
@@ -42,7 +42,7 @@ CREATE TABLE IF NOT EXISTS transactions (
   description TEXT,
   staff TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),  -- UTC ISO-ish
-  FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE RESTRICT
+  FOREIGN KEY(customer_id) REFERENCES customers(id) ON DELETE RESTRICT
 );
 
 CREATE TABLE IF NOT EXISTS transaction_note_history (
@@ -55,18 +55,18 @@ CREATE TABLE IF NOT EXISTS transaction_note_history (
   FOREIGN KEY(transaction_id) REFERENCES transactions(id) ON DELETE CASCADE
 );
 
--- Track weekly overpay usage per student, keyed by the Monday 00:00 (Asia/Shanghai) converted to UTC
+-- Track weekly overpay usage per customer, keyed by the Monday 00:00 (Asia/Shanghai) converted to UTC
 CREATE TABLE IF NOT EXISTS overdraft_weeks (
-  student_id INTEGER NOT NULL,
+  customer_id INTEGER NOT NULL,
   week_start_utc TEXT NOT NULL,
   used INTEGER NOT NULL DEFAULT 0,               -- cents of CNY used this week, e.g., 550 = ¥5.50
-  PRIMARY KEY(student_id, week_start_utc),
-  FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE RESTRICT
+  PRIMARY KEY(customer_id, week_start_utc),
+  FOREIGN KEY(customer_id) REFERENCES customers(id) ON DELETE RESTRICT
 );
 
 CREATE TABLE IF NOT EXISTS wechat_topup_requests (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  student_id INTEGER NOT NULL,
+  customer_id INTEGER NOT NULL,
   requested_amount INTEGER NOT NULL,
   payable_amount INTEGER NOT NULL,
   status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'approved', 'rejected', 'expired', 'cancelled')),
@@ -81,14 +81,14 @@ CREATE TABLE IF NOT EXISTS wechat_topup_requests (
   expires_at TEXT NOT NULL,
   claimed_at TEXT,
   reviewed_at TEXT,
-  FOREIGN KEY(student_id) REFERENCES students(id) ON DELETE RESTRICT,
+  FOREIGN KEY(customer_id) REFERENCES customers(id) ON DELETE RESTRICT,
   FOREIGN KEY(approved_transaction_id) REFERENCES transactions(id) ON DELETE SET NULL
 );
 
 INSERT OR IGNORE INTO app_meta(key, value) VALUES ('currency_scale', '100');
 
-CREATE INDEX IF NOT EXISTS idx_tx_student_time
-  ON transactions(student_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_tx_customer_time
+  ON transactions(customer_id, created_at);
 
 CREATE INDEX IF NOT EXISTS idx_transactions_created_at
   ON transactions(created_at DESC);
@@ -99,8 +99,8 @@ CREATE INDEX IF NOT EXISTS idx_transactions_created_at_id
 CREATE INDEX IF NOT EXISTS idx_transactions_type_created_at
   ON transactions(type, created_at DESC);
 
-CREATE INDEX IF NOT EXISTS idx_transactions_student_id_created_at
-  ON transactions(student_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_transactions_customer_id_created_at
+  ON transactions(customer_id, created_at DESC);
 
 CREATE INDEX IF NOT EXISTS idx_transaction_note_history_transaction_id_edited_at
   ON transaction_note_history(transaction_id, edited_at DESC, id DESC);

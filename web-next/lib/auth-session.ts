@@ -3,9 +3,9 @@ import { redirect } from "next/navigation";
 
 import { auth } from "@/lib/auth";
 import { getDb } from "@/lib/db";
-import { getLinkedStudentId } from "@/lib/repositories/account-access";
+import { getLinkedCustomerId } from "@/lib/repositories/account-access";
 
-export type UserRole = "admin" | "staff" | "student";
+export type UserRole = "admin" | "staff" | "customer";
 
 export type AuthenticatedUser = {
   id: string;
@@ -34,7 +34,7 @@ export class AuthError extends Error {
 }
 
 export function normalizeUserRole(role: unknown): UserRole {
-  return role === "admin" || role === "staff" ? role : "student";
+  return role === "admin" || role === "staff" ? role : "customer";
 }
 
 export function getUserRoleById(userId: string): UserRole {
@@ -88,26 +88,26 @@ export async function requireRole(role: UserRole): Promise<AuthContext> {
 
 export async function requireStaffContext(): Promise<AuthContext> {
   const context = await requireAuthContext();
-  if (context.user.role === "student") throw new AuthError("Forbidden", 403);
+  if (context.user.role === "customer") throw new AuthError("Forbidden", 403);
   return context;
 }
 
 export async function requirePageStaffContext(): Promise<AuthContext> {
   const context = await requirePageAuthContext();
-  if (context.user.role === "student") redirect(getUserHomePath(context));
+  if (context.user.role === "customer") redirect(getUserHomePath(context));
   return context;
 }
 
-export async function requireStudentContext(): Promise<AuthContext & { studentId: number }> {
-  const context = await requireRole("student");
-  const studentId = getLinkedStudentId(context.user.id);
-  if (studentId === undefined) throw new AuthError("Student account is awaiting approval or unavailable", 403);
-  return { ...context, studentId };
+export async function requireCustomerContext(): Promise<AuthContext & { customerId: number }> {
+  const context = await requireRole("customer");
+  const customerId = getLinkedCustomerId(context.user.id);
+  if (customerId === undefined) throw new AuthError("Customer account is awaiting approval or unavailable", 403);
+  return { ...context, customerId };
 }
 
 export function getUserHomePath(context: AuthContext): string {
-  if (context.user.role !== "student") return "/dashboard";
-  return getLinkedStudentId(context.user.id) === undefined ? "/student/pending" : "/student";
+  if (context.user.role !== "customer") return "/dashboard";
+  return getLinkedCustomerId(context.user.id) === undefined ? "/student/pending" : "/student";
 }
 
 export async function requirePageAuthContext(): Promise<AuthContext> {

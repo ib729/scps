@@ -18,28 +18,28 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Copy, Check } from "@/lib/icons";
-import type { StudentWithAccount } from "@/lib/models";
+import type { CustomerWithAccount } from "@/lib/models";
 import { posCheckoutAction } from "@/app/actions/pos";
 import { getCardByUidAction, createCardAction } from "@/app/actions/cards";
-import { createStudentAction, getStudentByIdAction } from "@/app/actions/students";
+import { createCustomerAction, getCustomerByIdAction } from "@/app/actions/customers";
 import { EncryptedText } from "@/components/ui/encrypted-text";
 import { formatCurrency, LOW_BALANCE_THRESHOLD } from "@/lib/currency";
 import { useNFCWebSocket } from "@/lib/use-nfc-websocket";
 import { useNFCReader } from "@/lib/nfc-reader-context";
-import { StudentSearchField } from "@/components/student-search-field";
+import { CustomerSearchField } from "@/components/customer-search-field";
 import {
   type PosDefaultMode,
 } from "@/lib/pos-preferences";
 
 interface PosFormProps {
-  studentIdsWithTransactions: number[];
+  customerIdsWithTransactions: number[];
   userName: string;
   initialMode: PosDefaultMode;
 }
 
 type WorkflowMode = "tap-first" | "manual";
 
-export function PosForm({ studentIdsWithTransactions, userName, initialMode }: PosFormProps) {
+export function PosForm({ customerIdsWithTransactions, userName, initialMode }: PosFormProps) {
   const { selectedReader, setSelectedReader } = useNFCReader();
   const [mode, setMode] = useState<WorkflowMode>(initialMode);
   const [cardUid, setCardUid] = useState<string>("");
@@ -62,7 +62,7 @@ export function PosForm({ studentIdsWithTransactions, userName, initialMode }: P
 
   // Dialog state for Tap mode
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [dialogStudentId, setDialogStudentId] = useState<number>(0);
+  const [dialogCustomerId, setDialogCustomerId] = useState<number>(0);
   const [dialogCardUid, setDialogCardUid] = useState<string>("");
   const [dialogAmount, setDialogAmount] = useState("");
   const [dialogDescription, setDialogDescription] = useState("");
@@ -80,8 +80,8 @@ export function PosForm({ studentIdsWithTransactions, userName, initialMode }: P
   // Reader selection prompt dialog
   const [showReaderPrompt, setShowReaderPrompt] = useState(false);
 
-  const [selectedStudent, setSelectedStudent] = useState<StudentWithAccount | null>(null);
-  const [dialogStudent, setDialogStudent] = useState<StudentWithAccount | null>(null);
+  const [selectedCustomer, setSelectedCustomer] = useState<CustomerWithAccount | null>(null);
+  const [dialogCustomer, setDialogCustomer] = useState<CustomerWithAccount | null>(null);
 
   // State to trigger re-animation of the encrypted text
   const [animationKey, setAnimationKey] = useState(0);
@@ -109,21 +109,21 @@ export function PosForm({ studentIdsWithTransactions, userName, initialMode }: P
       return;
     }
 
-    const studentResult = await getStudentByIdAction(cardResult.data.student_id);
-    if (!studentResult.success || !studentResult.data) {
+    const customerResult = await getCustomerByIdAction(cardResult.data.customer_id);
+    if (!customerResult.success || !customerResult.data) {
       setError("Customer not found");
       return;
     }
-    const student = studentResult.data;
+    const customer = customerResult.data;
 
     // Tap-first mode: open dialog for amount entry
-    setDialogStudentId(student.id);
+    setDialogCustomerId(customer.id);
     setDialogCardUid(uid);
     setDialogAmount("");
     setDialogDescription("");
     setDialogStaff(userName);
     setDialogError("");
-    setDialogStudent(student);
+    setDialogCustomer(customer);
     setDialogOpen(true);
   };
 
@@ -185,13 +185,13 @@ export function PosForm({ studentIdsWithTransactions, userName, initialMode }: P
   // Handle card UID from URL parameter (from tap alert navigation)
   useEffect(() => {
     const cardFromUrl = searchParams.get("card");
-    if (cardFromUrl && !selectedStudent) {
-      // Auto-select student from URL parameter
+    if (cardFromUrl && !selectedCustomer) {
+      // Auto-select customer from URL parameter
       handleCardTap(cardFromUrl);
       // Clear the URL parameter after processing
       router.replace("/pos");
     }
-  }, [searchParams, selectedStudent, router]);
+  }, [searchParams, selectedCustomer, router]);
 
 
   const handleEnrollCard = async (action: 'checkout' | 'topup' | 'none') => {
@@ -200,12 +200,12 @@ export function PosForm({ studentIdsWithTransactions, userName, initialMode }: P
 
     try {
       // Create the customer
-      const studentResult = await createStudentAction({
+      const customerResult = await createCustomerAction({
         name: enrollName,
       });
 
-      if (!studentResult.success || !studentResult.data) {
-        setEnrollError(studentResult.error || "Failed to create customer");
+      if (!customerResult.success || !customerResult.data) {
+        setEnrollError(customerResult.error || "Failed to create customer");
         setEnrollLoading(false);
         return;
       }
@@ -213,7 +213,7 @@ export function PosForm({ studentIdsWithTransactions, userName, initialMode }: P
       // Create the card
       const cardResult = await createCardAction({
         card_uid: enrollCardUid,
-        student_id: studentResult.data.id,
+        customer_id: customerResult.data.id,
         status: "active",
       });
 
@@ -230,22 +230,22 @@ export function PosForm({ studentIdsWithTransactions, userName, initialMode }: P
       // Handle the selected action
       if (action === 'checkout') {
         // Continue to checkout - open payment dialog
-        setDialogStudentId(studentResult.data.id);
+        setDialogCustomerId(customerResult.data.id);
         setDialogCardUid(enrollCardUid);
         setDialogAmount("");
         setDialogDescription("");
         setDialogStaff(userName);
         setDialogError("");
-        setDialogStudent({
-          id: studentResult.data.id,
-          name: studentResult.data.name,
+        setDialogCustomer({
+          id: customerResult.data.id,
+          name: customerResult.data.name,
           balance: 0,
           max_overdraft_week: 0,
         });
         setDialogOpen(true);
       } else if (action === 'topup') {
         // Navigate to top-up page with customer ID
-        router.push(`/topup?student=${studentResult.data.id}`);
+        router.push(`/topup?customer=${customerResult.data.id}`);
       } else {
         // Just show success message
         setSuccess(`Successfully enrolled ${enrollName}!`);
@@ -259,7 +259,7 @@ export function PosForm({ studentIdsWithTransactions, userName, initialMode }: P
   };
 
   const processCheckout = async (studId?: number, uid?: string) => {
-    const finalStudentId = studId || selectedStudent?.id;
+    const finalCustomerId = studId || selectedCustomer?.id;
     const finalCardUid = uid || cardUid;
 
     setLoading(true);
@@ -268,7 +268,7 @@ export function PosForm({ studentIdsWithTransactions, userName, initialMode }: P
     setTransactionId(null);
 
     const result = await posCheckoutAction({
-      student_id: finalStudentId || undefined,
+      customer_id: finalCustomerId || undefined,
       card_uid: finalCardUid || undefined,
       amount: parseFloat(amount),
       description: description || undefined,
@@ -276,12 +276,12 @@ export function PosForm({ studentIdsWithTransactions, userName, initialMode }: P
 
     if (result.success && result.data) {
       setSuccess(
-        `Successfully charged ¥${amount} to ${selectedStudent?.name || "customer"}. New balance: ¥${formatCurrency(result.data.newBalance)}`
+        `Successfully charged ¥${amount} to ${selectedCustomer?.name || "customer"}. New balance: ¥${formatCurrency(result.data.newBalance)}`
       );
       setTransactionId(result.data.transaction.id);
       setAmount("");
       setDescription("");
-      setSelectedStudent(null);
+      setSelectedCustomer(null);
       setCardUid("");
     } else {
       setError(result.error || "Failed to process checkout");
@@ -301,7 +301,7 @@ export function PosForm({ studentIdsWithTransactions, userName, initialMode }: P
     setDialogLoading(true);
 
     const result = await posCheckoutAction({
-      student_id: dialogStudentId,
+      customer_id: dialogCustomerId,
       card_uid: dialogCardUid,
       amount: parseFloat(dialogAmount),
       description: dialogDescription || undefined,
@@ -309,15 +309,15 @@ export function PosForm({ studentIdsWithTransactions, userName, initialMode }: P
 
     if (result.success && result.data) {
       setSuccess(
-        `Successfully charged ¥${dialogAmount} to ${dialogStudent?.name || "customer"}. New balance: ¥${formatCurrency(result.data.newBalance)}`
+        `Successfully charged ¥${dialogAmount} to ${dialogCustomer?.name || "customer"}. New balance: ¥${formatCurrency(result.data.newBalance)}`
       );
       setTransactionId(result.data.transaction.id);
       setDialogOpen(false);
       setDialogAmount("");
       setDialogDescription("");
       setDialogStaff("");
-      setDialogStudentId(0);
-      setDialogStudent(null);
+      setDialogCustomerId(0);
+      setDialogCustomer(null);
       setDialogCardUid("");
     } else {
       setDialogError(result.error || "Failed to process checkout");
@@ -409,24 +409,24 @@ export function PosForm({ studentIdsWithTransactions, userName, initialMode }: P
                   <AlertDescription>{dialogError}</AlertDescription>
                 </Alert>
               )}
-              {dialogStudent && (
+              {dialogCustomer && (
                 <div className="p-4 bg-muted rounded-lg space-y-2">
                   <div className="flex justify-between">
                     <span className="text-sm text-muted-foreground">Customer:</span>
-                    <span className="font-medium">{dialogStudent.name}</span>
+                    <span className="font-medium">{dialogCustomer.name}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-muted-foreground">Current Balance:</span>
                     <span
-                      className={`font-bold ${dialogStudent.balance < 0
+                      className={`font-bold ${dialogCustomer.balance < 0
                           ? "text-red-600"
-                          : dialogStudent.balance <= LOW_BALANCE_THRESHOLD &&
-                            studentIdsWithTransactions.includes(dialogStudent.id)
+                          : dialogCustomer.balance <= LOW_BALANCE_THRESHOLD &&
+                            customerIdsWithTransactions.includes(dialogCustomer.id)
                             ? "text-orange-600"
                             : ""
                         }`}
                     >
-                      ¥{formatCurrency(dialogStudent.balance)}
+                      ¥{formatCurrency(dialogCustomer.balance)}
                     </span>
                   </div>
                   <div className="flex justify-between">
@@ -599,34 +599,34 @@ export function PosForm({ studentIdsWithTransactions, userName, initialMode }: P
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="space-y-2">
-                  <StudentSearchField
-                    id="student"
+                  <CustomerSearchField
+                    id="customer"
                     label="Customer"
                     placeholder="Search customers by name"
-                    selectedStudent={selectedStudent}
-                    onSelect={(student) => {
-                      setSelectedStudent(student);
+                    selectedCustomer={selectedCustomer}
+                    onSelect={(customer) => {
+                      setSelectedCustomer(customer);
                       setError("");
                     }}
                   />
                 </div>
 
-                {selectedStudent && (
+                {selectedCustomer && (
                   <div className="p-5 bg-muted rounded-lg space-y-3">
                     <div className="flex justify-between items-center">
                       <span className="text-base text-muted-foreground">
                         Current Balance:
                       </span>
                       <span
-                        className={`font-bold text-xl ${selectedStudent.balance < 0
+                        className={`font-bold text-xl ${selectedCustomer.balance < 0
                             ? "text-red-600"
-                            : selectedStudent.balance <= LOW_BALANCE_THRESHOLD &&
-                              studentIdsWithTransactions.includes(selectedStudent.id)
+                            : selectedCustomer.balance <= LOW_BALANCE_THRESHOLD &&
+                              customerIdsWithTransactions.includes(selectedCustomer.id)
                               ? "text-orange-600"
                               : ""
                           }`}
                       >
-                        ¥{formatCurrency(selectedStudent.balance)}
+                        ¥{formatCurrency(selectedCustomer.balance)}
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
@@ -634,7 +634,7 @@ export function PosForm({ studentIdsWithTransactions, userName, initialMode }: P
                         Overdraft Limit:
                       </span>
                       <span className="font-medium text-base">
-                        ¥{formatCurrency(selectedStudent.max_overdraft_week)}/week
+                        ¥{formatCurrency(selectedCustomer.max_overdraft_week)}/week
                       </span>
                     </div>
                   </div>
@@ -686,7 +686,7 @@ export function PosForm({ studentIdsWithTransactions, userName, initialMode }: P
 
                 <Button
                   type="submit"
-                  disabled={loading || !selectedStudent || !amount}
+                  disabled={loading || !selectedCustomer || !amount}
                   className="w-full h-14 text-lg font-semibold"
                 >
                   {loading ? "Processing..." : `Charge ¥${amount || "0"}`}

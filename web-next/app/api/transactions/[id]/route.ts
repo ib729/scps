@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireStaffContext, getAuthErrorDetails } from "@/lib/auth-session";
 import {
   getTransactionNoteHistory,
-  getTransactionWithStudentById,
+  getTransactionWithCustomerById,
   updateTransactionDescription,
 } from "@/lib/repositories/transactions";
 
@@ -30,7 +30,7 @@ export async function GET(
     return NextResponse.json({ success: false, error: "Invalid transaction id" }, { status: 400 });
   }
 
-  const transaction = getTransactionWithStudentById(transactionId);
+  const transaction = getTransactionWithCustomerById(transactionId);
   if (!transaction) {
     return NextResponse.json({ success: false, error: "Transaction not found" }, { status: 404 });
   }

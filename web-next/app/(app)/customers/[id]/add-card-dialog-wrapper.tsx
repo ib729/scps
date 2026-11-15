@@ -4,10 +4,10 @@ import { useState, useEffect } from "react";
 import { AddCardDialog } from "./add-card-dialog";
 
 interface AddCardDialogWrapperProps {
-  studentId: number;
+  customerId: number;
 }
 
-export function AddCardDialogWrapper({ studentId }: AddCardDialogWrapperProps) {
+export function AddCardDialogWrapper({ customerId }: AddCardDialogWrapperProps) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -18,6 +18,6 @@ export function AddCardDialogWrapper({ studentId }: AddCardDialogWrapperProps) {
     return null;
   }
 
-  return <AddCardDialog studentId={studentId} />;
+  return <AddCardDialog customerId={customerId} />;
 }
 

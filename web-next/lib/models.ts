@@ -8,34 +8,34 @@ export type UserAccessSummary = {
   email: string;
   role: UserRole;
   createdAt: string | number;
-  studentId: number | null;
-  studentName: string | null;
+  customerId: number | null;
+  customerName: string | null;
 };
 
-// Student schemas
-export const studentSchema = z.object({
+// Customer schemas
+export const customerSchema = z.object({
   id: z.number().int().positive(),
   name: z.string().min(1),
 });
 
-export const createStudentSchema = z.object({
+export const createCustomerSchema = z.object({
   name: z.string().min(1).max(255),
 });
 
-export type Student = z.infer<typeof studentSchema>;
-export type CreateStudent = z.infer<typeof createStudentSchema>;
+export type Customer = z.infer<typeof customerSchema>;
+export type CreateCustomer = z.infer<typeof createCustomerSchema>;
 
 // Card schemas
 export const cardSchema = z.object({
   card_uid: z.string(),
-  student_id: z.number().int().positive(),
+  customer_id: z.number().int().positive(),
   status: z.enum(["active", "revoked"]),
   issued_at: z.string(),
 });
 
 export const createCardSchema = z.object({
   card_uid: z.string().min(1),
-  student_id: z.number().int().positive(),
+  customer_id: z.number().int().positive(),
   status: z.enum(["active", "revoked"]).default("active"),
 });
 
@@ -44,7 +44,7 @@ export type CreateCard = z.infer<typeof createCardSchema>;
 
 // Account schemas
 export const accountSchema = z.object({
-  student_id: z.number().int().positive(),
+  customer_id: z.number().int().positive(),
   balance: z.number().int(), // stored as cents internally
   max_overdraft_week: z.number().int().nonnegative(), // stored as cents internally
 });
@@ -60,7 +60,7 @@ export type UpdateAccount = z.infer<typeof updateAccountSchema>;
 // Transaction schemas
 export const transactionSchema = z.object({
   id: z.number().int().positive(),
-  student_id: z.number().int().positive(),
+  customer_id: z.number().int().positive(),
   card_uid: z.string().nullable(),
   type: z.enum(["TOPUP", "DEBIT", "ADJUST"]),
   amount: z.number().int(), // stored as cents internally
@@ -72,7 +72,7 @@ export const transactionSchema = z.object({
 });
 
 export const createTransactionSchema = z.object({
-  student_id: z.number().int().positive(),
+  customer_id: z.number().int().positive(),
   card_uid: z.string().optional(),
   type: z.enum(["TOPUP", "DEBIT", "ADJUST"]),
   amount: z.number().int(), // stored as cents internally
@@ -87,7 +87,7 @@ export type CreateTransaction = z.infer<typeof createTransactionSchema>;
 
 // Overdraft week schemas
 export const overdraftWeekSchema = z.object({
-  student_id: z.number().int().positive(),
+  customer_id: z.number().int().positive(),
   week_start_utc: z.string(),
   used: z.number().int().nonnegative(), // stored as cents internally
 });
@@ -95,13 +95,13 @@ export const overdraftWeekSchema = z.object({
 export type OverdraftWeek = z.infer<typeof overdraftWeekSchema>;
 
 // Extended types for joins
-export type StudentWithAccount = Student & {
+export type CustomerWithAccount = Customer & {
   balance: number;
   max_overdraft_week: number;
 };
 
-export type TransactionWithStudent = Transaction & {
-  student_name: string;
+export type TransactionWithCustomer = Transaction & {
+  customer_name: string;
 };
 
 export type TransactionNoteHistory = {
@@ -118,8 +118,8 @@ export type TransactionListCursor = {
   id: number;
 };
 
-export type CardWithStudent = Card & {
-  student_name: string;
+export type CardWithCustomer = Card & {
+  customer_name: string;
 };
 
 export type UserPreferences = {
@@ -142,7 +142,7 @@ export type WechatTopupRequestStatus =
 
 export type WechatTopupRequest = {
   id: number;
-  student_id: number;
+  customer_id: number;
   requested_amount: number;
   payable_amount: number;
   status: WechatTopupRequestStatus;
@@ -159,18 +159,18 @@ export type WechatTopupRequest = {
   reviewed_at: string | null;
 };
 
-export type WechatTopupRequestWithStudent = WechatTopupRequest & {
-  student_name: string;
+export type WechatTopupRequestWithCustomer = WechatTopupRequest & {
+  customer_name: string;
 };
 
-export type StudentPaymentRequest = Pick<WechatTopupRequest,
+export type CustomerPaymentRequest = Pick<WechatTopupRequest,
   "id" | "requested_amount" | "payable_amount" | "status" | "created_at" | "expires_at" | "claimed_at" | "reviewed_at" | "review_note" | "approved_transaction_id">;
-export type StudentTransaction = Pick<Transaction,
+export type CustomerTransaction = Pick<Transaction,
   "id" | "type" | "amount" | "payment_method" | "created_at">;
 
-export type StudentPortalData = {
-  student: { id: number; name: string; balance: number };
-  transactions: StudentTransaction[];
-  pendingRequests: StudentPaymentRequest[];
-  recentRequests: StudentPaymentRequest[];
+export type CustomerPortalData = {
+  customer: { id: number; name: string; balance: number };
+  transactions: CustomerTransaction[];
+  pendingRequests: CustomerPaymentRequest[];
+  recentRequests: CustomerPaymentRequest[];
 };

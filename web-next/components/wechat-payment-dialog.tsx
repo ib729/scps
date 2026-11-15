@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { formatCurrency } from "@/lib/currency";
 import { Check, Copy } from "@/lib/icons";
-import type { StudentPaymentRequest } from "@/lib/models";
+import type { CustomerPaymentRequest } from "@/lib/models";
 
 const configuredQrPath = process.env.NEXT_PUBLIC_WCP_QR_IMAGE_URL?.trim();
 const qrImageCandidates = [
@@ -58,7 +58,7 @@ export function WechatPaymentDialog({
   submitting,
   error,
 }: {
-  request: StudentPaymentRequest | null;
+  request: CustomerPaymentRequest | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onPaid: (requestId: number) => void;

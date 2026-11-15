@@ -14,10 +14,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { createStudentAction } from "@/app/actions/students";
+import { createCustomerAction } from "@/app/actions/customers";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
-export function CreateStudentDialog() {
+export function CreateCustomerDialog() {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [error, setError] = useState("");
@@ -29,7 +29,7 @@ export function CreateStudentDialog() {
     setError("");
     setLoading(true);
 
-    const result = await createStudentAction({ name });
+    const result = await createCustomerAction({ name });
 
     if (result.success) {
       setOpen(false);

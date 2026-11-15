@@ -2,6 +2,31 @@
 
 The system uses a single SQLite database (`stuco.db`) shared between CLI tools and web UI. This guide covers schema, connections, and migrations.
 
+## Customer-domain upgrade
+
+Current ledgers use `customers`, `user_customer_links` and `customer_id`; roles are
+exactly `admin`, `staff`, `customer`. Amounts are integer cents (`currency_scale=100`).
+The application refuses legacy/mixed schemas instead of converting them on startup.
+
+Stop **all** writers and verify a backup before upgrading. From `web-next`:
+
+```sh
+node --import tsx tools/migrate-customer.ts --writers-stopped
+```
+
+The command resolves the configured database independently of the launch directory,
+refuses an active local `stuco-web.service`, creates a verified SQLite online backup,
+and atomically renames the domain and normalizes account roles. It cannot detect
+arbitrary external writers; the flag asserts those are stopped too. Try a copy first.
+Unknown/mixed columns, orphan references or non-cent currency markers refuse conversion.
+Existing IDs, cents, credentials, sessions, links and custom indexes/triggers survive.
+Old no-role operators remain staff; unknown roles become customers, never administrators.
+
+Restart the new application only after migration. For rollback, stop writers and
+restore the matching pre-upgrade snapshot **and old application together**; later
+ledger writes are not retained by snapshot rollback. Historical student-schema SQL
+below must not be run against the current ledger.
+
 ## Schema
 
 Initialize a new database with `sqlite3 stuco.db < migrations/schema.sql`, then `sqlite3 stuco.db < web-next/migrations/better_auth_schema.sql`. Substitute the path configured in `DATABASE_PATH`, then run `./scps-cli users` to create an administrator.

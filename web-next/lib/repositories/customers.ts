@@ -1,11 +1,11 @@
 import { getDb } from "../db";
 import type {
-  Student,
-  CreateStudent,
-  StudentWithAccount,
+  Customer,
+  CreateCustomer,
+  CustomerWithAccount,
 } from "../models";
 
-export function getAllStudents(): StudentWithAccount[] {
+export function getAllCustomers(): CustomerWithAccount[] {
   const db = getDb();
   const stmt = db.prepare(`
     SELECT 
@@ -13,15 +13,15 @@ export function getAllStudents(): StudentWithAccount[] {
       s.name,
       COALESCE(a.balance, 0) as balance,
       COALESCE(a.max_overdraft_week, 0) as max_overdraft_week
-    FROM students s
-    LEFT JOIN accounts a ON s.id = a.student_id
+    FROM customers s
+    LEFT JOIN accounts a ON s.id = a.customer_id
     WHERE s.archived = 0
     ORDER BY s.name ASC
   `);
-  return stmt.all() as StudentWithAccount[];
+  return stmt.all() as CustomerWithAccount[];
 }
 
-export function getStudentById(id: number): StudentWithAccount | undefined {
+export function getCustomerById(id: number): CustomerWithAccount | undefined {
   const db = getDb();
   const stmt = db.prepare(`
     SELECT 
@@ -29,64 +29,64 @@ export function getStudentById(id: number): StudentWithAccount | undefined {
       s.name,
       COALESCE(a.balance, 0) as balance,
       COALESCE(a.max_overdraft_week, 0) as max_overdraft_week
-    FROM students s
-    LEFT JOIN accounts a ON s.id = a.student_id
+    FROM customers s
+    LEFT JOIN accounts a ON s.id = a.customer_id
     WHERE s.id = ?
   `);
-  return stmt.get(id) as StudentWithAccount | undefined;
+  return stmt.get(id) as CustomerWithAccount | undefined;
 }
 
-export function getStudentByName(name: string): Student | undefined {
+export function getCustomerByName(name: string): Customer | undefined {
   const db = getDb();
-  const stmt = db.prepare("SELECT * FROM students WHERE name = ?");
-  return stmt.get(name) as Student | undefined;
+  const stmt = db.prepare("SELECT * FROM customers WHERE name = ?");
+  return stmt.get(name) as Customer | undefined;
 }
 
-export function createStudent(data: CreateStudent): Student {
+export function createCustomer(data: CreateCustomer): Customer {
   const db = getDb();
-  const insertStudent = db.prepare("INSERT INTO students (name) VALUES (?)");
+  const insertCustomer = db.prepare("INSERT INTO customers (name) VALUES (?)");
   const createAccount = db.prepare(
-    "INSERT INTO accounts (student_id, balance, max_overdraft_week) VALUES (?, 0, 0)"
+    "INSERT INTO accounts (customer_id, balance, max_overdraft_week) VALUES (?, 0, 0)"
   );
 
   const result = db.transaction(() => {
-    const info = insertStudent.run(data.name);
-    const studentId = Number(info.lastInsertRowid);
-    createAccount.run(studentId);
-    return { id: studentId, name: data.name };
+    const info = insertCustomer.run(data.name);
+    const customerId = Number(info.lastInsertRowid);
+    createAccount.run(customerId);
+    return { id: customerId, name: data.name };
   })();
 
   return result;
 }
 
-export function updateStudent(id: number, data: Partial<CreateStudent>): void {
+export function updateCustomer(id: number, data: Partial<CreateCustomer>): void {
   const db = getDb();
-  const stmt = db.prepare("UPDATE students SET name = ? WHERE id = ?");
+  const stmt = db.prepare("UPDATE customers SET name = ? WHERE id = ?");
   stmt.run(data.name, id);
 }
 
-export function deleteStudent(id: number): void {
+export function deleteCustomer(id: number): void {
   const db = getDb();
-  const stmt = db.prepare("DELETE FROM students WHERE id = ?");
+  const stmt = db.prepare("DELETE FROM customers WHERE id = ?");
   stmt.run(id);
 }
 
-export function archiveStudent(id: number): void {
+export function archiveCustomer(id: number): void {
   const db = getDb();
-  const stmt = db.prepare("UPDATE students SET archived = 1 WHERE id = ?");
+  const stmt = db.prepare("UPDATE customers SET archived = 1 WHERE id = ?");
   stmt.run(id);
 }
 
 export function hasTransactions(id: number): boolean {
   const db = getDb();
   const stmt = db.prepare(
-    "SELECT COUNT(*) as count FROM transactions WHERE student_id = ?"
+    "SELECT COUNT(*) as count FROM transactions WHERE customer_id = ?"
   );
   const result = stmt.get(id) as { count: number };
   return result.count > 0;
 }
 
-export function searchStudents(query: string, limit: number = 10): StudentWithAccount[] {
+export function searchCustomers(query: string, limit: number = 10): CustomerWithAccount[] {
   const db = getDb();
   const normalizedQuery = query.trim().toLowerCase();
   const stmt = db.prepare(`
@@ -95,8 +95,8 @@ export function searchStudents(query: string, limit: number = 10): StudentWithAc
       s.name,
       COALESCE(a.balance, 0) as balance,
       COALESCE(a.max_overdraft_week, 0) as max_overdraft_week
-    FROM students s
-    LEFT JOIN accounts a ON s.id = a.student_id
+    FROM customers s
+    LEFT JOIN accounts a ON s.id = a.customer_id
     WHERE lower(s.name) LIKE ? AND s.archived = 0
     ORDER BY
       CASE
@@ -116,5 +116,5 @@ export function searchStudents(query: string, limit: number = 10): StudentWithAc
     `% ${normalizedQuery}%`,
     normalizedQuery,
     limit,
-  ) as StudentWithAccount[];
+  ) as CustomerWithAccount[];
 }

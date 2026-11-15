@@ -18,10 +18,10 @@ import { createCardAction } from "@/app/actions/cards";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 interface AddCardDialogProps {
-  studentId: number;
+  customerId: number;
 }
 
-export function AddCardDialog({ studentId }: AddCardDialogProps) {
+export function AddCardDialog({ customerId }: AddCardDialogProps) {
   const [open, setOpen] = useState(false);
   const [cardUid, setCardUid] = useState("");
   const [error, setError] = useState("");
@@ -35,7 +35,7 @@ export function AddCardDialog({ studentId }: AddCardDialogProps) {
 
     const result = await createCardAction({
       card_uid: cardUid,
-      student_id: studentId,
+      customer_id: customerId,
       status: "active",
     });
 

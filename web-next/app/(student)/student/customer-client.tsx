@@ -28,8 +28,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { formatCurrency } from "@/lib/currency";
-import type { StudentPaymentRequest, StudentPortalData } from "@/lib/models";
-import { RefreshStatusButton } from "./student-controls";
+import type { CustomerPaymentRequest, CustomerPortalData } from "@/lib/models";
+import { RefreshStatusButton } from "./customer-controls";
 
 function formatDateTime(value: string) {
   return new Date(`${value}Z`).toLocaleString("en-US", {
@@ -49,7 +49,7 @@ function PaymentRequestCard({
   onPay,
   disabled,
 }: {
-  request: StudentPaymentRequest;
+  request: CustomerPaymentRequest;
   onPay: (requestId: number) => void;
   disabled: boolean;
 }) {
@@ -102,7 +102,7 @@ function PaymentRequestCard({
   );
 }
 
-export function StudentClient({ initialData }: { initialData: StudentPortalData }) {
+export function CustomerClient({ initialData }: { initialData: CustomerPortalData }) {
   const router = useRouter();
   const [amount, setAmount] = React.useState("");
   const [error, setError] = React.useState("");
@@ -112,8 +112,8 @@ export function StudentClient({ initialData }: { initialData: StudentPortalData 
   const [paymentOpen, setPaymentOpen] = React.useState(false);
   const latestData = React.useRef(initialData);
   const [requestUpdate, setRequestUpdate] = React.useState<{
-    request: StudentPaymentRequest;
-    source: StudentPortalData;
+    request: CustomerPaymentRequest;
+    source: CustomerPortalData;
   } | null>(null);
 
   React.useEffect(() => {
@@ -216,7 +216,7 @@ export function StudentClient({ initialData }: { initialData: StudentPortalData 
   return (
     <>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="min-w-0 break-words text-2xl font-semibold tracking-tight">{initialData.student.name}&apos;s account</h2>
+        <h2 className="min-w-0 break-words text-2xl font-semibold tracking-tight">{initialData.customer.name}&apos;s account</h2>
         <RefreshStatusButton />
       </div>
       {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
@@ -227,7 +227,7 @@ export function StudentClient({ initialData }: { initialData: StudentPortalData 
             <CardDescription>Your account balance, including approved top-ups.</CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="break-all text-4xl font-semibold tracking-tight tabular-nums sm:text-5xl">¥{formatCurrency(initialData.student.balance)}</p>
+            <p className="break-all text-4xl font-semibold tracking-tight tabular-nums sm:text-5xl">¥{formatCurrency(initialData.customer.balance)}</p>
             <p className="mt-4 text-sm text-muted-foreground">Requesting a top-up or marking a payment sent does not change your balance.</p>
           </CardContent>
         </Card>

@@ -9,6 +9,10 @@
 - Run the custom server, CLI and shared SQLite/NFC modules with `node --import tsx`; the web bundle and server share one tap broadcaster.
 - Keep configured relative database paths rooted at `web-next`, independent of the launch directory.
 
+### Customer domain
+- Rename financial tables, owned payloads and roles to customer terminology; retain money, IDs, card ownership, payment states and login identities.
+- Require the stopped-writer customer migration command with a verified pre-upgrade backup; startup refuses legacy/mixed schemas and no longer converts ledger currency.
+
 ### Toolchain
 - Pin Node 26.13.1, pnpm 12.21.0 and current stable direct dependencies; use the installed `auth` CLI. Python reader dependencies require Python 3.11 or newer.
 - TypeScript 7 checks the application; ESLint compiler-API consumers resolve isolated TypeScript 6.0.3. Workspace policy explicitly permits native builds and denies unused Prisma client generation and telemetry scripts.

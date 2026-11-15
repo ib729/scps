@@ -7,17 +7,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { updateAccountAction } from "@/app/actions/accounts";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import type { StudentWithAccount } from "@/lib/models";
+import type { CustomerWithAccount } from "@/lib/models";
 import { toDisplayValue, toDbValue } from "@/lib/currency";
 
 interface UpdateAccountFormProps {
-  student: StudentWithAccount;
+  customer: CustomerWithAccount;
 }
 
-export function UpdateAccountForm({ student }: UpdateAccountFormProps) {
+export function UpdateAccountForm({ customer }: UpdateAccountFormProps) {
   // Convert DB value (cents) to display value for UI
   const [maxOverdraftWeek, setMaxOverdraftWeek] = useState(
-    toDisplayValue(student.max_overdraft_week).toString(),
+    toDisplayValue(customer.max_overdraft_week).toString(),
   );
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -36,7 +36,7 @@ export function UpdateAccountForm({ student }: UpdateAccountFormProps) {
     }
 
     // Convert display value back to DB value (cents) before submitting
-    const result = await updateAccountAction(student.id, {
+    const result = await updateAccountAction(customer.id, {
       max_overdraft_week: toDbValue(parsedValue),
     });
 

@@ -15,15 +15,15 @@ import {
 } from "@/components/ui/table";
 import { ArrowUpDown } from "@/lib/icons";
 import { formatCurrency, LOW_BALANCE_THRESHOLD } from "@/lib/currency";
-import { DeleteStudentDialog } from "./delete-student-dialog";
-import type { StudentWithAccount } from "@/lib/models";
+import { DeleteCustomerDialog } from "./delete-customer-dialog";
+import type { CustomerWithAccount } from "@/lib/models";
 
-export type StudentTableData = StudentWithAccount & {
+export type CustomerTableData = CustomerWithAccount & {
   hasTransactions: boolean;
 };
 
 interface DataTableProps {
-  data: StudentTableData[];
+  data: CustomerTableData[];
   addButton?: React.ReactNode;
 }
 
@@ -40,8 +40,8 @@ export function DataTable({
 
   const filteredRows = React.useMemo(() => {
     const nextRows = deferredSearch
-      ? data.filter((student) =>
-          student.name.toLowerCase().includes(deferredSearch),
+      ? data.filter((customer) =>
+          customer.name.toLowerCase().includes(deferredSearch),
         )
       : data;
 
@@ -124,15 +124,15 @@ export function DataTable({
           </TableHeader>
           <TableBody>
             {filteredRows.length > 0 ? (
-              filteredRows.map((student) => (
-                <TableRow key={student.id}>
+              filteredRows.map((customer) => (
+                <TableRow key={customer.id}>
                   <TableCell>
                     <div className="px-4">
                       <Link
-                        href={`/customers/${student.id}`}
+                        href={`/customers/${customer.id}`}
                         className="font-medium hover:underline"
                       >
-                        {student.name}
+                        {customer.name}
                       </Link>
                     </div>
                   </TableCell>
@@ -140,24 +140,24 @@ export function DataTable({
                     <div className="px-4">
                       <span
                         className={
-                          student.balance < 0
+                          customer.balance < 0
                             ? "font-bold text-red-600"
-                            : student.balance <= LOW_BALANCE_THRESHOLD && student.hasTransactions
+                            : customer.balance <= LOW_BALANCE_THRESHOLD && customer.hasTransactions
                               ? "font-bold text-red-600"
                               : "font-bold"
                         }
                       >
-                        ¥{formatCurrency(student.balance)}
+                        ¥{formatCurrency(customer.balance)}
                       </span>
                     </div>
                   </TableCell>
                   <TableCell>
-                    ¥{formatCurrency(student.max_overdraft_week)}/week
+                    ¥{formatCurrency(customer.max_overdraft_week)}/week
                   </TableCell>
                   <TableCell>
-                    {student.balance < 0 ? (
+                    {customer.balance < 0 ? (
                       <Badge variant="destructive">Overdraft</Badge>
-                    ) : student.balance <= LOW_BALANCE_THRESHOLD && student.hasTransactions ? (
+                    ) : customer.balance <= LOW_BALANCE_THRESHOLD && customer.hasTransactions ? (
                       <Badge variant="secondary">Low Balance</Badge>
                     ) : (
                       <Badge variant="default">Active</Badge>
@@ -165,9 +165,9 @@ export function DataTable({
                   </TableCell>
                   <TableCell>
                     <div className="flex justify-end pr-2">
-                      <DeleteStudentDialog
-                        studentId={student.id}
-                        studentName={student.name}
+                      <DeleteCustomerDialog
+                        customerId={customer.id}
+                        customerName={customer.name}
                       />
                     </div>
                   </TableCell>

@@ -5,16 +5,16 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { updateStudentAction } from "@/app/actions/students";
+import { updateCustomerAction } from "@/app/actions/customers";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import type { StudentWithAccount } from "@/lib/models";
+import type { CustomerWithAccount } from "@/lib/models";
 
-interface UpdateStudentFormProps {
-  student: StudentWithAccount;
+interface UpdateCustomerFormProps {
+  customer: CustomerWithAccount;
 }
 
-export function UpdateStudentForm({ student }: UpdateStudentFormProps) {
-  const [name, setName] = useState(student.name);
+export function UpdateCustomerForm({ customer }: UpdateCustomerFormProps) {
+  const [name, setName] = useState(customer.name);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -24,7 +24,7 @@ export function UpdateStudentForm({ student }: UpdateStudentFormProps) {
     setError("");
     setLoading(true);
 
-    const result = await updateStudentAction(student.id, { name });
+    const result = await updateCustomerAction(customer.id, { name });
 
     if (result.success) {
       router.refresh();

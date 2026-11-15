@@ -12,7 +12,7 @@ import {
   requireRole,
 } from "@/lib/auth-session";
 import { consumeSignupAttempt } from "@/lib/signup-rate-limit";
-import { approveStudentRegistration, listUserAccess, setUserRole } from "@/lib/repositories/account-access";
+import { approveCustomerRegistration, listUserAccess, setUserRole } from "@/lib/repositories/account-access";
 
 const signupSchema = z.object({
   name: z.string().trim().min(1).max(255),
@@ -179,7 +179,7 @@ export async function createUser(data: unknown) {
     const { user: actor } = await requireRole("admin");
     const validated = signupSchema.extend({
       image: z.string().url().nullable().optional(),
-      role: z.enum(["admin", "staff", "student"]),
+      role: z.enum(["admin", "staff", "customer"]),
     }).parse(data);
     const result = await auth.api.signUpEmail({
       headers: await headers(),
@@ -202,11 +202,11 @@ export async function listUserAccessAction() {
   }
 }
 
-export async function approveStudentRegistrationAction(data: unknown) {
+export async function approveCustomerRegistrationAction(data: unknown) {
   try {
     const { user } = await requireRole("admin");
-    const input = z.object({ user_id: z.string().min(1), student_id: z.number().int().positive() }).strict().parse(data);
-    approveStudentRegistration(user.id, input.user_id, input.student_id);
+    const input = z.object({ user_id: z.string().min(1), customer_id: z.number().int().positive() }).strict().parse(data);
+    approveCustomerRegistration(user.id, input.user_id, input.customer_id);
     revalidatePath("/admin/users");
     revalidatePath("/student");
     revalidatePath("/student/pending");
@@ -219,7 +219,7 @@ export async function approveStudentRegistrationAction(data: unknown) {
 export async function setUserRoleAction(data: unknown) {
   try {
     const { user } = await requireRole("admin");
-    const input = z.object({ user_id: z.string().min(1), role: z.enum(["admin", "staff", "student"]) }).strict().parse(data);
+    const input = z.object({ user_id: z.string().min(1), role: z.enum(["admin", "staff", "customer"]) }).strict().parse(data);
     setUserRole(user.id, input.user_id, input.role);
     revalidatePath("/admin/users");
     revalidatePath("/student");

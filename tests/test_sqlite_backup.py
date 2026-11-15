@@ -102,15 +102,15 @@ class SQLiteBackupTest(unittest.TestCase):
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes((ROOT / name).read_bytes())
             target.chmod(0o755)
-        for name in ["node_modules", "app", "lib/db.ts", "lib/models.ts", "lib/currency.ts", "lib/currency-scale.ts", "lib/pos-preferences.ts", "lib/user-schema.ts", "lib/repositories", "tsconfig.json"]:
+        for name in ["node_modules", "app", "lib/db.ts", "lib/models.ts", "lib/currency.ts", "lib/currency-scale.ts", "lib/pos-preferences.ts", "lib/user-schema.ts", "lib/customer-schema.ts", "lib/repositories", "tsconfig.json"]:
             target = root / "web-next" / name
             target.parent.mkdir(parents=True, exist_ok=True)
             target.symlink_to(ROOT / "web-next" / name)
         active = self.directory / "active.db"
         with closing(sqlite3.connect(active)) as db:
             db.executescript((ROOT / "migrations/schema.sql").read_text() + (ROOT / "web-next/migrations/better_auth_schema.sql").read_text())
-            db.execute("INSERT INTO students(id,name) VALUES(1,'Backup check')")
-            db.execute("INSERT INTO accounts(student_id,balance) VALUES(1,731)")
+            db.execute("INSERT INTO customers(id,name) VALUES(1,'Backup check')")
+            db.execute("INSERT INTO accounts(customer_id,balance) VALUES(1,731)")
             db.commit()
         env = {**os.environ, "DATABASE_PATH": str(active)}
         subprocess.run(["node", "--import", "tsx", "--input-type=module", "-e", "import {getDb,closeDb} from './lib/db.ts';getDb();closeDb()"], cwd=ROOT / "web-next", env=env, check=True, capture_output=True)

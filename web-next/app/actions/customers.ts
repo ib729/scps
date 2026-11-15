@@ -2,58 +2,58 @@
 
 import { revalidatePath } from "next/cache";
 import {
-  getAllStudents,
-  getStudentById,
-  createStudent,
-  updateStudent,
-  deleteStudent,
-  archiveStudent,
+  getAllCustomers,
+  getCustomerById,
+  createCustomer,
+  updateCustomer,
+  deleteCustomer,
+  archiveCustomer,
   hasTransactions,
-  searchStudents,
-  getStudentByName,
-} from "@/lib/repositories/students";
-import { createStudentSchema } from "@/lib/models";
+  searchCustomers,
+  getCustomerByName,
+} from "@/lib/repositories/customers";
+import { createCustomerSchema } from "@/lib/models";
 import { requireStaffContext } from "@/lib/auth-session";
 
-export async function getStudentsAction() {
+export async function getCustomersAction() {
   try {
     await requireStaffContext();
-    return { success: true, data: getAllStudents() };
+    return { success: true, data: getAllCustomers() };
   } catch {
     return { success: false, error: "Failed to fetch customers" };
   }
 }
 
-export async function getStudentByIdAction(id: number) {
+export async function getCustomerByIdAction(id: number) {
   try {
     await requireStaffContext();
-    const student = getStudentById(id);
-    if (!student) {
+    const customer = getCustomerById(id);
+    if (!customer) {
       return { success: false, error: "Customer not found" };
     }
-    return { success: true, data: student };
+    return { success: true, data: customer };
   } catch {
     return { success: false, error: "Failed to fetch customer" };
   }
 }
 
-export async function createStudentAction(data: unknown) {
+export async function createCustomerAction(data: unknown) {
   try {
     await requireStaffContext();
-    const validated = createStudentSchema.parse(data);
-    const student = createStudent(validated);
+    const validated = createCustomerSchema.parse(data);
+    const customer = createCustomer(validated);
     revalidatePath("/customers");
-    return { success: true, data: student };
+    return { success: true, data: customer };
   } catch {
     return { success: false, error: "Failed to create customer" };
   }
 }
 
-export async function updateStudentAction(id: number, data: unknown) {
+export async function updateCustomerAction(id: number, data: unknown) {
   try {
     await requireStaffContext();
-    const validated = createStudentSchema.parse(data);
-    updateStudent(id, validated);
+    const validated = createCustomerSchema.parse(data);
+    updateCustomer(id, validated);
     revalidatePath("/customers");
     revalidatePath(`/customers/${id}`);
     return { success: true };
@@ -62,17 +62,17 @@ export async function updateStudentAction(id: number, data: unknown) {
   }
 }
 
-export async function deleteStudentAction(id: number) {
+export async function deleteCustomerAction(id: number) {
   try {
     await requireStaffContext();
 
     if (hasTransactions(id)) {
-      archiveStudent(id);
+      archiveCustomer(id);
       revalidatePath("/customers");
       return { success: true, message: "Customer archived due to existing transactions." };
     }
 
-    deleteStudent(id);
+    deleteCustomer(id);
     revalidatePath("/customers");
     return { success: true, message: "Customer deleted successfully." };
   } catch (error: unknown) {
@@ -84,7 +84,7 @@ export async function deleteStudentAction(id: number) {
     ) {
       // Fallback if hasTransactions check missed something or race condition
       try {
-        archiveStudent(id);
+        archiveCustomer(id);
         revalidatePath("/customers");
         return { success: true, message: "Customer archived due to existing financial history." };
       } catch {
@@ -98,23 +98,23 @@ export async function deleteStudentAction(id: number) {
   }
 }
 
-export async function searchStudentsAction(query: string, limit: number = 10) {
+export async function searchCustomersAction(query: string, limit: number = 10) {
   try {
     await requireStaffContext();
-    return { success: true, data: searchStudents(query, limit) };
+    return { success: true, data: searchCustomers(query, limit) };
   } catch {
     return { success: false, error: "Failed to search customers" };
   }
 }
 
-export async function getStudentByNameAction(name: string) {
+export async function getCustomerByNameAction(name: string) {
   try {
     await requireStaffContext();
-    const student = getStudentByName(name);
-    if (!student) {
+    const customer = getCustomerByName(name);
+    if (!customer) {
       return { success: true, data: null };
     }
-    return { success: true, data: student };
+    return { success: true, data: customer };
   } catch {
     return { success: false, error: "Failed to fetch customer by name" };
   }

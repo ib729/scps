@@ -17,7 +17,7 @@ async function showMainMenu() {
       options: [
         { value: "users", label: "Manage Staff Accounts (Add, Delete, Reset Passwords)" },
         { value: "ledger", label: "Ledger & Balances (Top-up, Adjustments)" },
-        { value: "import", label: "Import Students (CSV)" },
+        { value: "import", label: "Import Customers (CSV)" },
         { value: "import-db", label: "Import SQLite Database Backup (Overwrite Active)" },
         { value: "diagnose", label: "NFC Hardware & Diagnostics" },
         { value: "exit", label: "Exit CLI" },
@@ -66,7 +66,7 @@ async function main() {
 
   program
     .command("import")
-    .description("Import students and card UIDs from a CSV file")
+    .description("Import customers and card UIDs from a CSV file")
     .action(async () => {
       await handleCSVImport();
     });

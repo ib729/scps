@@ -11,19 +11,19 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { deleteStudentAction } from "@/app/actions/students";
+import { deleteCustomerAction } from "@/app/actions/customers";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
 
-interface DeleteStudentDialogProps {
-  studentId: number;
-  studentName: string;
+interface DeleteCustomerDialogProps {
+  customerId: number;
+  customerName: string;
 }
 
-export function DeleteStudentDialog({
-  studentId,
-  studentName,
-}: DeleteStudentDialogProps) {
+export function DeleteCustomerDialog({
+  customerId,
+  customerName,
+}: DeleteCustomerDialogProps) {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -32,7 +32,7 @@ export function DeleteStudentDialog({
     setError("");
     setLoading(true);
 
-    const result = await deleteStudentAction(studentId);
+    const result = await deleteCustomerAction(customerId);
 
     if (result.success) {
       setOpen(false);
@@ -59,7 +59,7 @@ export function DeleteStudentDialog({
         <DialogHeader className="gap-3">
           <DialogTitle>Delete Customer</DialogTitle>
           <DialogDescription>
-            Delete <strong>{studentName}</strong> from the active customer list.
+            Delete <strong>{customerName}</strong> from the active customer list.
           </DialogDescription>
         </DialogHeader>
         <div className="rounded-md border border-red-200 bg-red-50/70 p-3 text-sm text-red-700 dark:border-red-950 dark:bg-red-950/20 dark:text-red-300">

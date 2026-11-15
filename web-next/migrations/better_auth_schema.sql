@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS user (
     email TEXT NOT NULL UNIQUE,
     emailVerified INTEGER DEFAULT 0,
     image TEXT,
-    role TEXT NOT NULL DEFAULT 'student' CHECK(role IN ('admin','staff','student')),
+    role TEXT NOT NULL DEFAULT 'customer' CHECK(role IN ('admin','staff','customer')),
     createdAt INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
     updatedAt INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
 );

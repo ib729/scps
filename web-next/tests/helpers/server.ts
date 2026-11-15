@@ -21,9 +21,9 @@ export async function startTestServer(): Promise<{ baseURL: string; database: Da
   try {
     // db.ts resolves DATABASE_PATH on import, after this disposable database exists.
     const { createCliUser } = await import("../../app/cli/auth-commands");
-    for (const role of ["admin", "staff", "student"] as const) {
-      const id = await createCliUser(database, role, `${role}@example.test`, "scps-test-password-123", role === "student" ? "staff" : role);
-      if (role === "student") database.prepare("UPDATE user SET role='student' WHERE id=?").run(id);
+    for (const role of ["admin", "staff", "customer"] as const) {
+      const id = await createCliUser(database, role, `${role}@example.test`, "scps-test-password-123", role === "customer" ? "staff" : role);
+      if (role === "customer") database.prepare("UPDATE user SET role='customer' WHERE id=?").run(id);
     }
   } catch (error) {
     database.close();
@@ -34,10 +34,10 @@ export async function startTestServer(): Promise<{ baseURL: string; database: Da
     else process.env.DATABASE_PATH = previousPath;
   }
   database.exec(`
-    INSERT INTO students(id,name) VALUES(1,'Overdraft Check'),(2,'Funded Check');
-    INSERT INTO accounts(student_id,balance,max_overdraft_week) VALUES(1,0,1000),(2,1000,0);
-    INSERT INTO cards(card_uid,student_id) VALUES('A1B2C3D4',1),('B1C2D3E4',2);
-    INSERT INTO transactions(student_id,type,amount) VALUES(2,'TOPUP',1000);
+    INSERT INTO customers(id,name) VALUES(1,'Overdraft Check'),(2,'Funded Check');
+    INSERT INTO accounts(customer_id,balance,max_overdraft_week) VALUES(1,0,1000),(2,1000,0);
+    INSERT INTO cards(card_uid,customer_id) VALUES('A1B2C3D4',1),('B1C2D3E4',2);
+    INSERT INTO transactions(customer_id,type,amount) VALUES(2,'TOPUP',1000);
   `);
   const listener = net.createServer();
   listener.listen(0, "127.0.0.1");

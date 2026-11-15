@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getDb } from "@/lib/db";
-import { getStudentById } from "@/lib/repositories/students";
+import { getCustomerById } from "@/lib/repositories/customers";
 import { createTransaction } from "@/lib/repositories/transactions";
 import { adjustBalance } from "@/lib/repositories/accounts";
 import { toDbValue } from "@/lib/currency";
@@ -15,7 +15,7 @@ import {
 
 const topupSchema = z
   .object({
-    student_id: z.number().int().positive(),
+    customer_id: z.number().int().positive(),
     amount: z.number().positive(),
     payment_method: z.enum(PAYMENT_METHOD_VALUES),
     other_payment_method: z
@@ -56,13 +56,13 @@ export async function topupAction(data: unknown) {
     );
 
     const result = db.transaction(() => {
-      const student = getStudentById(validated.student_id);
-      if (!student) {
+      const customer = getCustomerById(validated.customer_id);
+      if (!customer) {
         throw new Error("Customer not found");
       }
 
       const transaction = createTransaction({
-        student_id: validated.student_id,
+        customer_id: validated.customer_id,
         type: "TOPUP",
         amount: amountInCents,
         overdraft_component: 0,
@@ -71,18 +71,18 @@ export async function topupAction(data: unknown) {
         staff: user.name,
       });
 
-      adjustBalance(validated.student_id, amountInCents);
+      adjustBalance(validated.customer_id, amountInCents);
 
       return {
         transaction,
-        newBalance: student.balance + amountInCents,
+        newBalance: customer.balance + amountInCents,
       };
     })();
 
     revalidatePath("/topup");
     revalidatePath("/transactions");
     revalidatePath("/customers");
-    revalidatePath(`/customers/${validated.student_id}`);
+    revalidatePath(`/customers/${validated.customer_id}`);
     revalidatePath("/dashboard");
 
     return { success: true, data: result };
@@ -108,13 +108,13 @@ export async function topupAndPayAction(data: unknown) {
     );
 
     const result = db.transaction(() => {
-      const student = getStudentById(validated.student_id);
-      if (!student) {
+      const customer = getCustomerById(validated.customer_id);
+      if (!customer) {
         throw new Error("Customer not found");
       }
 
       const topupTransaction = createTransaction({
-        student_id: validated.student_id,
+        customer_id: validated.customer_id,
         type: "TOPUP",
         amount: amountInCents,
         overdraft_component: 0,
@@ -123,10 +123,10 @@ export async function topupAndPayAction(data: unknown) {
         staff: user.name,
       });
 
-      adjustBalance(validated.student_id, amountInCents);
+      adjustBalance(validated.customer_id, amountInCents);
 
       const paymentTransaction = createTransaction({
-        student_id: validated.student_id,
+        customer_id: validated.customer_id,
         type: "DEBIT",
         amount: -amountInCents,
         overdraft_component: 0,
@@ -134,19 +134,19 @@ export async function topupAndPayAction(data: unknown) {
         staff: user.name,
       });
 
-      adjustBalance(validated.student_id, -amountInCents);
+      adjustBalance(validated.customer_id, -amountInCents);
 
       return {
         topupTransaction,
         paymentTransaction,
-        newBalance: student.balance,
+        newBalance: customer.balance,
       };
     })();
 
     revalidatePath("/topup");
     revalidatePath("/transactions");
     revalidatePath("/customers");
-    revalidatePath(`/customers/${validated.student_id}`);
+    revalidatePath(`/customers/${validated.customer_id}`);
     revalidatePath("/dashboard");
     revalidatePath("/pos");
 
@@ -160,7 +160,7 @@ export async function topupAndPayAction(data: unknown) {
 }
 
 const adjustSchema = z.object({
-  student_id: z.number().int().positive(),
+  customer_id: z.number().int().positive(),
   amount: z.number(),
   description: z.string(),
 });
@@ -175,13 +175,13 @@ export async function adjustBalanceManualAction(data: unknown) {
     const amountInCents = toDbValue(validated.amount);
 
     const result = db.transaction(() => {
-      const student = getStudentById(validated.student_id);
-      if (!student) {
+      const customer = getCustomerById(validated.customer_id);
+      if (!customer) {
         throw new Error("Customer not found");
       }
 
       const transaction = createTransaction({
-        student_id: validated.student_id,
+        customer_id: validated.customer_id,
         type: "ADJUST",
         amount: amountInCents,
         overdraft_component: 0,
@@ -189,16 +189,16 @@ export async function adjustBalanceManualAction(data: unknown) {
         staff: user.name,
       });
 
-      adjustBalance(validated.student_id, amountInCents);
+      adjustBalance(validated.customer_id, amountInCents);
 
       return {
         transaction,
-        newBalance: student.balance + amountInCents,
+        newBalance: customer.balance + amountInCents,
       };
     })();
 
     revalidatePath("/customers");
-    revalidatePath(`/customers/${validated.student_id}`);
+    revalidatePath(`/customers/${validated.customer_id}`);
     revalidatePath("/transactions");
     revalidatePath("/dashboard");
 

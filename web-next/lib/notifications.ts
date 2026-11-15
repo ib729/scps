@@ -1,5 +1,5 @@
 import { formatCurrency } from "./currency";
-import type { WechatTopupRequestWithStudent } from "./models";
+import type { WechatTopupRequestWithCustomer } from "./models";
 
 
 function getTelegramBotToken() {
@@ -42,10 +42,10 @@ async function telegramApiRequest(method: string, payload: Record<string, unknow
 }
 
 
-function formatRequestSummary(request: WechatTopupRequestWithStudent) {
+function formatRequestSummary(request: WechatTopupRequestWithCustomer) {
   const lines = [
     `Request #${request.id}`,
-    `Customer: ${request.student_name}`,
+    `Customer: ${request.customer_name}`,
     `Status: ${request.status}`,
     `Base: ¥${formatCurrency(request.requested_amount)}`,
     `Payable: ¥${formatCurrency(request.payable_amount)}`,
@@ -82,7 +82,7 @@ function formatRequestSummary(request: WechatTopupRequestWithStudent) {
 }
 
 export function formatWechatTopupNotificationText(
-  request: WechatTopupRequestWithStudent,
+  request: WechatTopupRequestWithCustomer,
   title: string,
 ) {
   return [title, ...formatRequestSummary(request)].join("\n");
@@ -106,7 +106,7 @@ export async function sendTelegramMessage(text: string) {
 
 
 export async function notifyWechatTopupRequestApproved(
-  request: WechatTopupRequestWithStudent,
+  request: WechatTopupRequestWithCustomer,
 ) {
   await sendTelegramMessage(
     formatWechatTopupNotificationText(request, "WCP request approved"),
@@ -114,7 +114,7 @@ export async function notifyWechatTopupRequestApproved(
 }
 
 export async function notifyWechatTopupRequestClaimed(
-  request: WechatTopupRequestWithStudent,
+  request: WechatTopupRequestWithCustomer,
 ) {
   const reviewUrl = new URL("/wcp", process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").toString();
   await sendTelegramMessage(
@@ -123,7 +123,7 @@ export async function notifyWechatTopupRequestClaimed(
 }
 
 export async function notifyWechatTopupRequestRejected(
-  request: WechatTopupRequestWithStudent,
+  request: WechatTopupRequestWithCustomer,
 ) {
   await sendTelegramMessage(
     formatWechatTopupNotificationText(request, "WCP request rejected"),

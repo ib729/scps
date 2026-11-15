@@ -1,53 +1,53 @@
 import { getDb } from "../db";
-import type { Card, CreateCard, CardWithStudent } from "../models";
+import type { Card, CreateCard, CardWithCustomer } from "../models";
 
-export function getAllCards(): CardWithStudent[] {
+export function getAllCards(): CardWithCustomer[] {
   const db = getDb();
   const stmt = db.prepare(`
     SELECT 
       c.card_uid,
-      c.student_id,
+      c.customer_id,
       c.status,
       c.issued_at,
-      s.name as student_name
+      s.name as customer_name
     FROM cards c
-    JOIN students s ON c.student_id = s.id
+    JOIN customers s ON c.customer_id = s.id
     ORDER BY c.issued_at DESC
   `);
-  return stmt.all() as CardWithStudent[];
+  return stmt.all() as CardWithCustomer[];
 }
 
-export function getCardByUid(cardUid: string): CardWithStudent | undefined {
+export function getCardByUid(cardUid: string): CardWithCustomer | undefined {
   const db = getDb();
   const stmt = db.prepare(`
     SELECT 
       c.card_uid,
-      c.student_id,
+      c.customer_id,
       c.status,
       c.issued_at,
-      s.name as student_name
+      s.name as customer_name
     FROM cards c
-    JOIN students s ON c.student_id = s.id
+    JOIN customers s ON c.customer_id = s.id
     WHERE c.card_uid = ?
   `);
-  return stmt.get(cardUid) as CardWithStudent | undefined;
+  return stmt.get(cardUid) as CardWithCustomer | undefined;
 }
 
-export function getCardsByStudentId(studentId: number): Card[] {
+export function getCardsByCustomerId(customerId: number): Card[] {
   const db = getDb();
   const stmt = db.prepare(
-    "SELECT * FROM cards WHERE student_id = ? ORDER BY issued_at DESC"
+    "SELECT * FROM cards WHERE customer_id = ? ORDER BY issued_at DESC"
   );
-  return stmt.all(studentId) as Card[];
+  return stmt.all(customerId) as Card[];
 }
 
 export function createCard(data: CreateCard): Card {
   const db = getDb();
   const stmt = db.prepare(`
-    INSERT INTO cards (card_uid, student_id, status, issued_at)
+    INSERT INTO cards (card_uid, customer_id, status, issued_at)
     VALUES (?, ?, ?, datetime('now'))
   `);
-  stmt.run(data.card_uid, data.student_id, data.status);
+  stmt.run(data.card_uid, data.customer_id, data.status);
 
   const getStmt = db.prepare("SELECT * FROM cards WHERE card_uid = ?");
   return getStmt.get(data.card_uid) as Card;

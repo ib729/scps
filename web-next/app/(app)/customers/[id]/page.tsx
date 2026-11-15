@@ -1,14 +1,14 @@
 import { requirePageStaffContext } from "@/lib/auth-session";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { getStudentById } from "@/lib/repositories/students";
-import { getTransactionsByStudentId } from "@/lib/repositories/transactions";
-import { getCardsByStudentId } from "@/lib/repositories/cards";
+import { getCustomerById } from "@/lib/repositories/customers";
+import { getTransactionsByCustomerId } from "@/lib/repositories/transactions";
+import { getCardsByCustomerId } from "@/lib/repositories/cards";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { UpdateStudentForm } from "./update-student-form";
+import { UpdateCustomerForm } from "./update-customer-form";
 import { UpdateAccountForm } from "./update-account-form";
 import { AddCardDialogWrapper } from "./add-card-dialog-wrapper";
 import { TransactionsList } from "./transactions-list";
@@ -24,36 +24,36 @@ export const metadata: Metadata = {
   },
 };
 
-interface StudentDetailPageProps {
+interface CustomerDetailPageProps {
   params: Promise<{ id: string }>;
 }
 
-export default async function StudentDetailPage({
+export default async function CustomerDetailPage({
   params,
-}: StudentDetailPageProps) {
+}: CustomerDetailPageProps) {
   await requirePageStaffContext();
   const { id } = await params;
-  const studentId = parseInt(id, 10);
+  const customerId = parseInt(id, 10);
 
-  if (isNaN(studentId)) {
+  if (isNaN(customerId)) {
     notFound();
   }
 
-  const student = getStudentById(studentId);
-  if (!student) {
+  const customer = getCustomerById(customerId);
+  if (!customer) {
     notFound();
   }
 
-  const transactions = getTransactionsByStudentId(studentId);
-  const cards = getCardsByStudentId(studentId);
+  const transactions = getTransactionsByCustomerId(customerId);
+  const cards = getCardsByCustomerId(customerId);
   const hasTransactions = transactions.length > 0;
 
   return (
     <div className="w-full space-y-6">
       <div className="flex justify-between items-start">
         <div>
-          <h2 className="text-2xl font-bold">{student.name}</h2>
-          <p className="text-muted-foreground mt-1">Customer ID: {student.id}</p>
+          <h2 className="text-2xl font-bold">{customer.name}</h2>
+          <p className="text-muted-foreground mt-1">Customer ID: {customer.id}</p>
         </div>
         <Button variant="outline" asChild>
           <Link href="/customers">Back to Customers</Link>
@@ -68,19 +68,19 @@ export default async function StudentDetailPage({
           <CardContent>
             <div
               className={`text-4xl font-bold ${
-                student.balance < 0
+                customer.balance < 0
                   ? "text-red-600"
-                  : student.balance <= LOW_BALANCE_THRESHOLD && hasTransactions
+                  : customer.balance <= LOW_BALANCE_THRESHOLD && hasTransactions
                   ? "text-red-600"
                   : ""
               }`}
             >
-              ¥{formatCurrency(student.balance)}
+              ¥{formatCurrency(customer.balance)}
             </div>
             <div className="mt-2">
-              {student.balance < 0 ? (
+              {customer.balance < 0 ? (
                 <Badge variant="destructive">Overdraft</Badge>
-              ) : student.balance <= LOW_BALANCE_THRESHOLD && hasTransactions ? (
+              ) : customer.balance <= LOW_BALANCE_THRESHOLD && hasTransactions ? (
                 <Badge variant="secondary">Low Balance</Badge>
               ) : (
                 <Badge variant="default">Active</Badge>
@@ -95,7 +95,7 @@ export default async function StudentDetailPage({
           </CardHeader>
           <CardContent>
             <div className="text-4xl font-bold">
-              ¥{formatCurrency(student.max_overdraft_week)}
+              ¥{formatCurrency(customer.max_overdraft_week)}
             </div>
             <p className="text-sm text-muted-foreground mt-2">per week</p>
           </CardContent>
@@ -108,7 +108,7 @@ export default async function StudentDetailPage({
             <CardTitle>Customer Information</CardTitle>
           </CardHeader>
           <CardContent>
-            <UpdateStudentForm student={student} />
+            <UpdateCustomerForm customer={customer} />
           </CardContent>
         </Card>
 
@@ -117,7 +117,7 @@ export default async function StudentDetailPage({
             <CardTitle>Account Settings</CardTitle>
           </CardHeader>
           <CardContent>
-            <UpdateAccountForm student={student} />
+            <UpdateAccountForm customer={customer} />
           </CardContent>
         </Card>
       </div>
@@ -125,7 +125,7 @@ export default async function StudentDetailPage({
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Cards</CardTitle>
-          <AddCardDialogWrapper studentId={studentId} />
+          <AddCardDialogWrapper customerId={customerId} />
         </CardHeader>
         <CardContent>
           <CardsList cards={cards} />

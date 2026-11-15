@@ -14,7 +14,7 @@ import { isIP } from 'node:net';
 import fs from 'node:fs';
 import { resolveDatabasePath } from './lib/database-path';
 import Database from 'better-sqlite3';
-import { ensureUserSchema } from './lib/user-schema';
+import { assertCustomerSchema } from './lib/customer-schema';
 import { registerReader } from './lib/nfc-readers';
 import tapBroadcaster from './lib/tap-events';
 
@@ -98,7 +98,7 @@ function getAuthDb() {
     authDb = new Database(resolveDbPath());
     try {
       authDb.pragma('foreign_keys = ON');
-      ensureUserSchema(authDb);
+      assertCustomerSchema(authDb);
     } catch (error) {
       authDb.close();
       authDb = null;
@@ -326,6 +326,7 @@ function clearFailedAttempts(ip: string): void {
   failedAttempts.delete(ip);
 }
 
+getAuthDb();
 const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
 

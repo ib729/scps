@@ -1,7 +1,7 @@
 import { requirePageStaffContext } from "@/lib/auth-session";
-import { getAllStudents } from "@/lib/repositories/students";
-import { getStudentIdsWithTransactions } from "@/lib/repositories/transactions";
-import { StudentsTable } from "./students-table";
+import { getAllCustomers } from "@/lib/repositories/customers";
+import { getCustomerIdsWithTransactions } from "@/lib/repositories/transactions";
+import { CustomersTable } from "./customers-table";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -14,14 +14,14 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
-export default async function StudentsPage() {
+export default async function CustomersPage() {
   await requirePageStaffContext();
-  const students = getAllStudents();
-  const studentIdsWithTransactions = getStudentIdsWithTransactions();
+  const customers = getAllCustomers();
+  const customerIdsWithTransactions = getCustomerIdsWithTransactions();
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <StudentsTable students={students} studentIdsWithTransactions={studentIdsWithTransactions} />
+      <CustomersTable customers={customers} customerIdsWithTransactions={customerIdsWithTransactions} />
     </div>
   );
 }

@@ -2,17 +2,17 @@
 
 import { revalidatePath } from "next/cache";
 import {
-  getAccountByStudentId,
+  getAccountByCustomerId,
   updateAccount,
   adjustBalance,
 } from "@/lib/repositories/accounts";
 import { updateAccountSchema } from "@/lib/models";
 import { requireStaffContext } from "@/lib/auth-session";
 
-export async function getAccountByStudentIdAction(studentId: number) {
+export async function getAccountByCustomerIdAction(customerId: number) {
   try {
     await requireStaffContext();
-    const account = getAccountByStudentId(studentId);
+    const account = getAccountByCustomerId(customerId);
     if (!account) {
       return { success: false, error: "Account not found" };
     }
@@ -22,25 +22,25 @@ export async function getAccountByStudentIdAction(studentId: number) {
   }
 }
 
-export async function updateAccountAction(studentId: number, data: unknown) {
+export async function updateAccountAction(customerId: number, data: unknown) {
   try {
     await requireStaffContext();
     const validated = updateAccountSchema.parse(data);
-    updateAccount(studentId, validated);
+    updateAccount(customerId, validated);
     revalidatePath("/customers");
-    revalidatePath(`/customers/${studentId}`);
+    revalidatePath(`/customers/${customerId}`);
     return { success: true };
   } catch {
     return { success: false, error: "Failed to update account" };
   }
 }
 
-export async function adjustBalanceAction(studentId: number, delta: number) {
+export async function adjustBalanceAction(customerId: number, delta: number) {
   try {
     await requireStaffContext();
-    adjustBalance(studentId, delta);
+    adjustBalance(customerId, delta);
     revalidatePath("/customers");
-    revalidatePath(`/customers/${studentId}`);
+    revalidatePath(`/customers/${customerId}`);
     return { success: true };
   } catch {
     return { success: false, error: "Failed to adjust balance" };

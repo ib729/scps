@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
-import { getStudentIdsWithTransactions } from "@/lib/repositories/transactions";
+import { getCustomerIdsWithTransactions } from "@/lib/repositories/transactions";
 import { TopupForm } from "./topup-form";
 import { PageLoading } from "@/components/ui/page-loading";
 import { requirePageStaffContext } from "@/lib/auth-session";
@@ -17,12 +17,12 @@ export const dynamic = "force-dynamic";
 
 export default async function TopupPage() {
   const session = await requirePageStaffContext();
-  const studentIdsWithTransactions = getStudentIdsWithTransactions();
+  const customerIdsWithTransactions = getCustomerIdsWithTransactions();
 
   return (
     <Suspense fallback={<PageLoading />}>
       <TopupForm 
-        studentIdsWithTransactions={studentIdsWithTransactions}
+        customerIdsWithTransactions={customerIdsWithTransactions}
         userName={session.user.name}
       />
     </Suspense>

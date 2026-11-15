@@ -1,29 +1,29 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { AuthError, requirePageRole, requireStudentContext } from "@/lib/auth-session";
-import type { StudentPortalData } from "@/lib/models";
-import { getStudentPortalData } from "@/lib/repositories/student-portal";
-import { StudentClient } from "./student-client";
+import { AuthError, requirePageRole, requireCustomerContext } from "@/lib/auth-session";
+import type { CustomerPortalData } from "@/lib/models";
+import { getCustomerPortalData } from "@/lib/repositories/customer-portal";
+import { CustomerClient } from "./customer-client";
 
-export const metadata: Metadata = { title: "Student account" };
+export const metadata: Metadata = { title: "Customer account" };
 
-export default async function StudentPage() {
-  await requirePageRole("student");
-  let data: StudentPortalData;
+export default async function CustomerPage() {
+  await requirePageRole("customer");
+  let data: CustomerPortalData;
 
   try {
-    const { studentId } = await requireStudentContext();
-    data = getStudentPortalData(studentId);
+    const { customerId } = await requireCustomerContext();
+    data = getCustomerPortalData(customerId);
   } catch (error) {
     if (error instanceof AuthError && error.status === 401) redirect("/login");
     if (
       (error instanceof AuthError && error.status === 403) ||
-      (error instanceof Error && error.message === "Student account is unavailable")
+      (error instanceof Error && error.message === "Customer account is unavailable")
     ) {
       redirect("/student/pending");
     }
     throw error;
   }
 
-  return <StudentClient initialData={data} />;
+  return <CustomerClient initialData={data} />;
 }

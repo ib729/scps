@@ -2,19 +2,19 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { checkoutStudent } from "@/lib/repositories/checkout";
+import { checkoutCustomer } from "@/lib/repositories/checkout";
 import { toDbValue } from "@/lib/currency";
 import { requireStaffContext } from "@/lib/auth-session";
 
 const posCheckoutSchema = z
   .object({
-    student_id: z.number().int().positive().optional(),
+    customer_id: z.number().int().positive().optional(),
     card_uid: z.string().optional(),
     amount: z.number().positive(),
     description: z.string().optional(),
   })
-  .refine((data) => data.student_id || data.card_uid, {
-    message: "Either student_id or card_uid must be provided",
+  .refine((data) => data.customer_id || data.card_uid, {
+    message: "Either customer_id or card_uid must be provided",
   });
 
 export async function posCheckoutAction(data: unknown) {
@@ -25,7 +25,7 @@ export async function posCheckoutAction(data: unknown) {
 
     const chargeAmountInCents = toDbValue(validated.amount);
 
-    const result = checkoutStudent({
+    const result = checkoutCustomer({
       ...validated,
       amount: chargeAmountInCents,
       staff: user.name,
@@ -34,7 +34,7 @@ export async function posCheckoutAction(data: unknown) {
     revalidatePath("/pos");
     revalidatePath("/transactions");
     revalidatePath("/customers");
-    revalidatePath(`/customers/${result.transaction.student_id}`);
+    revalidatePath(`/customers/${result.transaction.customer_id}`);
     revalidatePath("/dashboard");
 
     return { success: true, data: result };

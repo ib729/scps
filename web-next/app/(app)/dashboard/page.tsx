@@ -34,7 +34,7 @@ export default async function DashboardPage() {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent className="flex flex-1 flex-col justify-end gap-1">
-            <div className="text-2xl font-bold">{dashboardStats.totalStudents}</div>
+            <div className="text-2xl font-bold">{dashboardStats.totalCustomers}</div>
             <p className="text-xs text-muted-foreground">
               Active customer accounts in system
             </p>
@@ -126,7 +126,7 @@ export default async function DashboardPage() {
                     </div>
                     <div className="space-y-1 min-w-0 flex-1">
                       <p className="text-sm font-medium leading-none truncate">
-                        {tx.student_name}
+                        {tx.customer_name}
                       </p>
                       <p className="text-sm text-muted-foreground break-words">
                         {tx.payment_method

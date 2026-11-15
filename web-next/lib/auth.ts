@@ -16,7 +16,7 @@ export const auth = betterAuth({
         type: "string",
         required: false,
         input: false,
-        defaultValue: "student",
+        defaultValue: "customer",
       },
     },
     deleteUser: {

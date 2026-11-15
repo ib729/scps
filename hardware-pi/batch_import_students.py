@@ -120,7 +120,7 @@ def batch_import_students(csv_file, skip_duplicates=True, dry_run=False):
         for row_num, name, uid in students_to_import:
             try:
                 # Check if student already exists
-                existing = cur.execute("SELECT id FROM students WHERE name=?", (name,)).fetchone()
+                existing = cur.execute("SELECT id FROM customers WHERE name=?", (name,)).fetchone()
                 if existing:
                     if skip_duplicates:
                         student_id = existing[0]
@@ -130,7 +130,7 @@ def batch_import_students(csv_file, skip_duplicates=True, dry_run=False):
                             try:
                                 # Check if UID already exists
                                 existing_card = cur.execute(
-                                    "SELECT student_id FROM cards WHERE card_uid=?", 
+                                    "SELECT customer_id FROM cards WHERE card_uid=?",
                                     (uid,)
                                 ).fetchone()
                                 
@@ -142,7 +142,7 @@ def batch_import_students(csv_file, skip_duplicates=True, dry_run=False):
                                 else:
                                     # Add card to existing student
                                     cur.execute(
-                                        "INSERT INTO cards(card_uid, student_id, status) VALUES (?, ?, 'active')",
+                                        "INSERT INTO cards(card_uid, customer_id, status) VALUES (?, ?, 'active')",
                                         (uid, student_id)
                                     )
                                     cards_created += 1
@@ -161,7 +161,7 @@ def batch_import_students(csv_file, skip_duplicates=True, dry_run=False):
                 # Check if UID is already in use
                 if uid:
                     existing_card = cur.execute(
-                        "SELECT student_id FROM cards WHERE card_uid=?", 
+                        "SELECT customer_id FROM cards WHERE card_uid=?",
                         (uid,)
                     ).fetchone()
                     if existing_card:
@@ -178,17 +178,17 @@ def batch_import_students(csv_file, skip_duplicates=True, dry_run=False):
                         cards_created += 1
                 else:
                     # Insert student and create account
-                    cur.execute("INSERT INTO students(name) VALUES (?)", (name,))
+                    cur.execute("INSERT INTO customers(name) VALUES (?)", (name,))
                     student_id = cur.lastrowid
                     cur.execute(
-                        "INSERT INTO accounts(student_id, balance, max_overdraft_week) VALUES (?, 0, 0)", 
+                        "INSERT INTO accounts(customer_id, balance, max_overdraft_week) VALUES (?, 0, 0)",
                         (student_id,)
                     )
                     
                     # If UID provided, create card entry
                     if uid:
                         cur.execute(
-                            "INSERT INTO cards(card_uid, student_id, status) VALUES (?, ?, 'active')",
+                            "INSERT INTO cards(card_uid, customer_id, status) VALUES (?, ?, 'active')",
                             (uid, student_id)
                         )
                         cards_created += 1

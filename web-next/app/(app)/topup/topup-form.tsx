@@ -4,13 +4,13 @@ import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Copy, Check } from "@/lib/icons";
 
-import { getStudentByIdAction } from "@/app/actions/students";
+import { getCustomerByIdAction } from "@/app/actions/customers";
 import {
   topupAction,
   topupAndPayAction,
   adjustBalanceManualAction,
 } from "@/app/actions/topup";
-import { StudentSearchField } from "@/components/student-search-field";
+import { CustomerSearchField } from "@/components/customer-search-field";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { formatCurrency, LOW_BALANCE_THRESHOLD } from "@/lib/currency";
-import type { StudentWithAccount } from "@/lib/models";
+import type { CustomerWithAccount } from "@/lib/models";
 import {
   OTHER_PAYMENT_METHOD_MAX_LENGTH,
   PAYMENT_METHOD_VALUES,
@@ -33,7 +33,7 @@ import {
 } from "@/lib/payment-methods";
 
 interface TopupFormProps {
-  studentIdsWithTransactions: number[];
+  customerIdsWithTransactions: number[];
   userName: string;
 }
 
@@ -42,7 +42,7 @@ type ReceiptItem = {
   label: string;
 };
 
-export function TopupForm({ studentIdsWithTransactions, userName }: TopupFormProps) {
+export function TopupForm({ customerIdsWithTransactions, userName }: TopupFormProps) {
   const [amount, setAmount] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | "">("");
   const [otherPaymentMethod, setOtherPaymentMethod] = useState("");
@@ -54,9 +54,9 @@ export function TopupForm({ studentIdsWithTransactions, userName }: TopupFormPro
   const [copiedTransactionId, setCopiedTransactionId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [combinedLoading, setCombinedLoading] = useState(false);
-  const [selectedStudent, setSelectedStudent] = useState<StudentWithAccount | null>(null);
-  const [selectedAdjustStudent, setSelectedAdjustStudent] =
-    useState<StudentWithAccount | null>(null);
+  const [selectedCustomer, setSelectedCustomer] = useState<CustomerWithAccount | null>(null);
+  const [selectedAdjustCustomer, setSelectedAdjustCustomer] =
+    useState<CustomerWithAccount | null>(null);
   const [adjustAmount, setAdjustAmount] = useState("");
   const [adjustDescription, setAdjustDescription] = useState("");
   const [adjustStaff, setAdjustStaff] = useState(userName || "");
@@ -69,25 +69,25 @@ export function TopupForm({ studentIdsWithTransactions, userName }: TopupFormPro
   const searchParams = useSearchParams();
 
   useEffect(() => {
-    const studentFromUrl = searchParams.get("student");
-    if (!studentFromUrl || selectedStudent) {
+    const customerFromUrl = searchParams.get("customer");
+    if (!customerFromUrl || selectedCustomer) {
       return;
     }
 
-    const studentId = Number.parseInt(studentFromUrl, 10);
-    if (!Number.isFinite(studentId)) {
+    const customerId = Number.parseInt(customerFromUrl, 10);
+    if (!Number.isFinite(customerId)) {
       router.replace("/topup");
       return;
     }
 
     void (async () => {
-      const result = await getStudentByIdAction(studentId);
+      const result = await getCustomerByIdAction(customerId);
       if (result.success && result.data) {
-        setSelectedStudent(result.data);
+        setSelectedCustomer(result.data);
       }
       router.replace("/topup");
     })();
-  }, [searchParams, selectedStudent, router]);
+  }, [searchParams, selectedCustomer, router]);
 
   const copyTransactionId = async (txId: number) => {
     await navigator.clipboard.writeText(txId.toString());
@@ -106,7 +106,7 @@ export function TopupForm({ studentIdsWithTransactions, userName }: TopupFormPro
 
   const handleTopup = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedStudent) {
+    if (!selectedCustomer) {
       return;
     }
 
@@ -117,7 +117,7 @@ export function TopupForm({ studentIdsWithTransactions, userName }: TopupFormPro
     setLoading(true);
 
     const result = await topupAction({
-      student_id: selectedStudent.id,
+      customer_id: selectedCustomer.id,
       amount: parseFloat(amount),
       payment_method: paymentMethod as PaymentMethod,
       other_payment_method: paymentMethod === "Other" ? otherPaymentMethod : undefined,
@@ -126,7 +126,7 @@ export function TopupForm({ studentIdsWithTransactions, userName }: TopupFormPro
 
     if (result.success && result.data) {
       setSuccess(
-        `Successfully added ¥${amount} to ${selectedStudent.name}. New balance: ¥${formatCurrency(
+        `Successfully added ¥${amount} to ${selectedCustomer.name}. New balance: ¥${formatCurrency(
           result.data.newBalance,
         )}`,
       );
@@ -136,8 +136,8 @@ export function TopupForm({ studentIdsWithTransactions, userName }: TopupFormPro
           label: "Top-up Transaction ID",
         },
       ]);
-      setSelectedStudent({
-        ...selectedStudent,
+      setSelectedCustomer({
+        ...selectedCustomer,
         balance: result.data.newBalance,
       });
       setAmount("");
@@ -152,7 +152,7 @@ export function TopupForm({ studentIdsWithTransactions, userName }: TopupFormPro
   };
 
   const handleTopupAndPay = async () => {
-    if (!selectedStudent) {
+    if (!selectedCustomer) {
       return;
     }
 
@@ -163,7 +163,7 @@ export function TopupForm({ studentIdsWithTransactions, userName }: TopupFormPro
     setCombinedLoading(true);
 
     const result = await topupAndPayAction({
-      student_id: selectedStudent.id,
+      customer_id: selectedCustomer.id,
       amount: parseFloat(amount),
       payment_method: paymentMethod as PaymentMethod,
       other_payment_method: paymentMethod === "Other" ? otherPaymentMethod : undefined,
@@ -172,7 +172,7 @@ export function TopupForm({ studentIdsWithTransactions, userName }: TopupFormPro
 
     if (result.success && result.data) {
       setSuccess(
-        `Successfully added and deducted ¥${amount} for ${selectedStudent.name}. Balance remains: ¥${formatCurrency(
+        `Successfully added and deducted ¥${amount} for ${selectedCustomer.name}. Balance remains: ¥${formatCurrency(
           result.data.newBalance,
         )}`,
       );
@@ -186,8 +186,8 @@ export function TopupForm({ studentIdsWithTransactions, userName }: TopupFormPro
           label: "Payment Transaction ID",
         },
       ]);
-      setSelectedStudent({
-        ...selectedStudent,
+      setSelectedCustomer({
+        ...selectedCustomer,
         balance: result.data.newBalance,
       });
       setAmount("");
@@ -203,7 +203,7 @@ export function TopupForm({ studentIdsWithTransactions, userName }: TopupFormPro
 
   const handleAdjust = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedAdjustStudent) {
+    if (!selectedAdjustCustomer) {
       return;
     }
 
@@ -213,20 +213,20 @@ export function TopupForm({ studentIdsWithTransactions, userName }: TopupFormPro
     setAdjustLoading(true);
 
     const result = await adjustBalanceManualAction({
-      student_id: selectedAdjustStudent.id,
+      customer_id: selectedAdjustCustomer.id,
       amount: parseFloat(adjustAmount),
       description: adjustDescription,
     });
 
     if (result.success && result.data) {
       setAdjustSuccess(
-        `Balance adjusted by ¥${adjustAmount} for ${selectedAdjustStudent.name}. New balance: ¥${formatCurrency(
+        `Balance adjusted by ¥${adjustAmount} for ${selectedAdjustCustomer.name}. New balance: ¥${formatCurrency(
           result.data.newBalance,
         )}`,
       );
       setAdjustTransactionId(result.data.transaction.id);
-      setSelectedAdjustStudent({
-        ...selectedAdjustStudent,
+      setSelectedAdjustCustomer({
+        ...selectedAdjustCustomer,
         balance: result.data.newBalance,
       });
       setAdjustAmount("");
@@ -281,29 +281,29 @@ export function TopupForm({ studentIdsWithTransactions, userName }: TopupFormPro
               </Alert>
             ) : null}
 
-            <StudentSearchField
-              id="student"
+            <CustomerSearchField
+              id="customer"
               label="Customer"
               placeholder="Search customers by name"
-              selectedStudent={selectedStudent}
-              onSelect={setSelectedStudent}
+              selectedCustomer={selectedCustomer}
+              onSelect={setSelectedCustomer}
             />
 
-            {selectedStudent ? (
+            {selectedCustomer ? (
               <div className="space-y-2 rounded-lg bg-muted p-4">
                 <div className="flex justify-between">
                   <span className="text-sm text-muted-foreground">Current Balance:</span>
                   <span
                     className={`font-bold ${
-                      selectedStudent.balance < 0
+                      selectedCustomer.balance < 0
                         ? "text-red-600"
-                        : selectedStudent.balance <= LOW_BALANCE_THRESHOLD &&
-                            studentIdsWithTransactions.includes(selectedStudent.id)
+                        : selectedCustomer.balance <= LOW_BALANCE_THRESHOLD &&
+                            customerIdsWithTransactions.includes(selectedCustomer.id)
                           ? "text-orange-600"
                           : ""
                     }`}
                   >
-                    ¥{formatCurrency(selectedStudent.balance)}
+                    ¥{formatCurrency(selectedCustomer.balance)}
                   </span>
                 </div>
               </div>
@@ -409,7 +409,7 @@ export function TopupForm({ studentIdsWithTransactions, userName }: TopupFormPro
                 disabled={
                   loading ||
                   combinedLoading ||
-                  !selectedStudent ||
+                  !selectedCustomer ||
                   !amount ||
                   !paymentMethod ||
                   (paymentMethod === "Other" && !otherPaymentMethod.trim())
@@ -423,7 +423,7 @@ export function TopupForm({ studentIdsWithTransactions, userName }: TopupFormPro
                 disabled={
                   loading ||
                   combinedLoading ||
-                  !selectedStudent ||
+                  !selectedCustomer ||
                   !amount ||
                   !paymentMethod ||
                   (paymentMethod === "Other" && !otherPaymentMethod.trim())
@@ -481,29 +481,29 @@ export function TopupForm({ studentIdsWithTransactions, userName }: TopupFormPro
               </Alert>
             ) : null}
 
-            <StudentSearchField
-              id="adjust-student"
+            <CustomerSearchField
+              id="adjust-customer"
               label="Customer"
               placeholder="Search customers by name"
-              selectedStudent={selectedAdjustStudent}
-              onSelect={setSelectedAdjustStudent}
+              selectedCustomer={selectedAdjustCustomer}
+              onSelect={setSelectedAdjustCustomer}
             />
 
-            {selectedAdjustStudent ? (
+            {selectedAdjustCustomer ? (
               <div className="space-y-2 rounded-lg bg-muted p-4">
                 <div className="flex justify-between">
                   <span className="text-sm text-muted-foreground">Current Balance:</span>
                   <span
                     className={`font-bold ${
-                      selectedAdjustStudent.balance < 0
+                      selectedAdjustCustomer.balance < 0
                         ? "text-red-600"
-                        : selectedAdjustStudent.balance <= LOW_BALANCE_THRESHOLD &&
-                            studentIdsWithTransactions.includes(selectedAdjustStudent.id)
+                        : selectedAdjustCustomer.balance <= LOW_BALANCE_THRESHOLD &&
+                            customerIdsWithTransactions.includes(selectedAdjustCustomer.id)
                           ? "text-orange-600"
                           : ""
                     }`}
                   >
-                    ¥{formatCurrency(selectedAdjustStudent.balance)}
+                    ¥{formatCurrency(selectedAdjustCustomer.balance)}
                   </span>
                 </div>
               </div>
@@ -558,7 +558,7 @@ export function TopupForm({ studentIdsWithTransactions, userName }: TopupFormPro
 
             <Button
               type="submit"
-              disabled={adjustLoading || !selectedAdjustStudent}
+              disabled={adjustLoading || !selectedAdjustCustomer}
               variant="secondary"
               className="h-14 w-full text-base font-semibold"
             >

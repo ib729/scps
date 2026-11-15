@@ -49,10 +49,10 @@ configure_database
                 with closing(sqlite3.connect(target)) as db:
                     self.assertIsNotNone(db.execute("SELECT name FROM sqlite_schema WHERE name='session'").fetchone())
                     if index:
-                        self.assertEqual(db.execute("SELECT name FROM students WHERE id=1").fetchone()[0], "preserved")
-                    db.execute("INSERT OR IGNORE INTO students(id,name) VALUES(1,'preserved')")
+                        self.assertEqual(db.execute("SELECT name FROM customers WHERE id=1").fetchone()[0], "preserved")
+                    db.execute("INSERT OR IGNORE INTO customers(id,name) VALUES(1,'preserved')")
                     db.commit()
-                    self.assertEqual(db.execute("SELECT name FROM students WHERE id=1").fetchone()[0], "preserved")
+                    self.assertEqual(db.execute("SELECT name FROM customers WHERE id=1").fetchone()[0], "preserved")
                 self.assertEqual(list(root.rglob("*.db")), [target])
 
 

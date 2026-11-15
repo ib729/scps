@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import {
   getAllTransactions,
-  getTransactionsByStudentId,
+  getTransactionsByCustomerId,
   getTransactionById,
   createTransaction,
   deleteTransaction,
@@ -25,10 +25,10 @@ export async function getTransactionsAction(limit?: number) {
   }
 }
 
-export async function getTransactionsByStudentIdAction(studentId: number) {
+export async function getTransactionsByCustomerIdAction(customerId: number) {
   try {
     await requireStaffContext();
-    return { success: true, data: getTransactionsByStudentId(studentId) };
+    return { success: true, data: getTransactionsByCustomerId(customerId) };
   } catch {
     return { success: false, error: "Failed to fetch transactions" };
   }
@@ -56,13 +56,13 @@ export async function createTransactionAction(data: unknown) {
     const result = db.transaction(() => {
       const transaction = createTransaction(validated);
       // Update account balance
-      adjustBalance(validated.student_id, validated.amount);
+      adjustBalance(validated.customer_id, validated.amount);
       return transaction;
     })();
 
     revalidatePath("/transactions");
     revalidatePath("/customers");
-    revalidatePath(`/customers/${validated.student_id}`);
+    revalidatePath(`/customers/${validated.customer_id}`);
     revalidatePath("/dashboard");
     return { success: true, data: result };
   } catch {
@@ -83,12 +83,12 @@ export async function deleteTransactionAction(id: number) {
     db.transaction(() => {
       deleteTransaction(id);
       // Reverse the transaction amount
-      adjustBalance(transaction.student_id, -transaction.amount);
+      adjustBalance(transaction.customer_id, -transaction.amount);
     })();
 
     revalidatePath("/transactions");
     revalidatePath("/customers");
-    revalidatePath(`/customers/${transaction.student_id}`);
+    revalidatePath(`/customers/${transaction.customer_id}`);
     revalidatePath("/dashboard");
     return { success: true };
   } catch {

@@ -2,37 +2,37 @@
 
 import { useEffect, useState } from "react";
 
-import { searchStudentsAction } from "@/app/actions/students";
+import { searchCustomersAction } from "@/app/actions/customers";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import type { StudentWithAccount } from "@/lib/models";
+import type { CustomerWithAccount } from "@/lib/models";
 import { formatCurrency } from "@/lib/currency";
 
-type StudentSearchFieldProps = {
+type CustomerSearchFieldProps = {
   id: string;
   label: string;
   placeholder: string;
-  selectedStudent: StudentWithAccount | null;
-  onSelect: (student: StudentWithAccount | null) => void;
+  selectedCustomer: CustomerWithAccount | null;
+  onSelect: (customer: CustomerWithAccount | null) => void;
 };
 
-export function StudentSearchField({
+export function CustomerSearchField({
   id,
   label,
   placeholder,
-  selectedStudent,
+  selectedCustomer,
   onSelect,
-}: StudentSearchFieldProps) {
-  const [query, setQuery] = useState(selectedStudent?.name ?? "");
-  const [results, setResults] = useState<StudentWithAccount[]>([]);
+}: CustomerSearchFieldProps) {
+  const [query, setQuery] = useState(selectedCustomer?.name ?? "");
+  const [results, setResults] = useState<CustomerWithAccount[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
 
   useEffect(() => {
-    setQuery(selectedStudent?.name ?? "");
-  }, [selectedStudent?.id, selectedStudent?.name]);
+    setQuery(selectedCustomer?.name ?? "");
+  }, [selectedCustomer?.id, selectedCustomer?.name]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -46,7 +46,7 @@ export function StudentSearchField({
 
     const timeoutId = window.setTimeout(async () => {
       setIsSearching(true);
-      const result = await searchStudentsAction(trimmedQuery, 8);
+      const result = await searchCustomersAction(trimmedQuery, 8);
       if (result.success) {
         const nextResults = result.data ?? [];
         setResults(nextResults);
@@ -78,7 +78,7 @@ export function StudentSearchField({
               setResults([]);
               setHighlightedIndex(-1);
             }
-            if (selectedStudent && nextQuery !== selectedStudent.name) {
+            if (selectedCustomer && nextQuery !== selectedCustomer.name) {
               onSelect(null);
             }
           }}
@@ -90,9 +90,9 @@ export function StudentSearchField({
             if (!isOpen || results.length === 0) {
               if (event.key === "Enter" && results.length === 1) {
                 event.preventDefault();
-                const student = results[0];
-                onSelect(student);
-                setQuery(student.name);
+                const customer = results[0];
+                onSelect(customer);
+                setQuery(customer.name);
                 setResults([]);
                 setHighlightedIndex(-1);
                 setIsOpen(false);
@@ -117,17 +117,17 @@ export function StudentSearchField({
             }
 
             if (event.key === "Enter") {
-              const student =
+              const customer =
                 results[highlightedIndex] ??
                 (results.length === 1 ? results[0] : null);
 
-              if (!student) {
+              if (!customer) {
                 return;
               }
 
               event.preventDefault();
-              onSelect(student);
-              setQuery(student.name);
+              onSelect(customer);
+              setQuery(customer.name);
               setResults([]);
               setHighlightedIndex(-1);
               setIsOpen(false);
@@ -142,7 +142,7 @@ export function StudentSearchField({
           className="h-12 text-base md:text-base"
           autoComplete="off"
         />
-        {selectedStudent ? (
+        {selectedCustomer ? (
           <Button
             type="button"
             variant="ghost"
@@ -164,9 +164,9 @@ export function StudentSearchField({
               <p className="px-3 py-2 text-sm text-muted-foreground">Searching...</p>
             ) : results.length > 0 ? (
               <div data-native-scroll className="max-h-64 overflow-y-auto py-1">
-                {results.map((student, index) => (
+                {results.map((customer, index) => (
                   <button
-                    key={student.id}
+                    key={customer.id}
                     type="button"
                     className={`flex w-full items-center justify-between px-3 py-2 text-left ${
                       highlightedIndex === index
@@ -176,16 +176,16 @@ export function StudentSearchField({
                     onMouseDown={(event) => event.preventDefault()}
                     onMouseEnter={() => setHighlightedIndex(index)}
                     onClick={() => {
-                      onSelect(student);
-                      setQuery(student.name);
+                      onSelect(customer);
+                      setQuery(customer.name);
                       setResults([]);
                       setHighlightedIndex(-1);
                       setIsOpen(false);
                     }}
                   >
-                    <span className="font-medium">{student.name}</span>
+                    <span className="font-medium">{customer.name}</span>
                     <span className="text-sm text-muted-foreground">
-                      ¥{formatCurrency(student.balance)}
+                      ¥{formatCurrency(customer.balance)}
                     </span>
                   </button>
                 ))}

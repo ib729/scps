@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import {
   getAllCards,
   getCardByUid,
-  getCardsByStudentId,
+  getCardsByCustomerId,
   createCard,
   updateCardStatus,
   deleteCard,
@@ -34,10 +34,10 @@ export async function getCardByUidAction(cardUid: string) {
   }
 }
 
-export async function getCardsByStudentIdAction(studentId: number) {
+export async function getCardsByCustomerIdAction(customerId: number) {
   try {
     await requireStaffContext();
-    return { success: true, data: getCardsByStudentId(studentId) };
+    return { success: true, data: getCardsByCustomerId(customerId) };
   } catch {
     return { success: false, error: "Failed to fetch cards" };
   }
@@ -49,7 +49,7 @@ export async function createCardAction(data: unknown) {
     const validated = createCardSchema.parse(data);
     const card = createCard(validated);
     revalidatePath("/customers");
-    revalidatePath(`/customers/${validated.student_id}`);
+    revalidatePath(`/customers/${validated.customer_id}`);
     return { success: true, data: card };
   } catch {
     return { success: false, error: "Failed to create card" };

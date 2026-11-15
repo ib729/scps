@@ -20,7 +20,7 @@ async function main() {
     for (const database of [active, backup]) {
       database.exec(schema);
       database.pragma("journal_mode = WAL");
-      database.exec("INSERT INTO students(id, name) VALUES (1, 'CLI Check'); INSERT INTO accounts(student_id, balance) VALUES (1, 1000)");
+      database.exec("INSERT INTO customers(id, name) VALUES (1, 'CLI Check'); INSERT INTO accounts(customer_id, balance) VALUES (1, 1000)");
     }
     process.env.DATABASE_PATH = activePath;
     // Exercise DB module loading only after the isolated DATABASE_PATH is configured.
@@ -66,7 +66,7 @@ async function main() {
       { type: "TOPUP", amount: 550, payment_method: "Cash", staff: "CLI-Admin" },
       { type: "DEBIT", amount: -1, payment_method: "Balance", staff: "CLI-Admin" },
     ]);
-    active.exec("INSERT INTO students(id, name) VALUES (2, 'Missing Account')");
+    active.exec("INSERT INTO customers(id, name) VALUES (2, 'Missing Account')");
     assert.throws(() => applyLedgerAdjustment(active, 2, 100, "check"));
     assert.equal(active.prepare<[], { count: number }>("SELECT COUNT(*) AS count FROM transactions").get()?.count, 2);
     await assert.rejects(restoreDatabase(activePath, activePath, active));
@@ -75,7 +75,7 @@ async function main() {
     invalid.exec("CREATE TABLE unrelated(id INTEGER)");
     invalid.close();
     await assert.rejects(restoreDatabase(invalidPath, activePath, active));
-    assert.equal(active.prepare<[], { balance: number }>("SELECT balance FROM accounts WHERE student_id = 1").get()?.balance, 1549);
+    assert.equal(active.prepare<[], { balance: number }>("SELECT balance FROM accounts WHERE customer_id = 1").get()?.balance, 1549);
     const locked = new Database(activePath);
     locked.exec("BEGIN IMMEDIATE");
     try {
@@ -84,16 +84,16 @@ async function main() {
       locked.exec("ROLLBACK");
       locked.close();
     }
-    assert.equal(active.prepare<[], { balance: number }>("SELECT balance FROM accounts WHERE student_id = 1").get()?.balance, 1549);
+    assert.equal(active.prepare<[], { balance: number }>("SELECT balance FROM accounts WHERE customer_id = 1").get()?.balance, 1549);
     // A separate process keeps the active WAL open while the source has uncheckpointed data.
-    backup.exec("UPDATE accounts SET balance = 9876 WHERE student_id = 1");
+    backup.exec("UPDATE accounts SET balance = 9876 WHERE customer_id = 1");
     const observer = spawn(process.execPath, ["-e", `
       const Database = require(process.argv[1]);
       const db = new Database(process.argv[2]);
       console.log("ready");
       process.stdin.on("data", () => {
-        db.exec("UPDATE accounts SET balance = balance + 1 WHERE student_id = 1");
-        console.log(db.prepare("SELECT balance FROM accounts WHERE student_id = 1").get().balance);
+        db.exec("UPDATE accounts SET balance = balance + 1 WHERE customer_id = 1");
+        console.log(db.prepare("SELECT balance FROM accounts WHERE customer_id = 1").get().balance);
       });
       process.stdin.on("end", () => db.close());
     `, require.resolve("better-sqlite3"), activePath], { stdio: ["pipe", "pipe", "inherit"] });
@@ -101,26 +101,26 @@ async function main() {
     const walBefore = fs.statSync(`${activePath}-wal`);
     try {
       await restoreDatabase(backupPath, activePath, active);
-      assert.equal(active.prepare<[], { balance: number }>("SELECT balance FROM accounts WHERE student_id = 1").get()?.balance, 9876);
+      assert.equal(active.prepare<[], { balance: number }>("SELECT balance FROM accounts WHERE customer_id = 1").get()?.balance, 9876);
       assert.equal(fs.statSync(`${activePath}-wal`).ino, walBefore.ino);
       const reply = once(observer.stdout, "data");
       observer.stdin.write("update\n");
       assert.equal(Number((await reply)[0].toString().trim()), 9877);
-      assert.equal(active.prepare<[], { balance: number }>("SELECT balance FROM accounts WHERE student_id = 1").get()?.balance, 9877);
+      assert.equal(active.prepare<[], { balance: number }>("SELECT balance FROM accounts WHERE customer_id = 1").get()?.balance, 9877);
       assert.equal(active.pragma("integrity_check", { simple: true }), "ok");
     } finally {
       observer.stdin.end();
       await once(observer, "exit");
     }
-    const csvPath = path.join(directory, "students.csv");
+    const csvPath = path.join(directory, "customers.csv");
     fs.writeFileSync(csvPath, "name,uid\nCSV CLI Check,AB12CD34\n");
     const importer = path.resolve(root, "../hardware-pi/batch_import_students.py");
     const options = { cwd: directory, env: { ...process.env, DATABASE_PATH: activePath }, encoding: "utf8" as const };
     assert.equal(spawnSync("python3", [importer, csvPath, "--dry-run"], options).status, 0);
-    assert.equal(active.prepare("SELECT id FROM students WHERE name = 'CSV CLI Check'").get(), undefined);
+    assert.equal(active.prepare("SELECT id FROM customers WHERE name = 'CSV CLI Check'").get(), undefined);
     const imported = spawnSync("python3", [importer, csvPath], options);
     assert.equal(imported.status, 0, imported.stdout + imported.stderr);
-    assert.ok(active.prepare("SELECT id FROM students WHERE name = 'CSV CLI Check'").get());
+    assert.ok(active.prepare("SELECT id FROM customers WHERE name = 'CSV CLI Check'").get());
     assert.equal(fs.existsSync(path.join(directory, "stuco.db")), false);
     for (const args of [["--yes"], [path.join(directory, "missing.db"), "--yes"], [invalidPath, "--yes"]]) {
       const result = spawnSync(process.execPath, ["--import", "tsx", path.join(root, "app/cli/cli.ts"), "import-db", ...args], { ...options, cwd: root, timeout: 10_000 });
