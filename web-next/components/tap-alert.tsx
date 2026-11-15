@@ -32,7 +32,7 @@ export function TapAlert() {
 
   // Don't render anything on the POS page (POS has its own dialog).
   // Keep hooks in TapAlertContent isolated so they are never called conditionally.
-  if (pathname === "/pos") {
+  if (pathname === "/admin/pos") {
     return null;
   }
 
@@ -110,7 +110,7 @@ function TapAlertContent() {
   const handleGoToPOS = () => {
     setOpen(false);
     setShowEnrollmentForm(false);
-    router.push(`/pos?card=${cardUid}`);
+    router.push(`/admin/pos?card=${cardUid}`);
   };
 
   const handleEnroll = () => {
@@ -167,9 +167,9 @@ function TapAlertContent() {
 
       // Navigate based on destination
       if (destination === 'pos') {
-        router.push(`/pos?card=${cardUid}`);
+        router.push(`/admin/pos?card=${cardUid}`);
       } else if (destination === 'topup') {
-        router.push(`/topup?customer=${customerId}`);
+        router.push(`/admin/topup?customer=${customerId}`);
       } else {
         // If just attaching, refresh to show updates
         router.refresh();

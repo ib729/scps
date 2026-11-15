@@ -337,23 +337,7 @@ app.prepare().then(() => {
   const server = createServer(async (req, res) => {
     req.headers['x-scps-client-ip'] = getClientIP(req);
     try {
-      const requestUrl = new URL(
-        req.url || '/',
-        `http://${req.headers.host || `${hostname}:${port}`}`
-      );
-      const parsedUrl = {
-        pathname: requestUrl.pathname,
-        query: Object.fromEntries(requestUrl.searchParams.entries()),
-        hash: null,
-        hostname: null,
-        href: requestUrl.pathname + requestUrl.search,
-        // Next treats a protocol-bearing URL as an external proxy destination.
-        protocol: null,
-        search: null,
-        slashes: null,
-        port: null,
-      };
-      await handle(req, res, parsedUrl);
+      await handle(req, res);
     } catch (err) {
       console.error('Error occurred handling', req.url, err);
       res.statusCode = 500;

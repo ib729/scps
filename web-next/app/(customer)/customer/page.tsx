@@ -20,7 +20,7 @@ export default async function CustomerPage() {
       (error instanceof AuthError && error.status === 403) ||
       (error instanceof Error && error.message === "Customer account is unavailable")
     ) {
-      redirect("/student/pending");
+      redirect("/customer/pending");
     }
     throw error;
   }

@@ -51,6 +51,7 @@ export async function startTestServer(): Promise<{ baseURL: string; database: Da
     cwd: webDirectory,
     env: {
       ...process.env, NODE_ENV: "development", HOSTNAME: "localhost", PORT: String(port), DATABASE_PATH: databasePath,
+      NEXT_TELEMETRY_DISABLED: "1",
       BETTER_AUTH_SECRET: "scps-test-only-auth-secret-never-production-2026",
       NFC_TAP_SECRET: "scps-test-only-nfc-secret-2026", NEXT_PUBLIC_APP_URL: baseURL,
       TRUSTED_ORIGINS: baseURL, BETTER_AUTH_TRUSTED_ORIGINS: baseURL, TRUST_PROXY: "false",

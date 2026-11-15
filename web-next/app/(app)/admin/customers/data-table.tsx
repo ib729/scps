@@ -129,7 +129,7 @@ export function DataTable({
                   <TableCell>
                     <div className="px-4">
                       <Link
-                        href={`/customers/${customer.id}`}
+                        href={`/admin/customers/${customer.id}`}
                         className="font-medium hover:underline"
                       >
                         {customer.name}

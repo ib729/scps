@@ -14,7 +14,7 @@ export async function createWechatTopupRequestAction(data: unknown) {
     const { user, customerId } = await requireCustomerContext();
     const input = z.object({ amount: z.string() }).strict().parse(data);
     const request = createWechatTopupRequest({ customerId, requestedAmount: parseWechatTopupAmount(input.amount), createdByUserId: user.id, createdByName: user.name });
-    revalidatePath("/student"); revalidatePath("/wcp");
+    revalidatePath("/customer"); revalidatePath("/admin/payments");
     return { success: true, data: toCustomerPaymentRequest(request) };
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : "Failed to create request" };
@@ -28,7 +28,7 @@ export async function markWechatTopupRequestClaimedAction(data: unknown) {
     const owned = getWechatTopupRequestById(input.request_id);
     if (!owned || owned.customer_id !== customerId) throw new Error("Request not found");
     const { request, newlyClaimed } = markWechatTopupRequestClaimed(input.request_id);
-    revalidatePath("/student"); revalidatePath("/wcp");
+    revalidatePath("/customer"); revalidatePath("/admin/payments");
     if (newlyClaimed) {
       try { await notifyWechatTopupRequestClaimed(request); }
       catch (error) { console.error("Failed to send optional WCP claim notification", error); }
@@ -44,7 +44,7 @@ export async function approveWechatTopupRequestAction(data: unknown) {
     const { user } = await requireRole("admin");
     const input = reviewSchema.extend({ receipt_confirmed: z.literal(true) }).parse(data);
     const result = approveWechatTopupRequest({ requestId: input.request_id, reviewedByUserId: user.id, reviewedByName: user.name, reviewNote: input.review_note });
-    for (const path of ["/student", "/wcp", "/topup", "/transactions", "/customers", `/customers/${result.request.customer_id}`, "/dashboard"]) revalidatePath(path);
+    for (const path of ["/customer", "/admin/payments", "/admin/topup", "/admin/transactions", "/admin/customers", `/admin/customers/${result.request.customer_id}`, "/admin"]) revalidatePath(path);
     try { await notifyWechatTopupRequestApproved(result.request); }
     catch (error) { console.error("Failed to send optional WCP approval notification", error); }
     return { success: true, data: result };
@@ -58,7 +58,7 @@ export async function rejectWechatTopupRequestAction(data: unknown) {
     const { user } = await requireRole("admin");
     const input = reviewSchema.parse(data);
     const request = rejectWechatTopupRequest({ requestId: input.request_id, reviewedByUserId: user.id, reviewedByName: user.name, reviewNote: input.review_note });
-    revalidatePath("/student"); revalidatePath("/wcp");
+    revalidatePath("/customer"); revalidatePath("/admin/payments");
     try { await notifyWechatTopupRequestRejected(request); }
     catch (error) { console.error("Failed to send optional WCP rejection notification", error); }
     return { success: true, data: request };

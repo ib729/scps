@@ -76,7 +76,7 @@ export function TopupForm({ customerIdsWithTransactions, userName }: TopupFormPr
 
     const customerId = Number.parseInt(customerFromUrl, 10);
     if (!Number.isFinite(customerId)) {
-      router.replace("/topup");
+      router.replace("/admin/topup");
       return;
     }
 
@@ -85,7 +85,7 @@ export function TopupForm({ customerIdsWithTransactions, userName }: TopupFormPr
       if (result.success && result.data) {
         setSelectedCustomer(result.data);
       }
-      router.replace("/topup");
+      router.replace("/admin/topup");
     })();
   }, [searchParams, selectedCustomer, router]);
 

@@ -17,7 +17,7 @@ function formatDateTime(value: string) {
   return new Date(`${value}Z`).toLocaleString();
 }
 
-export function WcpClient({ pending, recent }: { pending: WechatTopupRequestWithCustomer[]; recent: WechatTopupRequestWithCustomer[] }) {
+export function PaymentsClient({ pending, recent }: { pending: WechatTopupRequestWithCustomer[]; recent: WechatTopupRequestWithCustomer[] }) {
   const router = useRouter();
   const [review, setReview] = useState<{ id: number; action: "approve" | "reject" } | null>(null);
   const current = pending.find(request => request.id === review?.id);

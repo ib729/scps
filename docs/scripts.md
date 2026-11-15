@@ -470,7 +470,7 @@ Import Summary:
 - Testing with sample data
 
 **See Also:**
-- [Batch Import Students Guide](batch-import-students.md) - Comprehensive guide with examples and SQL import methods
+- [Batch Import Customers Guide](batch-import-customers.md) - Comprehensive guide with examples and SQL import methods
 
 ## NFC Scripts
 

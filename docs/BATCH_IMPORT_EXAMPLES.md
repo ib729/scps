@@ -140,5 +140,5 @@ sqlite3 stuco.db "SELECT s.name, c.card_uid FROM students s
 
 ## See Also
 
-- [Full Documentation](batch-import-students.md)
+- [Full Documentation](batch-import-customers.md)
 - [Scripts Reference](scripts.md#batch_import_studentspy)

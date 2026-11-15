@@ -31,11 +31,11 @@ export async function posCheckoutAction(data: unknown) {
       staff: user.name,
     });
 
-    revalidatePath("/pos");
-    revalidatePath("/transactions");
-    revalidatePath("/customers");
-    revalidatePath(`/customers/${result.transaction.customer_id}`);
-    revalidatePath("/dashboard");
+    revalidatePath("/admin/pos");
+    revalidatePath("/admin/transactions");
+    revalidatePath("/admin/customers");
+    revalidatePath(`/admin/customers/${result.transaction.customer_id}`);
+    revalidatePath("/admin");
 
     return { success: true, data: result };
   } catch (error) {

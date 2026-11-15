@@ -9,7 +9,7 @@ export const metadata: Metadata = { title: "Awaiting administrator approval" };
 
 export default async function PendingCustomerPage() {
   const { user } = await requirePageRole("customer");
-  if (getLinkedCustomerId(user.id) !== undefined) redirect("/student");
+  if (getLinkedCustomerId(user.id) !== undefined) redirect("/customer");
 
   return (
     <Card className="mx-auto max-w-2xl">

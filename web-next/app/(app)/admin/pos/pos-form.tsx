@@ -189,7 +189,7 @@ export function PosForm({ customerIdsWithTransactions, userName, initialMode }: 
       // Auto-select customer from URL parameter
       handleCardTap(cardFromUrl);
       // Clear the URL parameter after processing
-      router.replace("/pos");
+      router.replace("/admin/pos");
     }
   }, [searchParams, selectedCustomer, router]);
 
@@ -245,7 +245,7 @@ export function PosForm({ customerIdsWithTransactions, userName, initialMode }: 
         setDialogOpen(true);
       } else if (action === 'topup') {
         // Navigate to top-up page with customer ID
-        router.push(`/topup?customer=${customerResult.data.id}`);
+        router.push(`/admin/topup?customer=${customerResult.data.id}`);
       } else {
         // Just show success message
         setSuccess(`Successfully enrolled ${enrollName}!`);

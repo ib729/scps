@@ -106,8 +106,8 @@ export async function requireCustomerContext(): Promise<AuthContext & { customer
 }
 
 export function getUserHomePath(context: AuthContext): string {
-  if (context.user.role !== "customer") return "/dashboard";
-  return getLinkedCustomerId(context.user.id) === undefined ? "/student/pending" : "/student";
+  if (context.user.role !== "customer") return "/admin";
+  return getLinkedCustomerId(context.user.id) === undefined ? "/customer/pending" : "/customer";
 }
 
 export async function requirePageAuthContext(): Promise<AuthContext> {

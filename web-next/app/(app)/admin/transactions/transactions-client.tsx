@@ -177,7 +177,7 @@ const TransactionRow = React.memo(function TransactionRow({
       </div>
 
       <div className="truncate px-2">
-        <Link href={`/customers/${tx.customer_id}`} className="font-medium hover:underline">
+        <Link href={`/admin/customers/${tx.customer_id}`} className="font-medium hover:underline">
           {tx.customer_name}
         </Link>
       </div>

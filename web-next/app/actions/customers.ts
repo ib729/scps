@@ -42,7 +42,7 @@ export async function createCustomerAction(data: unknown) {
     await requireStaffContext();
     const validated = createCustomerSchema.parse(data);
     const customer = createCustomer(validated);
-    revalidatePath("/customers");
+    revalidatePath("/admin/customers");
     return { success: true, data: customer };
   } catch {
     return { success: false, error: "Failed to create customer" };
@@ -54,8 +54,8 @@ export async function updateCustomerAction(id: number, data: unknown) {
     await requireStaffContext();
     const validated = createCustomerSchema.parse(data);
     updateCustomer(id, validated);
-    revalidatePath("/customers");
-    revalidatePath(`/customers/${id}`);
+    revalidatePath("/admin/customers");
+    revalidatePath(`/admin/customers/${id}`);
     return { success: true };
   } catch {
     return { success: false, error: "Failed to update customer" };
@@ -68,12 +68,12 @@ export async function deleteCustomerAction(id: number) {
 
     if (hasTransactions(id)) {
       archiveCustomer(id);
-      revalidatePath("/customers");
+      revalidatePath("/admin/customers");
       return { success: true, message: "Customer archived due to existing transactions." };
     }
 
     deleteCustomer(id);
-    revalidatePath("/customers");
+    revalidatePath("/admin/customers");
     return { success: true, message: "Customer deleted successfully." };
   } catch (error: unknown) {
     if (
@@ -85,7 +85,7 @@ export async function deleteCustomerAction(id: number) {
       // Fallback if hasTransactions check missed something or race condition
       try {
         archiveCustomer(id);
-        revalidatePath("/customers");
+        revalidatePath("/admin/customers");
         return { success: true, message: "Customer archived due to existing financial history." };
       } catch {
         return {

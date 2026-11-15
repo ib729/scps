@@ -11,7 +11,7 @@ The authentication system provides:
 - **Profile Management**: Update name and profile picture
 - **Password Management**: Change password with verification
 - **Protected Routes**: All app routes require authentication
-- **Student approval**: Public registrations remain pending until an administrator links an existing financial student record
+- **Customer approval**: Public registrations remain pending until an administrator links an existing financial customer record
 
 ## Prerequisites
 
@@ -112,19 +112,19 @@ CREATE TABLE session (
 -- See migrations/better_auth_schema.sql for full schema
 ```
 
-## Student accounts and administrator approval
+## Customer accounts and administrator approval
 
-Students register with `{name,email,password}` and then sign in; no shared signup
-or email verification code is required. New logins have the `student` role and
-start at `/student/pending`. Registration never creates a student, balance, or link.
+Customers register with `{name,email,password}` and then sign in; no shared signup
+or email verification code is required. New logins have the `customer` role and
+start at `/customer/pending`. Registration never creates a customer, balance, or link.
 Email addresses are login identifiers, not verified proof of identity.
 
 Provision the first administrator (or recover operator access/passwords) with
 `./scps-cli users`. There is no automatic first-user administrator promotion.
 An existing administrator uses **Accounts** (`/admin/users`) to verify a person,
-search for the correct existing student record, and **Approve and link**.
-Only nonarchived students with an accounts row can be linked. One login owns at
-most one financial student; one financial student has at most one login.
+search for the correct existing customer record, and **Approve and link**.
+Only nonarchived customers with an accounts row can be linked. One login owns at
+most one financial customer; one financial customer has at most one login.
 Links cannot be reassigned through this screen. Resolve identity mistakes manually
 against a verified backup, never by matching a typed email/name automatically.
 
@@ -135,15 +135,15 @@ refused until demoted. Role changes retain financial links and take effect on th
 next protected request, independently of cached session roles. Deleting an
 ordinary login removes its link, not financial records or history.
 
-Staff/admin land at `/dashboard`; linked students land at `/student`. Students
+Staff/admin land at `/admin`; linked customers land at `/customer`. Customers
 cannot access global transactions, customer actions, operator mutations, or NFC
 browser subscriptions. Archived or account-less linked records remain unavailable.
 
 ### Manually reviewed QR top-ups
 
-Students request a base amount, e.g. ¥30.00, and see a distinct payable amount,
+Customers request a base amount, e.g. ¥30.00, and see a distinct payable amount,
 e.g. ¥30.01. Only the base amount is credited, only after an administrator verifies
-the real receipt and approves in **Payment review** (`/wcp`). A sent claim alone
+the real receipt and approves in **Payment review** (`/admin/payments`). A sent claim alone
 does not change money. Rejection gives no credit and does not refund WeChat.
 
 Supply your own merchant QR at `web-next/public/wechat-pay-qr.png` (also .jpg,
@@ -165,14 +165,13 @@ Missing settings or delivery failure do not fail saved payment operations.
 
 ### Existing database deployment
 
-Stop writers; use SQLite's backup API to take and verify a backup of the actual
-configured `DATABASE_PATH`, then run initialization against a copy first.
-Initialization preserves supported user columns, IDs, roles and financial cents.
-Unknown/missing user columns or orphan foreign keys refuse startup and roll back
-the identity migration. Duplicate still-pending payable amounts refuse the
-payment-index migration and report request IDs/amounts for reconciliation on a
-backup. Never renumber already displayed amounts or auto-repair identity links.
-Earlier successfully committed idempotent schema steps may remain; rerunning is safe.
+Stop every writer and verify a SQLite online backup of the configured database.
+From `web-next`, run `node --import tsx tools/migrate-customer.ts --writers-stopped`
+against a copy first, then the stopped ledger. This preserves IDs, cents, cards,
+roles, credentials, sessions and links atomically. Startup refuses legacy/mixed
+schemas, unknown user columns and orphan references; it never promotes a first user.
+The command checks the local web service but cannot detect arbitrary external writers.
+Never renumber displayed pending amounts or repair ownership links automatically.
 
 
 ## Microsoft OAuth Setup
@@ -207,28 +206,24 @@ For production deployment:
 
 ### Public Routes
 - `/login` - Email/password login; Microsoft button disabled
-- `/signup` - Unprivileged pending student registration with per-client attempt budget
+- `/signup` - Unprivileged pending customer registration with per-client attempt budget
 
 ### Protected Routes
-All routes under `app/(app)/` require authentication:
-- `/dashboard` - Main dashboard
-- `/students` - Student management
-- `/transactions` - Transaction history
-- `/pos` - Point of sale
-- `/topup` - Top-up interface
+Operator routes under `app/(app)/admin/` require fresh staff/admin authorization:
+- `/admin` - Shared staff/admin dashboard
+- `/admin/customers` - Operator customer management
+- `/admin/transactions` - Transaction history
+- `/admin/pos` - Point of sale
+- `/admin/topup` - Top-up interface
+- `/admin/users`, `/admin/payments` - Administrator-only account/payment decisions
+- `/customer`, `/customer/pending` - Customer-only owned account or waiting page
 
 ### Session Guard
 
-The session guard is implemented in `app/(app)/layout.tsx`:
+The operator guard is implemented in `app/(app)/admin/layout.tsx`:
 
 ```typescript
-const session = await auth.api.getSession({
-  headers: await headers(),
-});
-
-if (!session) {
-  redirect("/login");
-}
+const session = await requirePageStaffContext();
 ```
 
 ## Running the App
@@ -246,8 +241,8 @@ Navigate to `http://localhost:3000` - you'll be redirected to the login page.
 ### First User Creation
 
 1. Run `./scps-cli users` to create the first administrator.
-2. Students register at `/signup`, then sign in to check pending status.
-3. The administrator verifies and links each student in `/admin/users`.
+2. Customers register at `/signup`, then sign in to check pending status.
+3. The administrator verifies and links each customer in `/admin/users`.
 
 ### Production
 
@@ -267,7 +262,7 @@ See [Deployment Guide](deployment.md) for production setup with proper secrets m
 - ✅ Secure password hashing (scrypt via Better Auth)
 - ✅ Session tokens with expiration
 - ✅ CSRF protection
-- ✅ Administrator-approved student links and fresh database role checks
+- ✅ Administrator-approved customer links and fresh database role checks
 
 ### Session Configuration
 
@@ -354,7 +349,7 @@ See the [Troubleshooting Guide](troubleshooting.md#authentication-issues) for co
 
 Potential authentication improvements:
 
-- [x] Role-based access control (admin, staff, student)
+- [x] Role-based access control (admin, staff, customer)
 - [ ] Email verification for new signups
 - [ ] Password reset flow via email
 - [ ] Two-factor authentication (2FA)

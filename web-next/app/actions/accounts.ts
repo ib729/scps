@@ -27,8 +27,8 @@ export async function updateAccountAction(customerId: number, data: unknown) {
     await requireStaffContext();
     const validated = updateAccountSchema.parse(data);
     updateAccount(customerId, validated);
-    revalidatePath("/customers");
-    revalidatePath(`/customers/${customerId}`);
+    revalidatePath("/admin/customers");
+    revalidatePath(`/admin/customers/${customerId}`);
     return { success: true };
   } catch {
     return { success: false, error: "Failed to update account" };
@@ -39,8 +39,8 @@ export async function adjustBalanceAction(customerId: number, delta: number) {
   try {
     await requireStaffContext();
     adjustBalance(customerId, delta);
-    revalidatePath("/customers");
-    revalidatePath(`/customers/${customerId}`);
+    revalidatePath("/admin/customers");
+    revalidatePath(`/admin/customers/${customerId}`);
     return { success: true };
   } catch {
     return { success: false, error: "Failed to adjust balance" };

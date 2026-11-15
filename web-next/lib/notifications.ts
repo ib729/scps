@@ -116,7 +116,7 @@ export async function notifyWechatTopupRequestApproved(
 export async function notifyWechatTopupRequestClaimed(
   request: WechatTopupRequestWithCustomer,
 ) {
-  const reviewUrl = new URL("/wcp", process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").toString();
+  const reviewUrl = new URL("/admin/payments", process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").toString();
   await sendTelegramMessage(
     `${formatWechatTopupNotificationText(request, "WCP request marked paid")}\nReview in SCPS: ${reviewUrl}`,
   );

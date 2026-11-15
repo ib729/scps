@@ -56,7 +56,7 @@ export default async function CustomerDetailPage({
           <p className="text-muted-foreground mt-1">Customer ID: {customer.id}</p>
         </div>
         <Button variant="outline" asChild>
-          <Link href="/customers">Back to Customers</Link>
+          <Link href="/admin/customers">Back to Customers</Link>
         </Button>
       </div>
 

@@ -80,27 +80,27 @@ import { toast } from "sonner"
 const navItems = [
   {
     title: "Dashboard",
-    url: "/dashboard",
+    url: "/admin",
     icon: LayoutDashboard,
   },
   {
     title: "Customers",
-    url: "/customers",
+    url: "/admin/customers",
     icon: Users,
   },
   {
     title: "Transactions",
-    url: "/transactions",
+    url: "/admin/transactions",
     icon: Receipt,
   },
   {
     title: "POS",
-    url: "/pos",
+    url: "/admin/pos",
     icon: ShoppingCart,
   },
   {
     title: "Top-up",
-    url: "/topup",
+    url: "/admin/topup",
     icon: TrendingUp,
   },
 ]
@@ -365,8 +365,8 @@ export function AppSidebar({ user: initialUser, initialPreferences, ...props }: 
 
   const isNavItemActive = React.useCallback(
     (url: string) => {
-      if (url === "/dashboard") {
-        return pathname === "/" || pathname === "/dashboard"
+      if (url === "/admin") {
+        return pathname === "/admin"
       }
 
       return pathname === url || pathname?.startsWith(`${url}/`)
@@ -516,7 +516,7 @@ export function AppSidebar({ user: initialUser, initialPreferences, ...props }: 
             <SidebarMenu>
               {[...navItems, ...(user?.role === "admin" ? [
                 { title: "Accounts", url: "/admin/users", icon: Users },
-                { title: "Payment review", url: "/wcp", icon: Receipt },
+                { title: "Payment review", url: "/admin/payments", icon: Receipt },
               ] : [])].map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton

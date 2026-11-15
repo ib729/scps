@@ -208,8 +208,8 @@ export async function approveCustomerRegistrationAction(data: unknown) {
     const input = z.object({ user_id: z.string().min(1), customer_id: z.number().int().positive() }).strict().parse(data);
     approveCustomerRegistration(user.id, input.user_id, input.customer_id);
     revalidatePath("/admin/users");
-    revalidatePath("/student");
-    revalidatePath("/student/pending");
+    revalidatePath("/customer");
+    revalidatePath("/customer/pending");
     return { success: true };
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : "Failed to approve registration" };
@@ -222,8 +222,8 @@ export async function setUserRoleAction(data: unknown) {
     const input = z.object({ user_id: z.string().min(1), role: z.enum(["admin", "staff", "customer"]) }).strict().parse(data);
     setUserRole(user.id, input.user_id, input.role);
     revalidatePath("/admin/users");
-    revalidatePath("/student");
-    revalidatePath("/wcp");
+    revalidatePath("/customer");
+    revalidatePath("/admin/payments");
     return { success: true };
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : "Failed to change role" };

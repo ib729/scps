@@ -60,10 +60,10 @@ export async function createTransactionAction(data: unknown) {
       return transaction;
     })();
 
-    revalidatePath("/transactions");
-    revalidatePath("/customers");
-    revalidatePath(`/customers/${validated.customer_id}`);
-    revalidatePath("/dashboard");
+    revalidatePath("/admin/transactions");
+    revalidatePath("/admin/customers");
+    revalidatePath(`/admin/customers/${validated.customer_id}`);
+    revalidatePath("/admin");
     return { success: true, data: result };
   } catch {
     return { success: false, error: "Failed to create transaction" };
@@ -86,10 +86,10 @@ export async function deleteTransactionAction(id: number) {
       adjustBalance(transaction.customer_id, -transaction.amount);
     })();
 
-    revalidatePath("/transactions");
-    revalidatePath("/customers");
-    revalidatePath(`/customers/${transaction.customer_id}`);
-    revalidatePath("/dashboard");
+    revalidatePath("/admin/transactions");
+    revalidatePath("/admin/customers");
+    revalidatePath(`/admin/customers/${transaction.customer_id}`);
+    revalidatePath("/admin");
     return { success: true };
   } catch {
     return { success: false, error: "Failed to delete transaction" };

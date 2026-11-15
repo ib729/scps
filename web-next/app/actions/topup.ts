@@ -79,11 +79,11 @@ export async function topupAction(data: unknown) {
       };
     })();
 
-    revalidatePath("/topup");
-    revalidatePath("/transactions");
-    revalidatePath("/customers");
-    revalidatePath(`/customers/${validated.customer_id}`);
-    revalidatePath("/dashboard");
+    revalidatePath("/admin/topup");
+    revalidatePath("/admin/transactions");
+    revalidatePath("/admin/customers");
+    revalidatePath(`/admin/customers/${validated.customer_id}`);
+    revalidatePath("/admin");
 
     return { success: true, data: result };
   } catch (error) {
@@ -143,12 +143,12 @@ export async function topupAndPayAction(data: unknown) {
       };
     })();
 
-    revalidatePath("/topup");
-    revalidatePath("/transactions");
-    revalidatePath("/customers");
-    revalidatePath(`/customers/${validated.customer_id}`);
-    revalidatePath("/dashboard");
-    revalidatePath("/pos");
+    revalidatePath("/admin/topup");
+    revalidatePath("/admin/transactions");
+    revalidatePath("/admin/customers");
+    revalidatePath(`/admin/customers/${validated.customer_id}`);
+    revalidatePath("/admin");
+    revalidatePath("/admin/pos");
 
     return { success: true, data: result };
   } catch (error) {
@@ -197,10 +197,10 @@ export async function adjustBalanceManualAction(data: unknown) {
       };
     })();
 
-    revalidatePath("/customers");
-    revalidatePath(`/customers/${validated.customer_id}`);
-    revalidatePath("/transactions");
-    revalidatePath("/dashboard");
+    revalidatePath("/admin/customers");
+    revalidatePath(`/admin/customers/${validated.customer_id}`);
+    revalidatePath("/admin/transactions");
+    revalidatePath("/admin");
 
     return { success: true, data: result };
   } catch (error) {
