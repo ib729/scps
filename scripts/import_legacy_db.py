@@ -20,6 +20,7 @@ import sqlite3
 import tempfile
 from datetime import datetime
 from pathlib import Path
+from sqlite_snapshot import backup_database
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -42,11 +43,6 @@ def sqlite_connect(path: Path, *, readonly: bool = False) -> sqlite3.Connection:
     conn.execute("PRAGMA busy_timeout = 5000;")
     return conn
 
-
-def backup_database(source_path: Path, backup_path: Path) -> None:
-    backup_path.parent.mkdir(parents=True, exist_ok=True)
-    with sqlite_connect(source_path) as source_conn, sqlite_connect(backup_path) as backup_conn:
-        source_conn.backup(backup_conn)
 
 
 def snapshot_database(source_path: Path, prefix: str) -> Path:

@@ -1,140 +1,26 @@
 #!/bin/bash
 
-# Restore STUCO Database from Cloudflare R2 (using rclone)
-# Usage: ./restore_from_r2.sh <backup_filename.tar.zst>
-
-set -e
-
-# Check if backup filename is provided
-if [ -z "$1" ]; then
-    echo "Usage: $0 <backup_filename.tar.zst>"
-    echo ""
-    echo "Example: $0 stuco_backup_20241209_020000.tar.zst"
-    echo ""
-    echo "To list available backups in R2:"
-    echo "  rclone ls \$RCLONE_CRYPT_REMOTE:"
+# Usage: ./restore_from_r2.sh <backup_filename.tar.zst> --writers-stopped
+set -euo pipefail
+umask 077
+if [[ $# != 2 || "$2" != "--writers-stopped" || "$1" == */* || "$1" == "." || "$1" == ".." || "$1" != *.tar.zst ]]; then
+    echo "Usage: $0 <backup_filename.tar.zst> --writers-stopped" >&2
     exit 1
 fi
-
-BACKUP_FILE="$1"
-LOCAL_BACKUP_DIR="db_backups"
-LOCAL_PATH="${LOCAL_BACKUP_DIR}/${BACKUP_FILE}"
-
-# Rclone Configuration
-RCLONE_REMOTE="${RCLONE_REMOTE:-r2}"
-RCLONE_CRYPT_REMOTE="${RCLONE_CRYPT_REMOTE:-r2-crypt}"
-R2_PATH="${R2_PATH:-stuco-db-backups}"
-
-echo "============================================================"
-echo "STUCO Database Restore from Cloudflare R2 (rclone)"
-echo "============================================================"
-echo "Backup: $BACKUP_FILE"
-echo ""
-
-# Check if rclone is installed
-if ! command -v rclone &> /dev/null; then
-    echo "❌ Error: rclone is not installed!"
-    echo ""
-    echo "Install with:"
-    echo "  sudo apt install rclone"
-    echo "or download from: https://rclone.org/downloads/"
+if command -v systemctl >/dev/null 2>&1 && systemctl is-active --quiet stuco-web.service; then
+    echo "Refusing restore while stuco-web.service is active" >&2
     exit 1
 fi
-
-if ! command -v zstd &> /dev/null; then
-    echo "❌ Error: zstd is not installed!"
-    echo ""
-    echo "Install with:"
-    echo "  sudo apt install zstd"
-    echo "or"
-    echo "  brew install zstd"
-    exit 1
-fi
-
-# Check if rclone remote is configured
-if ! rclone listremotes | grep -q "^${RCLONE_REMOTE}:$"; then
-    echo "❌ Error: rclone remote '${RCLONE_REMOTE}' not configured!"
-    echo ""
-    echo "Configure rclone with:"
-    echo "  rclone config"
-    echo ""
-    echo "Or set RCLONE_REMOTE environment variable to your remote name:"
-    echo "  export RCLONE_REMOTE=your-remote-name"
-    exit 1
-fi
-
-if ! rclone listremotes | grep -q "^${RCLONE_CRYPT_REMOTE}:$"; then
-    echo "❌ Error: encrypted rclone remote '${RCLONE_CRYPT_REMOTE}' not configured!"
-    echo ""
-    echo "Run the helper script:"
-    echo "  ./scripts/setup-r2-crypt.sh"
-    exit 1
-fi
-
-# Create local backup directory
-mkdir -p "$LOCAL_BACKUP_DIR"
-
-# Download from R2
-echo "------------------------------------------------------------"
-echo "Step 1: Downloading from Cloudflare R2"
-echo "------------------------------------------------------------"
-
-rclone copy "${RCLONE_CRYPT_REMOTE}:${BACKUP_FILE}" "$LOCAL_BACKUP_DIR/" --progress
-
-if [ $? -eq 0 ]; then
-    echo "✓ Download complete: $LOCAL_PATH"
-else
-    echo "❌ Download failed!"
-    exit 1
-fi
-
-echo ""
-
-# Backup current database before restore
-echo "------------------------------------------------------------"
-echo "Step 2: Backing up current database"
-echo "------------------------------------------------------------"
-
-if [ -f "stuco.db" ]; then
-    CURRENT_BACKUP="db_backups/pre_restore_backup_$(date +%Y%m%d_%H%M%S).tar.zst"
-    export ZSTD_CLEVEL="${ZSTD_CLEVEL:-15}"
-    export ZSTD_NBTHREADS="${ZSTD_NBTHREADS:-0}"
-    tar --zstd -cf "$CURRENT_BACKUP" stuco.db stuco.db-wal stuco.db-shm 2>/dev/null || tar --zstd -cf "$CURRENT_BACKUP" stuco.db 2>/dev/null
-    echo "✓ Current database backed up to: $CURRENT_BACKUP"
-else
-    echo "ℹ No existing database to backup"
-fi
-
-echo ""
-
-# Extract the backup
-echo "------------------------------------------------------------"
-echo "Step 3: Restoring database"
-echo "------------------------------------------------------------"
-
-# Detect project root dynamically
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-cd "$PROJECT_ROOT"
-
-# Extract
-tar --zstd -xf "$LOCAL_PATH"
-
-if [ $? -eq 0 ]; then
-    echo "✓ Database restored successfully!"
-else
-    echo "❌ Extraction failed!"
-    exit 1
-fi
-
-echo ""
-echo "============================================================"
-echo "✓ Restore Complete!"
-echo "============================================================"
-echo ""
-echo "Database restored from: $BACKUP_FILE"
-echo ""
-echo "To verify the restore:"
-echo "  sqlite3 stuco.db '.tables'"
-echo "  sqlite3 stuco.db 'SELECT COUNT(*) FROM students;'"
-echo ""
+RCLONE_CRYPT_REMOTE="${RCLONE_CRYPT_REMOTE:-r2-crypt}"
+STAGING="$(mktemp -d)"
+trap 'rm -rf "$STAGING"' EXIT
+mkdir "$STAGING/extracted"
+rclone copyto "${RCLONE_CRYPT_REMOTE}:$1" "$STAGING/archive.tar.zst"
+SOURCE="$(python3 "$SCRIPT_DIR/sqlite_snapshot.py" extract "$STAGING/archive.tar.zst" "$STAGING/extracted")"
+mkdir -p "$PROJECT_ROOT/db_backups"
+PRE_RESTORE="$PROJECT_ROOT/db_backups/pre_restore_backup_$(date +%Y%m%d_%H%M%S)_$$.tar.zst"
+"$SCRIPT_DIR/web_backup.sh" "$PRE_RESTORE"
+"$PROJECT_ROOT/scps-cli" import-db "$SOURCE" --yes
+echo "Restore complete; pre-restore snapshot: $PRE_RESTORE"

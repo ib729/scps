@@ -7,10 +7,8 @@
 set -e
 
 # Configuration
-DB_FILE="stuco.db"
-DB_WAL="stuco.db-wal" 
-DB_SHM="stuco.db-shm"
-LOCAL_BACKUP_DIR="db_backups"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LOCAL_BACKUP_DIR="$SCRIPT_DIR/../db_backups"
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 BACKUP_NAME="stuco_backup_${TIMESTAMP}"
 
@@ -74,11 +72,6 @@ if ! rclone listremotes | grep -q "^${RCLONE_CRYPT_REMOTE}:$"; then
     exit 1
 fi
 
-# Check if database exists
-if [ ! -f "$DB_FILE" ]; then
-    echo "❌ Error: Database file '$DB_FILE' not found!"
-    exit 1
-fi
 
 # Create local backup directory
 mkdir -p "$LOCAL_BACKUP_DIR"
@@ -89,28 +82,7 @@ echo "Step 1: Creating compressed backup"
 echo "------------------------------------------------------------"
 BACKUP_FILE="${LOCAL_BACKUP_DIR}/${BACKUP_NAME}.tar.zst"
 
-if ! command -v zstd &> /dev/null; then
-    echo "❌ Error: zstd is not installed!"
-    echo ""
-    echo "Install with:"
-    echo "  sudo apt install zstd"
-    echo "or"
-    echo "  brew install zstd"
-    exit 1
-fi
-
-export ZSTD_CLEVEL="${ZSTD_CLEVEL:-15}"
-export ZSTD_NBTHREADS="${ZSTD_NBTHREADS:-0}"
-
-# Create tar archive (suppress warnings for missing WAL/SHM files)
-if tar --zstd -cf "$BACKUP_FILE" "$DB_FILE" "$DB_WAL" "$DB_SHM" 2>/dev/null; then
-    echo "✓ All database files included"
-elif tar --zstd -cf "$BACKUP_FILE" "$DB_FILE" 2>/dev/null; then
-    echo "⚠ Warning: WAL/SHM files not found, backed up main DB only"
-else
-    echo "❌ Error: Failed to create backup archive"
-    exit 1
-fi
+"$SCRIPT_DIR/web_backup.sh" "$BACKUP_FILE"
 
 BACKUP_SIZE=$(du -h "$BACKUP_FILE" | cut -f1)
 echo "✓ Local backup created: $BACKUP_FILE ($BACKUP_SIZE)"
@@ -168,8 +140,7 @@ echo "Local:  $BACKUP_FILE"
 echo "Remote: ${RCLONE_CRYPT_REMOTE}:${BACKUP_NAME}.tar.zst"
 echo ""
 echo "To restore from this backup:"
-echo "  cd \$PROJECT_ROOT"
-echo "  tar --zstd -xf $BACKUP_FILE"
+echo "  $SCRIPT_DIR/restore_from_r2.sh ${BACKUP_NAME}.tar.zst --writers-stopped"
 echo ""
 echo "To list all R2 backups:"
 echo "  rclone ls ${RCLONE_CRYPT_REMOTE}:"

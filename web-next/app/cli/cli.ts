@@ -72,10 +72,11 @@ async function main() {
     });
 
   program
-    .command("import-db")
-    .description("Import an SQLite backup database and completely overwrite active data")
-    .action(async () => {
-      await handleImportDatabase();
+    .command("import-db [source]")
+    .description("Validate and restore an SQLite backup; stop all writers first")
+    .option("-y, --yes", "Confirm restoring the explicit source without prompts")
+    .action(async (source: string | undefined, options: { yes?: boolean }) => {
+      if (!await handleImportDatabase(source, options.yes)) process.exitCode = 1;
     });
 
   program

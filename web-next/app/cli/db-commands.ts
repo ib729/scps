@@ -260,14 +260,14 @@ export async function handleHardwareDiagnostics() {
   }
 }
 
-export async function handleImportDatabase() {
+export async function handleImportDatabase(sourcePath?: string, confirmed?: boolean): Promise<boolean> {
   const activeDbPath = dbPath;
   if (!activeDbPath) {
     p.log.error("Active database path is not defined or found.");
-    return;
+    return false;
   }
 
-  const sourcePath = await p.text({
+  const selectedSource = sourcePath ?? (confirmed ? "" : await p.text({
     message: "Enter the absolute or relative path to your SQLite database backup (.db file)",
     placeholder: "e.g. stuco.db.backup",
     validate: (v = "") => {
@@ -287,24 +287,25 @@ export async function handleImportDatabase() {
       }
       return undefined;
     },
-  });
+  }));
 
-  if (p.isCancel(sourcePath)) return;
+  if (p.isCancel(selectedSource) || !selectedSource.trim()) return false;
 
-  const confirm = await p.confirm({
+  const confirm = confirmed ?? await p.confirm({
     message: pc.red(pc.bold("CRITICAL WARNING: All active data will be replaced. Stop the app and other writers first to avoid losing new work. Only current-schema backups are accepted. Continue?")),
   });
 
-  if (!confirm || p.isCancel(confirm)) return;
+  if (!confirm || p.isCancel(confirm)) return false;
 
   const s = p.spinner();
   s.start("Validating backup and restoring through SQLite...");
 
   try {
-    await restoreDatabase(sourcePath.trim(), activeDbPath, getDb());
+    await restoreDatabase(selectedSource.trim(), activeDbPath, getDb());
     closeDb();
     getDb();
     s.stop(`✓ Database successfully restored! Active at: ${activeDbPath}`);
+    return true;
   } catch (err) {
     s.stop("Failed to import database");
     p.log.error(err instanceof Error ? err.message : "Unknown error");
@@ -313,5 +314,6 @@ export async function handleImportDatabase() {
     try {
       getDb();
     } catch {}
+    return false;
   }
 }

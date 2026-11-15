@@ -137,7 +137,7 @@ Migrations update existing DBs. Run with `./scripts/run_migration.sh <script.sql
 
 **Status**: Complete; new DBs use updated schema.
 
-**Rollback**: `cp stuco.db.backup.<timestamp> stuco.db`
+**Recovery**: Stop all writers and use `./scps-cli import-db /absolute/path/to/validated.db --yes`; never copy over a live SQLite file or delete its sidecars.
 
 ### 2. Decimal Currency (migrate_decimal_currency.sql)
 
@@ -163,7 +163,7 @@ Migrations update existing DBs. Run with `./scripts/run_migration.sh <script.sql
 
 ### Running Migrations
 
-1. Backup manually: `cp stuco.db stuco.db.backup`.
+1. Snapshot the configured ledger: `./scripts/web_backup.sh /absolute/path/to/backup.tar.zst`.
 
 2. Run:
 
@@ -181,12 +181,10 @@ See scripts for details. Migration files are located in `migrations/` directory.
 ### Manual Backup
 
 ```bash
-# Quick backup
-cp stuco.db stuco.db.backup.$(date +%Y%m%d_%H%M%S)
-
-# Backup with compression
-tar -czf stuco_backup_$(date +%Y%m%d_%H%M%S).tar.gz stuco.db stuco.db-wal stuco.db-shm
+./scripts/web_backup.sh /absolute/path/to/stuco_backup.tar.zst
 ```
+
+The backup contains one integrity/FK-checked SQLite snapshot including committed WAL data. It is published only after compression succeeds. Old archives may already omit transactions; integrity alone cannot prove completeness.
 
 ### Database Reset
 
@@ -314,13 +312,10 @@ To restore a database from R2:
 rclone ls r2-crypt:
 
 # Restore specific backup
-./scripts/restore_from_r2.sh stuco_backup_20251110_005702.tar.zst
+./scripts/restore_from_r2.sh stuco_backup_20251110_005702.tar.zst --writers-stopped
 ```
 
-The restore script will:
-- Download the backup from R2
-- Create a safety backup of current database
-- Extract and restore the database files
+Stop all writers first; the flag acknowledges non-systemd writers too. The script refuses an active web service, downloads to private staging, rejects unsafe archives, saves a consistent pre-restore backup, and restores validated compatible cent-based data through SQLite. It never extracts over the live database or changes service state. A failed migration leaves its snapshot for deliberate recovery, not automatic rollback.
 
 #### List and Manage R2 Backups
 

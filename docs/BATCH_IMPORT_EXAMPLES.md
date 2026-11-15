@@ -119,7 +119,7 @@ python hardware-pi/batch_import_students.py new_students.csv
 - **UIDs are case-insensitive** - will be converted to uppercase
 - **Duplicates are skipped** by default (use --no-skip-duplicates to fail instead)
 - **You can add cards later** by re-importing with just those rows
-- **Backup first** if you're nervous: `cp stuco.db stuco.db.backup`
+- **Backup first**: `./scripts/web_backup.sh /absolute/path/to/backup.tar.zst`
 
 ## Verification
 

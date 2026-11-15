@@ -111,6 +111,10 @@ async function main() {
     assert.equal(imported.status, 0, imported.stdout + imported.stderr);
     assert.ok(active.prepare("SELECT id FROM students WHERE name = 'CSV CLI Check'").get());
     assert.equal(fs.existsSync(path.join(directory, "stuco.db")), false);
+    for (const args of [["--yes"], [path.join(directory, "missing.db"), "--yes"], [invalidPath, "--yes"]]) {
+      const result = spawnSync(process.execPath, ["--import", "tsx", path.join(root, "app/cli/cli.ts"), "import-db", ...args], { ...options, cwd: root, timeout: 10_000 });
+      assert.equal(result.status, 1, result.stdout + result.stderr);
+    }
     console.log("CLI credentials, amounts, ledger rollback, restore validation, lock refusal, cross-process WAL, and CSV checks passed.");
   } finally {
     active.close();

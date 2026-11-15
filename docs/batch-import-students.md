@@ -302,7 +302,7 @@ iconv -f ISO-8859-1 -t UTF-8 students_bad.csv > students.csv
 
 1. **Always backup first**: The system automatically backs up, but be safe:
    ```bash
-   cp stuco.db stuco.db.backup
+   ./scripts/web_backup.sh /absolute/path/to/backup.tar.zst
    ```
 
 2. **Use dry-run first**: Preview imports before committing:

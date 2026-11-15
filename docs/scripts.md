@@ -248,35 +248,7 @@ Refer to the **Unified Administrative CLI** section at the top of this document 
 ./scripts/run_migration.sh migrate_decimal_currency.sql
 ```
 
-**Steps:**
-1. Checks database file exists
-2. Locates migration file (in migrations/ or specified path)
-3. Creates timestamped backup
-4. Runs migration SQL file
-5. Tests foreign key constraints
-6. Provides rollback instructions
-
-**Output:**
-```
-=== Student Deletion Fix Migration ===
-
-1. Creating backup: stuco.db.backup.20251110_005702
-   ✓ Backup created
-
-2. Running migration...
-   ✓ Migration completed successfully!
-
-3. Testing deletion functionality...
-   ✓ Foreign keys are enabled
-
-=== Migration Complete ===
-
-Student deletion should now work properly!
-Backup saved as: stuco.db.backup.20251110_005702
-
-If you encounter any issues, restore the backup with:
-  cp stuco.db.backup.20251110_005702 stuco.db
-```
+**Steps:** Resolve the configured ledger, create an integrity/FK-checked SQLite snapshot, then run `sqlite3 -bail`. Failure exits nonzero and retains that snapshot for deliberate recovery. Stop writers and use `./scps-cli import-db /absolute/path/to/validated.db --yes` to restore; never overwrite a live database file.
 
 **When to Use:**
 - Applying schema changes to existing database
@@ -285,7 +257,7 @@ If you encounter any issues, restore the backup with:
 
 **Safety Features:**
 - Automatic backup before migration
-- Exit on error with automatic rollback
+- Exit on SQL failure; retain the snapshot without automatic rollback
 - Verification of foreign key constraints
 - Clear rollback instructions
 
@@ -394,7 +366,7 @@ Remote: r2-crypt:stuco_backup_20251110_005702.tar.zst
 
 **Usage:**
 ```bash
-./scripts/restore_from_r2.sh <backup_filename.tar.zst>
+./scripts/restore_from_r2.sh <backup_filename.tar.zst> --writers-stopped
 ```
 
 **Example:**
@@ -403,20 +375,10 @@ Remote: r2-crypt:stuco_backup_20251110_005702.tar.zst
 rclone ls r2-crypt:
 
 # Restore specific backup
-./scripts/restore_from_r2.sh stuco_backup_20251110_005702.tar.zst
+./scripts/restore_from_r2.sh stuco_backup_20251110_005702.tar.zst --writers-stopped
 ```
 
-**Steps:**
-1. Downloads backup from R2 to `db_backups/` using rclone
-2. Creates safety backup of current database
-3. Extracts and restores database files
-4. Provides verification commands
-
-**Safety Features:**
-- Backs up current database before restore
-- Checks rclone remote configuration before proceeding
-- Validates download success
-- Clear error messages
+Stop every writer before invoking this command. It refuses a detected active web service; the flag acknowledges that other writers are also stopped. Downloads and extraction use private staging. Only root regular SQLite backup members are accepted; SQLite validates integrity, foreign keys, schema and cent scale before copying through its backup API. A consistent pre-restore archive remains in `db_backups`. Services and live sidecars are never silently stopped, replaced or removed.
 
 ## Student Management Scripts
 
