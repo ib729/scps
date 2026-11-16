@@ -53,7 +53,7 @@ test("default main deploy fast-forwards, frozen-installs, builds and only then r
     assert.deepEqual(f.calls().filter(call => call.name !== "sudo").map(call => [call.name, ...call.args]), [
       ["git", "status", "--porcelain"], ["git", "fetch", "origin"], ["git", "branch", "--show-current"],
       ["git", "pull", "--ff-only", "origin", "main"], ["pnpm", "--dir", web, "install", "--frozen-lockfile"],
-      ["pnpm", "--dir", web, "build"], ["systemctl", "restart", "stuco-web"], ["systemctl", "--no-pager", "--full", "status", "stuco-web"],
+      ["pnpm", "--dir", web, "build"], ["systemctl", "restart", "scps"], ["systemctl", "--no-pager", "--full", "status", "scps"],
     ]);
     assert.ok(f.calls().every(call => call.cwd === path.dirname(web)));
   } finally { fs.rmSync(f.directory, { recursive: true, force: true }); }

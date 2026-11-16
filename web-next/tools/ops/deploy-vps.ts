@@ -33,7 +33,7 @@ async function run(command: string, args: string[], capture = false): Promise<st
 
 export async function main(args = process.argv.slice(2)): Promise<void> {
   if (args[0] === "--help" || args[0] === "-h") {
-    console.log("Usage: node --import tsx tools/ops/deploy-vps.ts [branch]\nDeploy the clean local checkout (default: main), install with the frozen lockfile, build and restart stuco-web.");
+    console.log("Usage: node --import tsx tools/ops/deploy-vps.ts [branch]\nDeploy the clean local checkout (default: main), install with the frozen lockfile, build and restart scps.");
     return;
   }
   if (args.length > 1) throw new Error("Expected at most one branch");
@@ -55,8 +55,8 @@ export async function main(args = process.argv.slice(2)): Promise<void> {
   await run("git", ["pull", "--ff-only", "origin", branch]);
   await run("pnpm", ["--dir", web, "install", "--frozen-lockfile"]);
   await run("pnpm", ["--dir", web, "build"]);
-  await run("sudo", ["systemctl", "restart", "stuco-web"]);
-  await run("sudo", ["systemctl", "--no-pager", "--full", "status", "stuco-web"]);
+  await run("sudo", ["systemctl", "restart", "scps"]);
+  await run("sudo", ["systemctl", "--no-pager", "--full", "status", "scps"]);
 }
 
 if (process.argv[1] && fs.existsSync(process.argv[1]) && import.meta.url === pathToFileURL(fs.realpathSync(process.argv[1])).href) {
