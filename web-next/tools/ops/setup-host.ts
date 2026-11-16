@@ -100,7 +100,7 @@ export function main(args = process.argv.slice(2)): number {
     } catch { throw new Error("systemd is unavailable; use --no-systemd"); }
   }
   const replacements: [string, string][] = [
-    ["__RUN_USER__", unitValue(appUser)], ["__REPO_ROOT__", unitValue(repository.replace(/\/$/, ""))],
+    ["__RUN_USER__", unitValue(appUser)], ["__ENV_FILE__", path.join(repository, ".env.broadcaster").replaceAll("%", "%%").replaceAll("\\", "\\\\")],
     ["__NODE_EXEC__", unitValue(process.execPath)], ["__RUN_PATH__", unitValue(process.env.PATH ?? "/usr/bin:/bin")],
     ["__WORKING_DIR__", (() => { if (/[\0\r\n]/.test(web)) throw new Error("Systemd paths must be single-line values"); return web.replaceAll("%", "%%").replaceAll("\\", "\\\\"); })()],
   ];

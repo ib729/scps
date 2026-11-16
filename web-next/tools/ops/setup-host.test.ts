@@ -157,6 +157,7 @@ Promise.resolve().then(()=>main(["--systemd"])).then(code=>{process.exitCode=cod
     const verification = spawnSync("systemd-analyze", ["verify", path.join(units, name)], { encoding: "utf8" });
     if (verification.error?.message.includes("ENOENT")) t.diagnostic("systemd-analyze unavailable; unit verification skipped");
     else assert.equal(verification.status, 0, verification.stderr);
+    assert.doesNotMatch(verification.stderr, /EnvironmentFile=.*(?:not absolute|ignoring)/i);
     assert.ok(unit.includes(`tools/ops/reset-usb-nfc.ts ${usb}`));
     assert.ok(unit.includes(`POS_LANE_ID=${lane}`));
     assert.match(unit, /TimeoutStopSec=10/);

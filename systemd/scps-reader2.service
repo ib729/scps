@@ -9,7 +9,7 @@ Type=simple
 User=__RUN_USER__
 WorkingDirectory=__WORKING_DIR__
 # Load environment variables from file (including NFC_TAP_SECRET)
-EnvironmentFile="__REPO_ROOT__/.env.broadcaster"
+EnvironmentFile=__ENV_FILE__
 Environment="NEXTJS_URL=http://localhost:3000"
 Environment="POS_LANE_ID=reader-2"
 Environment="PN532_DEVICE=tty:USB1:pn532"
