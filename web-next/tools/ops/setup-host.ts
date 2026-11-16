@@ -46,9 +46,10 @@ export function configureDatabase(): string {
   fs.mkdirSync(path.dirname(target), { recursive: true });
   if (!fs.existsSync(target)) {
     const temporary = path.join(path.dirname(target), `.scps-init-${randomUUID()}`);
+    const descriptor = fs.openSync(temporary, "wx", 0o600);
     let database: Database.Database | undefined;
     try {
-      fs.closeSync(fs.openSync(temporary, "wx", 0o600));
+      fs.closeSync(descriptor);
       database = new Database(temporary);
       database.pragma("foreign_keys = ON");
       database.transaction(() => {

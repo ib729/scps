@@ -99,6 +99,17 @@ configureDatabase();`, f.root, f.env);
   assert.equal(await fs.readFile(target, "utf8"), "concurrent");
 });
 
+test("a temporary filename collision does not delete another file", async t => {
+  const f = await fixture(t);
+  const result = await probe(f.web, `import fs from 'node:fs'; import { configureDatabase } from './ops/setup-host';
+const open=fs.openSync; fs.openSync=((file,...args)=>{if(String(file).includes('.scps-init-')) fs.writeFileSync(file,'other'); return Reflect.apply(open,fs,[file,...args]);}) as typeof fs.openSync;
+configureDatabase();`, f.root, f.env);
+  assert.notEqual(result.status, 0);
+  const temporary = (await fs.readdir(f.root)).find(name => name.startsWith(".scps-init-"));
+  assert.ok(temporary);
+  assert.equal(await fs.readFile(path.join(f.root, temporary), "utf8"), "other");
+});
+
 test("duplicate secret assignments converge to runtime value without logging it", async t => {
   const f = await fixture(t);
   const envFile = path.join(f.web, ".env.local");
