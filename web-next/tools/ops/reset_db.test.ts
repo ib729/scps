@@ -28,7 +28,8 @@ test("reset requires stopped writers and typed yes, then resets core and auth wi
   const coreSchema = fs.readFileSync(path.join(web, "../migrations/schema.sql"), "utf8");
   fs.writeFileSync(schemaPath, coreSchema);
   fs.copyFileSync(path.join(web, "migrations/better_auth_schema.sql"), path.join(packageDirectory, "migrations/better_auth_schema.sql"));
-  fs.writeFileSync(path.join(directory, "systemctl"), "#!/bin/sh\nprintf 'inactive\\n'\nexit 0\n", { mode: 0o700 });
+  const stopped = "#!/bin/sh\ncase \"$*\" in *LoadState*stuco-web.service*) echo not-found;; *LoadState*) echo loaded;; *) echo inactive;; esac\n";
+  fs.writeFileSync(path.join(directory, "systemctl"), stopped, { mode: 0o700 });
   const filename = path.join(directory, "ledger.db");
   const database = new Database(filename);
   database.exec(fs.readFileSync(path.join(web, "../migrations/schema.sql"), "utf8") + fs.readFileSync(path.join(web, "migrations/better_auth_schema.sql"), "utf8"));
@@ -44,7 +45,13 @@ test("reset requires stopped writers and typed yes, then resets core and auth wi
     assert.notEqual(run(["--writers-stopped"], "yes\n").status, 0);
     assert.equal(database.prepare("SELECT balance FROM accounts").pluck().get(), 731);
     assert.equal(database.prepare("SELECT role FROM user").pluck().get(), "admin");
-    fs.writeFileSync(path.join(directory, "systemctl"), "#!/bin/sh\nprintf 'inactive\\n'\nexit 0\n", { mode: 0o700 });
+    for (const active of ["scps.service", "stuco-web.service"]) {
+      fs.writeFileSync(path.join(directory, "systemctl"), `#!/bin/sh\ncase \"$*\" in *LoadState*) echo loaded;; *${active}*) echo active;; *) echo inactive;; esac\n`, { mode: 0o700 });
+      assert.notEqual(run(["--writers-stopped"], "yes\n").status, 0);
+      assert.equal(database.prepare("SELECT balance FROM accounts").pluck().get(), 731);
+      assert.equal(database.prepare("SELECT role FROM user").pluck().get(), "admin");
+    }
+    fs.writeFileSync(path.join(directory, "systemctl"), stopped, { mode: 0o700 });
     assert.equal(database.prepare("SELECT balance FROM accounts").pluck().get(), 731);
     fs.writeFileSync(schemaPath, coreSchema + "\nINSERT INTO nonexistent VALUES(1);");
     const failed = run(["--writers-stopped"], "yes\n");
