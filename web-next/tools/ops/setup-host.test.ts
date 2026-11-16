@@ -49,12 +49,14 @@ test("setup from either cwd keeps one quoted canonical database and preserves cu
   const f = await fixture(t);
   const envFile = path.join(f.web, ".env.local");
   const target = path.join(f.web, "private dir/ledger.db");
-  await fs.writeFile(envFile, 'DATABASE_PATH="private dir/ledger.db"\nEXAMPLE=old\nEXAMPLE=second\n');
+  await fs.writeFile(envFile, 'DATABASE_PATH=wrong.db\nexport DATABASE_PATH = \"private dir/ledger.db\"\nEXAMPLE=old\nEXAMPLE=second\n');
   for (const [index, cwd] of [f.root, f.web].entries()) {
     const result = await probe(f.web, 'import { configureDatabase, ensureEnvValue } from "./ops/setup-host"; configureDatabase(); ensureEnvValue("EXAMPLE", "updated");', cwd, f.env);
     assert.equal(result.status, 0, result.stderr);
     assert.equal(parse(await fs.readFile(envFile)).DATABASE_PATH, target);
-    assert.match(await fs.readFile(envFile, "utf8"), /EXAMPLE=updated\nEXAMPLE=second\n/);
+    assert.match(await fs.readFile(envFile, "utf8"), /EXAMPLE=updated\n/);
+    assert.equal((await fs.readFile(envFile, "utf8")).match(/EXAMPLE=/g)?.length, 1);
+    assert.equal((await fs.readFile(envFile, "utf8")).match(/DATABASE_PATH/g)?.length, 1);
     const db = new Database(target);
     try {
       assert.ok(db.prepare("SELECT name FROM sqlite_schema WHERE name='session'").get());
@@ -69,6 +71,45 @@ test("setup from either cwd keeps one quoted canonical database and preserves cu
     await assert.rejects(fs.stat(path.join(f.root, "stuco.db")), { code: "ENOENT" });
     await assert.rejects(fs.stat(path.join(f.web, "stuco.db")), { code: "ENOENT" });
   }
+});
+
+test("failed schema leaves no database and corrected setup can initialize it", async t => {
+  const f = await fixture(t);
+  const schema = path.join(f.root, "migrations/schema.sql");
+  const original = await fs.readFile(schema);
+  await fs.copyFile(path.join(f.web, ".env.local.example"), path.join(f.web, ".env.local"));
+  await fs.writeFile(schema, "invalid sql");
+  const script = 'import { configureDatabase } from "./ops/setup-host"; configureDatabase();';
+  const failed = await probe(f.web, script, f.root, f.env);
+  assert.notEqual(failed.status, 0);
+  await assert.rejects(fs.stat(path.join(f.root, "scps.db")), { code: "ENOENT" });
+  await fs.writeFile(schema, original);
+  const success = await probe(f.web, script, f.root, f.env);
+  assert.equal(success.status, 0, success.stderr);
+  assert.equal((await fs.stat(path.join(f.root, "scps.db"))).mode & 0o777, 0o600);
+});
+
+test("concurrent target is never overwritten during initialization", async t => {
+  const f = await fixture(t);
+  const target = path.join(f.root, "scps.db");
+  const result = await probe(f.web, `import fs from 'node:fs'; import { configureDatabase } from './ops/setup-host';
+const link=fs.linkSync; fs.linkSync=((a,b)=>{fs.writeFileSync(b,'concurrent'); return link(a,b);}) as typeof fs.linkSync;
+configureDatabase();`, f.root, f.env);
+  assert.notEqual(result.status, 0);
+  assert.equal(await fs.readFile(target, "utf8"), "concurrent");
+});
+
+test("duplicate secret assignments converge to runtime value without logging it", async t => {
+  const f = await fixture(t);
+  const envFile = path.join(f.web, ".env.local");
+  await fs.writeFile(envFile, "BETTER_AUTH_SECRET=old\nexport BETTER_AUTH_SECRET = private-value\n# keep\n");
+  const result = await probe(f.web, 'import { readEnvValue, ensureEnvValue } from "./ops/setup-host"; ensureEnvValue("BETTER_AUTH_SECRET", readEnvValue("BETTER_AUTH_SECRET"));', f.root, f.env);
+  assert.equal(result.status, 0, result.stderr);
+  const contents = await fs.readFile(envFile, "utf8");
+  assert.equal(parse(contents).BETTER_AUTH_SECRET, "private-value");
+  assert.equal(contents.match(/BETTER_AUTH_SECRET/g)?.length, 1);
+  assert.ok(contents.includes("# keep"));
+  assert.ok(!(result.stdout + result.stderr).includes("private-value"));
 });
 
 test("typed setup renders both reader units safely and never prints the generated auth secret", async t => {

@@ -19,18 +19,18 @@ export function runAsUser(command: string, args: string[], cwd = web): void {
 
 export function readEnvValue(key: string): string {
   if (!fs.existsSync(envFile)) return "";
-  const line = fs.readFileSync(envFile, "utf8").split(/\r?\n/).find(value => value.startsWith(`${key}=`));
-  return line === undefined ? "" : parse(line)[key] ?? "";
+  return parse(fs.readFileSync(envFile))[key] ?? "";
 }
 
 export function ensureEnvValue(key: string, value: string): void {
   const lines = fs.existsSync(envFile) ? fs.readFileSync(envFile, "utf8").split(/\r?\n/) : [];
   if (lines.at(-1) === "") lines.pop();
-  const index = lines.findIndex(line => line.startsWith(`${key}=`));
-  if (index < 0) lines.push(`${key}=${value}`); else lines[index] = `${key}=${value}`;
+  const assignment = new RegExp(`^\\s*(?:export\\s+)?${key}\\s*(?:=|:\\s)`);
+  const filtered = lines.filter(line => !assignment.test(line));
+  filtered.push(`${key}=${value}`);
   const temporary = `${envFile}.tmp-${randomUUID()}`;
   try {
-    fs.writeFileSync(temporary, lines.join("\n") + "\n", { flag: "wx", mode: 0o600 });
+    fs.writeFileSync(temporary, filtered.join("\n") + "\n", { flag: "wx", mode: 0o600 });
     fs.renameSync(temporary, envFile);
   } finally { fs.rmSync(temporary, { force: true }); }
 }
@@ -45,16 +45,27 @@ export function configureDatabase(): string {
   ensureEnvValue("DATABASE_PATH", JSON.stringify(target));
   fs.mkdirSync(path.dirname(target), { recursive: true });
   if (!fs.existsSync(target)) {
-    const descriptor = fs.openSync(target, "wx", 0o600);
-    fs.closeSync(descriptor);
-    const database = new Database(target);
+    const temporary = path.join(path.dirname(target), `.scps-init-${randomUUID()}`);
+    let database: Database.Database | undefined;
     try {
+      fs.closeSync(fs.openSync(temporary, "wx", 0o600));
+      database = new Database(temporary);
       database.pragma("foreign_keys = ON");
       database.transaction(() => {
-        database.exec(fs.readFileSync(path.join(repository, "migrations/schema.sql"), "utf8"));
-        database.exec(fs.readFileSync(path.join(web, "migrations/better_auth_schema.sql"), "utf8"));
+        database!.exec(fs.readFileSync(path.join(repository, "migrations/schema.sql"), "utf8"));
+        database!.exec(fs.readFileSync(path.join(web, "migrations/better_auth_schema.sql"), "utf8"));
       })();
-    } finally { database.close(); }
+      if (database.pragma("integrity_check", { simple: true }) !== "ok" || database.pragma("foreign_key_check").length) throw new Error("Initialized database failed integrity checks");
+      database.close();
+      database = undefined;
+      fs.linkSync(temporary, target);
+    } finally {
+      database?.close();
+      fs.rmSync(temporary, { force: true });
+      fs.rmSync(`${temporary}-journal`, { force: true });
+      fs.rmSync(`${temporary}-wal`, { force: true });
+      fs.rmSync(`${temporary}-shm`, { force: true });
+    }
     console.log(`Initialized SQLite database at ${target}`);
   } else console.log(`Preserving existing database at ${target}; legacy schemas require the explicit stopped-writer migration.`);
   return target;
@@ -96,6 +107,7 @@ export function main(args = process.argv.slice(2)): number {
     ensureEnvValue("BETTER_AUTH_SECRET", randomBytes(32).toString("base64"));
     console.log("Generated BETTER_AUTH_SECRET (value not logged)");
   }
+  else ensureEnvValue("BETTER_AUTH_SECRET", JSON.stringify(secret));
   if (!readEnvValue("NEXT_PUBLIC_APP_URL")) ensureEnvValue("NEXT_PUBLIC_APP_URL", "http://localhost:3000");
   const origins = readEnvValue("TRUSTED_ORIGINS");
   if (!origins || origins === "http://localhost:3000") ensureEnvValue("TRUSTED_ORIGINS", readEnvValue("NEXT_PUBLIC_APP_URL"));
