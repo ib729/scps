@@ -36,7 +36,6 @@
     "@radix-ui/react-tooltip": "1.4.1",
     "@types/better-sqlite3": "9.6.0",
     "animate-ui": "0.0.4",
-    "bcryptjs": "3.0.3",
     "better-auth": "1.7.25",
     "better-sqlite3": "13.2.0",
     "class-variance-authority": "0.7.1",
