@@ -19,7 +19,7 @@ cd web-next
 node --import tsx tools/ops/web-next-check-prereqs.ts
 ```
 
-`DATABASE_PATH` configured in `web-next/.env.local` is canonical: relative values resolve against `web-next`, not the caller's directory. If unset, an existing package-local database wins, otherwise the fallback is repository-root `stuco.db`. Other relative arguments, such as CSV, SQL and output filenames, use the command's working directory. Prefer absolute paths for maintenance.
+`DATABASE_PATH` configured in `web-next/.env.local` is canonical: relative values resolve against `web-next`, not the caller's directory. If unset, discovery checks package and root `stuco.db`, then package and root `scps.db`; a fresh ledger defaults to root `scps.db`. Other relative arguments, such as CSV, SQL and output filenames, use the command's working directory. Prefer absolute paths for maintenance.
 
 Current data uses `customers`, `customer_id` and `user_customer_links`; roles are exactly `admin`, `staff`, `customer`. See [Getting Started](getting-started.md) before opening a new database.
 
@@ -71,7 +71,7 @@ Each of the following is a distinct entrypoint under `web-next/tools/ops/`; reti
 | `web-next-check-prereqs` | `node --import tsx tools/ops/web-next-check-prereqs.ts` | Read-only pinned Node/pnpm and native-build tool checks. Checks Python >=3.11 for compilation; Linux gcc/g++/make required, pkg-config recommended. Missing requirements return 1. |
 | `web-next-setup` | `node --import tsx tools/ops/web-next-setup.ts` | Checks prerequisites, installs frozen dependencies and rebuilds `better-sqlite3`; stops on failure. |
 | `setup-host` | `node --import tsx tools/ops/setup-host.ts --systemd` or `--no-systemd` | Typed stage after the bootstrap: private env, database initialization only when missing, and build. New environments use port 38173. With `--systemd`, installs all three units and enables/restarts **web only**. |
-| `deploy-vps` | `node --import tsx tools/ops/deploy-vps.ts [branch]` | Default `main`; refuses a dirty checkout, fetches origin, selects branch, pulls ff-only, installs frozen dependencies, builds, then restarts/status-checks `stuco-web`. An install/build failure prevents restart. Does not perform the domain migration. |
+| `deploy-vps` | `node --import tsx tools/ops/deploy-vps.ts [branch]` | Default `main`; refuses a dirty checkout, fetches origin, selects branch, pulls ff-only, installs frozen dependencies, builds, then restarts/status-checks `scps`. An install/build failure prevents restart. Does not perform the domain migration. |
 | `deploy-remote` | `node --import tsx tools/ops/deploy-remote.ts user@server.example.com [branch]` | Runs typed VPS deploy over `ssh -t`. Default remote directory expands the **remote** `$HOME/scps`; `SCPS_REMOTE_PATH` overrides with a literal POSIX-quoted directory. Branch defaults to `main`; SSH exit/signal propagates. |
 | `auto-update` | `sudo node --import tsx tools/ops/auto-update.ts` | OS maintenance, not application deployment: apt update, upgrade, autoremove and autoclean; appends `/var/log/auto-update.log`, records consecutive failures in `/var/tmp/auto-update-failures`, and refuses after three. Review/fix the cause before deliberately removing that counter. |
 
@@ -84,7 +84,7 @@ For first-time Debian or Ubuntu setup run `./scripts/setup.sh` from the reposito
 | `web_backup` | `node --import tsx tools/ops/web_backup.ts /absolute/existing/directory/backup.tar.zst` | Online SQLite snapshot with integrity/FK verification, then tar+zstd. Publishes atomically only after compression completes; failed compression never publishes the partial archive. Parent output directory must exist. |
 | `cloud_backup_r2` | `node --import tsx tools/ops/cloud_backup_r2.ts` | Checks raw/crypt remotes, creates repository `db_backups/stuco_backup_YYYYMMDD_HHMMSS.tar.zst`, uploads through crypt and reports counts. Upload failure returns nonzero and preserves the local archive. No retention deletion enabled. |
 | `setup-r2-crypt` | `node --import tsx tools/ops/setup-r2-crypt.ts` | Interactive raw Cloudflare S3 and crypt configuration. Hides crypt password/salt and R2 secret input; configuration failures do not print credentials. Reuses an existing raw remote and creates/updates crypt without deleting it first. |
-| `restore_from_r2` | `node --import tsx tools/ops/restore_from_r2.ts backup.tar.zst --writers-stopped` | Requires one basename ending `.tar.zst`, then the flag, and known `inactive`/`failed` local `stuco-web.service`. Downloads/extracts privately, creates a verified pre-restore archive, restores via SQLite. Does not stop/start services. Unknown/unavailable service state refuses. |
+| `restore_from_r2` | `node --import tsx tools/ops/restore_from_r2.ts backup.tar.zst --writers-stopped` | Requires one basename ending `.tar.zst`, then the flag, and known `inactive`/`failed` local `scps.service`. Legacy `stuco-web.service` must also be stopped or absent. Downloads/extracts privately, creates a verified pre-restore archive, restores via SQLite. Does not stop/start services. Unknown/unavailable service state refuses. |
 | `reset_db` | `node --import tsx tools/ops/reset_db.ts --writers-stopped` | **Deletes all ledger and authentication data.** Requires known stopped web state plus exact interactive `yes`; cancellation changes nothing. Backs up an existing ledger, transactionally replaces schema/content and verifies final schema/integrity/FKs. Never unlinks a live database. |
 | `run_migration` | `node --import tsx tools/ops/run_migration.ts /absolute/path/to/migration.sql` | Accepts exactly one SQL path, or a basename found in root `migrations/`. Creates verified `<database>.backup.<timestamp>.<pid>`, then runs `sqlite3 -bail`. Preserves SQL/dot-command/explicit-transaction semantics; failure retains the snapshot, with no automatic rollback of earlier SQL. Stop writers yourself; this workflow has no stopped-state flag/guard. |
 
@@ -236,10 +236,10 @@ WHERE id NOT IN (SELECT customer_id FROM accounts);
 COMMIT;
 ```
 
-Apply this to the configured database, not a cwd-dependent `stuco.db`:
+Apply this to the configured database, not a cwd-dependent filename:
 
 ```sh
-sqlite3 /absolute/path/to/stuco.db < import-customers.sql
+sqlite3 /absolute/path/to/scps.db < import-customers.sql
 ```
 
 Do not use `INSERT OR REPLACE`: it can delete an existing customer and change
@@ -275,7 +275,7 @@ loses later writes. Restore normalization is forward recovery, not rollback.
 ## Operational checks and troubleshooting
 
 ```bash
-sqlite3 /absolute/path/to/stuco.db "PRAGMA integrity_check; PRAGMA foreign_key_check;"
+sqlite3 /absolute/path/to/scps.db "PRAGMA integrity_check; PRAGMA foreign_key_check;"
 ```
 
 Integrity should report `ok`; the FK check should return no rows. For read-only weekly reporting, amounts remain integer cents:
@@ -292,6 +292,6 @@ GROUP BY week;
 - If Node/tsx cannot start, check the pinned Node version, package dependencies and service/cron PATH. Do not make `.ts` executable or run it directly.
 - For native binding errors use the prerequisite/rebuild tools above; a native build may need Python, but application commands do not.
 - A ledger needs a writable **directory** for WAL/SHM as well as an appropriately owned file. Fix permissions deliberately with writers stopped, not blanket world-writable modes.
-- Inspect `journalctl -u stuco-web` and both reader units. Do not equate successful SSH, a TTY, or WebSocket authentication with a completed deployment or healthy reader.
+- Inspect `journalctl -u scps` and both reader units. Do not equate successful SSH, a TTY, or WebSocket authentication with a completed deployment or healthy reader.
 
 See [Getting Started](getting-started.md), [Deployment](deployment.md), [Database](database.md), [Security](security-guide.md) and [Troubleshooting](troubleshooting.md).

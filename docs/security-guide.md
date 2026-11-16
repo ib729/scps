@@ -18,7 +18,7 @@ All sensitive configuration should be stored in environment variables, never com
 
 ```bash
 # Database location (literal absolute path; do not rely on dotenv shell expansion)
-DATABASE_PATH=/absolute/path/to/scps/stuco.db
+DATABASE_PATH=/absolute/path/to/scps/scps.db
 
 # Better Auth secret (generate with: openssl rand -base64 32)
 BETTER_AUTH_SECRET=<your-generated-secret>
@@ -295,7 +295,7 @@ sudo systemctl disable avahi-daemon
 ```bash
 # Inspect the deployment account and rendered service user.
 id
-systemctl cat stuco-web tap-broadcaster tap-broadcaster-reader2
+systemctl cat scps scps-reader scps-reader2
 ```
 
 Use a dedicated unprivileged service account with only required directory/device
@@ -319,17 +319,17 @@ Monitor service logs:
 
 ```bash
 # View web UI logs
-journalctl -u stuco-web -f
+journalctl -u scps -f
 
 # View broadcaster logs
-journalctl -u tap-broadcaster -f
+journalctl -u scps-reader -f
 
 # View logs from last hour
-journalctl -u stuco-web --since "1 hour ago"
+journalctl -u scps --since "1 hour ago"
 
 # Export only to a private location, then redact before sharing.
 umask 077
-journalctl -u stuco-web --since "1 hour ago" > "$HOME/stuco-logs.txt"
+journalctl -u scps --since "1 hour ago" > "$HOME/scps-logs.txt"
 ```
 
 #### Log Rotation
@@ -354,7 +354,7 @@ Monitor Better Auth login failures:
 
 ```bash
 # Check web logs for authentication failures
-journalctl -u stuco-web | grep -i "auth.*fail"
+journalctl -u scps | grep -i "auth.*fail"
 ```
 
 #### NFC Tap Monitoring
@@ -363,7 +363,7 @@ Monitor for suspicious tap patterns:
 
 ```bash
 # Check broadcaster logs for unusual activity
-journalctl -u tap-broadcaster | grep -i "error\|fail"
+journalctl -u scps-reader | grep -i "error\|fail"
 ```
 
 ## Backup Security
@@ -418,7 +418,7 @@ If you suspect a security breach:
 1. **Immediately**:
    ```bash
    # Stop services
-   sudo systemctl stop stuco-web tap-broadcaster tap-broadcaster-reader2
+   sudo systemctl stop scps scps-reader scps-reader2
    # Stop every other writer too; preserve logs separately with restricted permissions.
    # From web-next, preserve a consistent ledger snapshot:
    node --import tsx tools/ops/web_backup.ts /absolute/path/to/incident.tar.zst
@@ -427,8 +427,8 @@ If you suspect a security breach:
 2. **Investigate**:
    ```bash
    # Check logs
-   journalctl -u stuco-web --since today
-   journalctl -u tap-broadcaster --since today
+   journalctl -u scps --since today
+   journalctl -u scps-reader --since today
    
    # Check for unauthorized access
    last -f /var/log/wtmp
@@ -451,7 +451,7 @@ Regularly verify database integrity:
 
 ```bash
 # Use the actual configured absolute database path.
-sqlite3 /absolute/path/to/stuco.db "PRAGMA integrity_check; PRAGMA foreign_key_check;"
+sqlite3 /absolute/path/to/scps.db "PRAGMA integrity_check; PRAGMA foreign_key_check;"
 ```
 
 Do not copy a live database/WAL or unpack an archive onto it. Stop all writers

@@ -16,7 +16,7 @@ The authentication system provides:
 ## Prerequisites
 
 1. Node.js >=26.13.1 <27 and pnpm 12.21.0 installed
-2. SQLite database (`stuco.db`) initialized
+2. SQLite database (`scps.db`) initialized
 3. Web UI setup completed (see [Getting Started](getting-started.md))
 
 ## Environment Variables
@@ -25,7 +25,7 @@ Create a `.env.local` file in the `web-next` directory:
 
 ```env
 # Database
-DATABASE_PATH=../stuco.db
+DATABASE_PATH=../scps.db
 
 # App URL (must match your actual URL)
 NEXT_PUBLIC_APP_URL=http://localhost:3000
@@ -65,8 +65,8 @@ For a **new empty database only**, apply both checked-in schemas to the same abs
 
 ```bash
 # From the repository root; replace the path with your configured fresh ledger.
-sqlite3 "/absolute/path/to/stuco.db" < migrations/schema.sql
-sqlite3 "/absolute/path/to/stuco.db" < web-next/migrations/better_auth_schema.sql
+sqlite3 "/absolute/path/to/scps.db" < migrations/schema.sql
+sqlite3 "/absolute/path/to/scps.db" < web-next/migrations/better_auth_schema.sql
 ```
 
 Do not apply fresh initialization or an auth-generated migration as a substitute for the existing-ledger customer migration. Stop writers, verify a backup and follow [Database Guide](database.md) for legacy roles/schema/currency conversion. Existing credentials, sessions and links must be preserved.

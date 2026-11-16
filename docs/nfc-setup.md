@@ -157,8 +157,8 @@ child, waits for descriptor release and discards stale results before a new
 generation starts. Disconnected taps are not buffered or replayed. Cancellation
 uses SIGTERM with bounded SIGKILL escalation if needed.
 
-Use the rendered `tap-broadcaster.service` and
-`tap-broadcaster-reader2.service`, not raw repository templates with unresolved
+Use the rendered `scps-reader.service` and
+`scps-reader2.service`, not raw repository templates with unresolved
 placeholders. Setup installs reader units but does not enable them before
 configuration. See [Dual readers](#dual-readers) for exact mapping,
 environment files, pre-start USB resets and stop/start ownership rules.
@@ -187,8 +187,8 @@ readers. Stop all owners before discovery or direct probes.
 
 | Service | Device | Lane | Reported reader ID |
 |---|---|---|---|
-| `tap-broadcaster.service` | `pn532_uart:/dev/ttyUSB0` | `reader-1` | `reader-1` |
-| `tap-broadcaster-reader2.service` | `pn532_uart:/dev/ttyUSB1` | `reader-2` | `reader-2` |
+| `scps-reader.service` | `pn532_uart:/dev/ttyUSB0` | `reader-1` | `reader-1` |
+| `scps-reader2.service` | `pn532_uart:/dev/ttyUSB1` | `reader-2` | `reader-2` |
 
 USB enumeration can change on reboot or replug. Record each physical adapter,
 TTY and lane and recheck after changes. Identical adapters may lack unique

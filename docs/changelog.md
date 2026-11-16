@@ -36,6 +36,8 @@ Use the current guides for operations.
 - Bound each reader child to five seconds, await close before replacement, and discard cancelled-generation UIDs. Physical PN532/native USB acceptance is still required on deployed hardware.
 
 ### Typed operational workflows
+- Verify a staged pnpm bootstrap before promotion, preserve existing ledger paths, and default fresh ledgers to `scps.db`.
+- Validate the renamed systemd units and retire only same-repository legacy services without overrides. Maintenance and reader recovery check legacy owners during cutover.
 - Render valid systemd working directories and disable Next.js telemetry during automated builds.
 - Remove the optional Docker build and container deployment instructions. Native deployment remains available.
 - Rename the Debian and Ubuntu bootstrap to `scripts/setup.sh`.

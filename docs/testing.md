@@ -149,7 +149,7 @@ For **both deployed readers**, record:
 
 Do not copy unrendered systemd templates directly into `/etc/systemd/system`;
 deployment setup renders their paths/user/Node placeholders. Inspect installed
-unit status and `journalctl -u stuco-web -u tap-broadcaster -u tap-broadcaster-reader2`.
+unit status and `journalctl -u scps -u scps-reader -u scps-reader2`.
 Host service mutation, USB reset, wiring acceptance, real SSH/deploy and cloud
 backup/restore require a separately authorized deployment window.
 

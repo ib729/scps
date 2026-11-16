@@ -30,9 +30,11 @@ The typed `web-next/tools/ops/setup-host.ts` stage:
 1. Creates/restricts `web-next/.env.local`, sets the canonical quoted database path and generates a missing Better Auth secret without logging its value. A new environment uses port 38173 and matching localhost URL/origin; an existing environment retains its settings.
 2. Initializes both core and auth schemas **only if the database does not exist**; otherwise preserves it and requires explicit legacy migration.
 3. Builds as the service user with the pinned PATH preserved through sudo.
-4. Offers systemd installation. If accepted, renders `stuco-web.service`, `tap-broadcaster.service` and `tap-broadcaster-reader2.service`, reloads systemd, and enables/restarts **only `stuco-web`**. Reader units remain inactive.
+4. Offers systemd installation. If accepted, validates `scps.service`, `scps-reader.service` and `scps-reader2.service`, retires owned legacy units, reloads systemd, and enables/restarts **only `scps`**. Newly installed readers remain inactive; existing new-name readers are not stopped.
 
 Use `--systemd` or `--no-systemd` to select explicitly. Noninteractive setup without either flag skips service installation. If skipped, start from `web-next` with `pnpm start`.
+
+Setup refuses to retire a legacy unit with drop-ins or a unit belonging to another repository. Review and migrate those overrides manually before retrying. Legacy unit files are kept disabled for rollback; setup does not create aliases or restart them.
 
 Do not copy unrendered repository units directly: they contain placeholders. Configure public URL, origins and secrets before public access, then restart web. Setup itself is not proof of a working production environment.
 
@@ -41,7 +43,7 @@ Do not copy unrendered repository units directly: they contain placeholders. Con
 The custom server loads `web-next/.env.local`. Set a real, private configuration, for example:
 
 ```dotenv
-DATABASE_PATH=/srv/scps-data/stuco.db
+DATABASE_PATH=/srv/scps-data/scps.db
 BETTER_AUTH_SECRET=<independently-generated-random-secret>
 NFC_TAP_SECRET=<separate-shared-reader-secret>
 NEXT_PUBLIC_APP_URL=https://payments.example.com
@@ -52,14 +54,14 @@ NEXT_TELEMETRY_DISABLED=1
 
 Generate independent secrets with `openssl rand -hex 32`; copy them securely rather than putting real secrets in commands/history. Restrict the env file to its owner (`chmod 600 web-next/.env.local`). A separate systemd `EnvironmentFile` may supply values instead; keep it protected and remember process environment takes precedence over dotenv.
 
-Configured relative `DATABASE_PATH` resolves against `web-next`, regardless of caller cwd. With no configured value, an existing `web-next/stuco.db` wins, otherwise repository-root `stuco.db` is used. Prefer one explicit absolute path in production.
+Configured relative `DATABASE_PATH` resolves against `web-next`, regardless of caller cwd. Without configuration, discovery checks `web-next/stuco.db`, root `stuco.db`, `web-next/scps.db`, then root `scps.db`. If none exists, root `scps.db` is selected. Prefer one explicit absolute path in production.
 
 The service user needs access to the **ledger directory**, not just the file, so SQLite can create WAL/SHM. Restrict directory traversal and database access to the intended account/administrators; do not make it world-writable or change ownership on a live ledger. See [Database](database.md) and [Security](security-guide.md).
 
 The rendered web unit defaults to `HOSTNAME=0.0.0.0`; new automated setups configure `PORT=38173` in `.env.local`. Existing configurations without a port retain the server default of 3000. For native loopback-only deployment, use a systemd override:
 
 ```bash
-sudo systemctl edit stuco-web.service
+sudo systemctl edit scps.service
 ```
 
 ```ini
@@ -72,9 +74,9 @@ Then reload/restart:
 
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl restart stuco-web.service
-sudo systemctl status stuco-web.service
-journalctl -u stuco-web.service -f
+sudo systemctl restart scps.service
+sudo systemctl status scps.service
+journalctl -u scps.service -f
 ```
 
 Change `PORT` through environment, not an invented `pnpm start -p` flag. Match the reverse proxy and reader URL to the chosen port. If URL/origin values change, rebuild for public build-time configuration as appropriate before restart.
@@ -123,10 +125,10 @@ Only after that configuration:
 
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable --now tap-broadcaster.service
+sudo systemctl enable --now scps-reader.service
 # Only when the second reader is configured:
-sudo systemctl enable --now tap-broadcaster-reader2.service
-journalctl -u tap-broadcaster.service -u tap-broadcaster-reader2.service -f
+sudo systemctl enable --now scps-reader2.service
+journalctl -u scps-reader.service -u scps-reader2.service -f
 ```
 
 Units use package cwd and `node --import tsx hardware/tap-broadcaster.ts`, `Restart=always`, `RestartSec=5`, a one-second post-stop settle and a ten-second stop window. Reader 2 retains its five-second pre-start settle after reset. These settings are not evidence that physical hardware passes the stop deadline.
@@ -217,11 +219,11 @@ Permit SSH before changing firewall policy; allow 80/443 and deny public 3000. D
 
 Ordinary startup rejects old/mixed/non-cent schemas; it never silently converts money. Deploy/update commands do not replace this maintenance procedure.
 
-1. Stop `stuco-web`, development servers, CLI writers and any external writers. Preserve the old application revision, env files and crypt credentials.
+1. Stop `scps`, any legacy `stuco-web`, development servers, CLI writers and any external writers. Preserve the old application revision, env files and crypt credentials.
 2. With the new typed tools installed, from `web-next`, create a verified snapshot at a new path:
 
    ```bash
-   node --import tsx tools/sqlite-snapshot.ts snapshot /absolute/path/to/stuco.db /absolute/path/to/pre-upgrade.db
+   node --import tsx tools/sqlite-snapshot.ts snapshot /absolute/path/to/scps.db /absolute/path/to/pre-upgrade.db
    ```
 
 3. For a supported cent-based pre-cutover ledger:
@@ -235,7 +237,7 @@ Ordinary startup rejects old/mixed/non-cent schemas; it never silently converts 
 4. For older money schemas, convert from a separate source snapshot:
 
    ```bash
-   node --import tsx tools/import-legacy-db.ts --source /absolute/path/to/legacy-copy.db --target /absolute/path/to/stuco.db --writers-stopped
+   node --import tsx tools/import-legacy-db.ts --source /absolute/path/to/legacy-copy.db --target /absolute/path/to/scps.db --writers-stopped
    ```
 
    This requires known inactive/failed local web state, validates a staged final schema and creates a pre-target backup before SQLite replacement. Scale 10 or absent legacy marker means exact ×10 to cents, scale 100 is unchanged; unsupported scales/unsafe amounts refuse. Specify source/target explicitly; its defaults are root `IMPORTTHIS/stuco.db` and root `stuco.db`.
@@ -261,7 +263,7 @@ rclone ls r2-crypt:
 
 Setup hides crypt password/salt and R2 secret input and avoids printing credential-bearing configuration failures. It reuses raw configuration and creates/updates crypt without deleting it first. Keep the old crypt password/salt and protected rclone configuration to read old backups. The crypt remote maps the raw bucket/path; changing `R2_PATH` alone does not relocate an existing configured crypt root.
 
-Backups use verified **online SQLite snapshots**, `zstd -15 -T0` by default and atomic archive publication. Uploads use the crypt remote, preserve local archives on failure and do not enable retention deletion. Never substitute `tar stuco.db*` on a live ledger.
+Backups use verified **online SQLite snapshots**, `zstd -15 -T0` by default and atomic archive publication. Uploads use the crypt remote, preserve local archives on failure and do not enable retention deletion. Never archive a live ledger and its sidecars by copying them separately.
 
 Local archive, with an existing restricted output directory:
 
@@ -278,7 +280,7 @@ Daily cron example (replace paths, arrange PATH/rclone credentials, create restr
 Restore deliberately, after stopping **every** writer:
 
 ```bash
-sudo systemctl stop stuco-web.service
+sudo systemctl stop scps.service
 # Also stop all non-service/external writers before acknowledging the flag.
 cd /srv/scps/web-next
 node --import tsx tools/ops/restore_from_r2.ts stuco_backup_YYYYMMDD_HHMMSS.tar.zst --writers-stopped
@@ -312,9 +314,9 @@ The wrapper runs the remote `./scps-cli` over `ssh -t`, quotes directory/every a
 ## Monitoring, acceptance and troubleshooting
 
 ```bash
-systemctl status stuco-web.service
-journalctl -u stuco-web.service -n 50
-journalctl -u tap-broadcaster.service -u tap-broadcaster-reader2.service -f
+systemctl status scps.service
+journalctl -u scps.service -n 50
+journalctl -u scps-reader.service -u scps-reader2.service -f
 curl -I http://127.0.0.1:3000/login
 ```
 

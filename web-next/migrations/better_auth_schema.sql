@@ -1,5 +1,5 @@
 -- Better Auth Schema Migration
--- Run this with: sqlite3 ../stuco.db < migrations/better_auth_schema.sql
+-- Run this with: sqlite3 ../scps.db < migrations/better_auth_schema.sql
 
 -- Better Auth user table
 CREATE TABLE IF NOT EXISTS user (

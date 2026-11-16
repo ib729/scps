@@ -8,10 +8,9 @@ schemas; it never guesses or rescales existing money.
 ## Paths and connections
 
 Set `DATABASE_PATH` in `web-next/.env.local`. Configured relative paths resolve
-against `web-next`, not the launch directory. Without configuration, an existing
-package database wins over the repository-root `stuco.db` default. Use an absolute
-path in maintenance commands to avoid confusing SQL's working-directory rules with
-the application's resolver.
+against `web-next`, not the launch directory. Without configuration, discovery
+checks `web-next/stuco.db`, root `stuco.db`, `web-next/scps.db`, then root `scps.db`.
+If none exists, the default is root `scps.db`. Use an absolute path for maintenance.
 
 Web and CLI use `better-sqlite3`, foreign-key enforcement and WAL. Do not copy a
 live database or its WAL files as a backup. Use the SQLite online snapshot tools below.
@@ -23,8 +22,8 @@ and [Better Auth schema](../web-next/migrations/better_auth_schema.sql).
 For a **new, empty** ledger, from repository root:
 
 ```sh
-sqlite3 /absolute/path/to/stuco.db < migrations/schema.sql
-sqlite3 /absolute/path/to/stuco.db < web-next/migrations/better_auth_schema.sql
+sqlite3 /absolute/path/to/scps.db < migrations/schema.sql
+sqlite3 /absolute/path/to/scps.db < web-next/migrations/better_auth_schema.sql
 ./scps-cli users
 ```
 
@@ -76,7 +75,7 @@ node --import tsx tools/migrate-customer.ts --writers-stopped
 ```
 
 This command resolves the canonical database, refuses an active local
-`stuco-web.service`, and creates an integrity/FK-checked online backup before
+`scps.service` or legacy `stuco-web.service`, and creates an integrity/FK-checked online backup before
 mutation. If systemd state is unavailable it warns; the flag still asserts that
 every writer, including external processes, has stopped. It cannot detect arbitrary
 external writers.
@@ -97,7 +96,7 @@ use the separate converter with explicit paths, after stopping writers:
 ```sh
 node --import tsx tools/import-legacy-db.ts \
   --source /absolute/path/to/legacy.db \
-  --target /absolute/path/to/stuco.db --writers-stopped
+  --target /absolute/path/to/scps.db --writers-stopped
 ```
 
 Its defaults are repository-root `IMPORTTHIS/stuco.db` and `stuco.db`, not the
@@ -124,7 +123,7 @@ Third-party native addon compilation may still require Python on build hosts.
 ```sh
 node --import tsx tools/ops/web_backup.ts /absolute/path/to/backup.tar.zst
 node --import tsx tools/sqlite-snapshot.ts snapshot \
-  /absolute/path/to/stuco.db /absolute/path/to/snapshot.db
+  /absolute/path/to/scps.db /absolute/path/to/snapshot.db
 ```
 
 Snapshots include committed WAL data and pass integrity/foreign-key checks.
@@ -220,9 +219,9 @@ administrator afterward. Never use reset as an upgrade.
 Use the configured absolute path:
 
 ```sh
-sqlite3 /absolute/path/to/stuco.db "PRAGMA integrity_check; PRAGMA foreign_key_check;"
-sqlite3 /absolute/path/to/stuco.db ".schema"
-sqlite3 /absolute/path/to/stuco.db ".tables"
+sqlite3 /absolute/path/to/scps.db "PRAGMA integrity_check; PRAGMA foreign_key_check;"
+sqlite3 /absolute/path/to/scps.db ".schema"
+sqlite3 /absolute/path/to/scps.db ".tables"
 ```
 
 Integrity should return `ok`; foreign-key check should return no rows. Schedule

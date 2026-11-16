@@ -104,7 +104,7 @@ actual selected file before inspecting or repairing anything.
 For read-only integrity inspection, substitute the actual configured path:
 
 ```bash
-sqlite3 /absolute/path/to/stuco.db "PRAGMA integrity_check; PRAGMA foreign_key_check;"
+sqlite3 /absolute/path/to/scps.db "PRAGMA integrity_check; PRAGMA foreign_key_check;"
 ```
 
 Never copy a live main file without accounting for WAL. Use the typed snapshot
@@ -135,7 +135,7 @@ Do not use a GET to the tap submission endpoint as a hardware health check.
    custom `server.ts` runtime.
 2. Verify `NFC_TAP_SECRET` matches between server and reader environment without
    printing the secret into logs or screenshots.
-3. Inspect `journalctl -u tap-broadcaster -u tap-broadcaster-reader2 -f` and
+3. Inspect `journalctl -u scps-reader -u scps-reader2 -f` and
    browser WebSocket errors. Restart the appropriate owner after changing env.
 4. From `web-next`, test only the network path against a disposable server:
 

@@ -47,8 +47,8 @@ Edit `web-next/.env.local`: set `DATABASE_PATH` to the absolute path of your dat
 For a new installation only (use the same database path configured above):
 
 ```bash
-sqlite3 /absolute/path/to/stuco.db < migrations/schema.sql
-sqlite3 /absolute/path/to/stuco.db < web-next/migrations/better_auth_schema.sql
+sqlite3 /absolute/path/to/scps.db < migrations/schema.sql
+sqlite3 /absolute/path/to/scps.db < web-next/migrations/better_auth_schema.sql
 ./scps-cli users
 ```
 

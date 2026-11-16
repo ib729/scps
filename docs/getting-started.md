@@ -57,7 +57,7 @@ Before allowing public access:
 
 1. Edit `web-next/.env.local` for your actual database, HTTPS URL and trusted origins.
 2. Create the initial administrator using `./scps-cli users` from the repository root.
-3. Configure the loopback proxy/firewall and restart `stuco-web` as described in [Deployment](deployment.md).
+3. Configure the loopback proxy/firewall and restart `scps` as described in [Deployment](deployment.md).
 4. Configure encrypted backups using the typed tools below.
 
 ### Manual development/fresh setup
@@ -75,7 +75,7 @@ cd ..
 Do not overwrite an existing `.env.local`. Choose **one** database path, generate a secret with `openssl rand -hex 32`, and edit the file:
 
 ```dotenv
-DATABASE_PATH=../stuco.db
+DATABASE_PATH=../scps.db
 BETTER_AUTH_SECRET=<generated-secret>
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 TRUSTED_ORIGINS=http://localhost:3000
@@ -83,13 +83,13 @@ TRUSTED_ORIGINS=http://localhost:3000
 # NFC_TAP_SECRET=<separate-generated-shared-secret>
 ```
 
-Relative `DATABASE_PATH` is always relative to `web-next`, so `../stuco.db` means the repository-root ledger. If unset, an existing package-local `stuco.db` takes priority, otherwise root `stuco.db` is the fallback. Prefer an absolute path for deployment; its parent directory must be writable by the service account for WAL/SHM.
+Relative `DATABASE_PATH` is always relative to `web-next`, so `../scps.db` means the repository-root ledger. If unset, discovery checks package and root `stuco.db` first, then package and root `scps.db`; a new ledger defaults to root `scps.db`. Prefer an absolute path for deployment; its parent directory must be writable by the service account for WAL/SHM.
 
 For a **new** root ledger only, apply both schemas. The existence guard prevents this example from being used to initialize an existing file:
 
 ```bash
-# Repository root; this matches DATABASE_PATH=../stuco.db above.
-export DATABASE_PATH="$PWD/stuco.db"
+# Repository root; this matches DATABASE_PATH=../scps.db above.
+export DATABASE_PATH="$PWD/scps.db"
 test ! -e "$DATABASE_PATH" &&
   sqlite3 -bail "$DATABASE_PATH" < migrations/schema.sql &&
   sqlite3 -bail "$DATABASE_PATH" < web-next/migrations/better_auth_schema.sql
@@ -234,7 +234,7 @@ For an already-cent-based pre-cutover schema use `node --import tsx tools/migrat
 - **Native binding failure:** from `web-next`, run `node --import tsx tools/ops/web-next-check-prereqs.ts`; repair the listed build prerequisites, then use `node --import tsx tools/ops/web-next-setup.ts` for frozen install/rebuild. Python, if needed, is only for that third-party build.
 - **Wrong/locked DB:** check canonical path, file and parent directory permissions, and other clients/writers. Never unlink live WAL/SHM to clear a lock.
 - **Reader unavailable:** inspect actual devices, wiring and native support. Stop owners before `node --import tsx hardware/diagnose-nfc.ts`; check serial permissions (`dialout` on typical Debian serial hosts), USB topology and kernel errors. Simulation is not a hardware diagnosis.
-- **Service fails:** inspect `journalctl -u stuco-web` and reader journals; confirm the rendered executable/PATH, package cwd, build, secrets and selected database. A shell session's PATH may differ from sudo/cron/systemd.
+- **Service fails:** inspect `journalctl -u scps` and reader journals; confirm the rendered executable/PATH, package cwd, build, secrets and selected database. A shell session's PATH may differ from sudo/cron/systemd.
 
 After setup, deliberately check operator/customer roles and routes, owned balance/history, payment claim/approval behavior and backup recovery on disposable data. Physical acceptance additionally needs both actual readers, repeated taps, unplug/replug, network outage and bounded shutdown.
 
