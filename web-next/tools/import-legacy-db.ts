@@ -2,12 +2,12 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { execFileSync } from 'node:child_process';
 import Database from 'better-sqlite3';
 import { Command } from 'commander';
 import { backupDatabase } from './sqlite-snapshot';
 import { assertCustomerSchema } from '../lib/customer-schema';
 import { DEFAULT_POS_MODE } from '../lib/pos-preferences';
+import { assertWebStopped } from './ops/stopped-writers';
 import { restoreDatabase } from '../app/cli/db-commands';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -130,8 +130,7 @@ export async function convertLegacySnapshot(sourcePath: string, stagedPath: stri
 
 export async function importLegacyDatabase(sourcePath: string, targetPath: string, writersStopped: boolean): Promise<string | null> {
   if (!writersStopped) throw new Error('--writers-stopped is required; this cannot detect arbitrary external writers');
-  const state = execFileSync('systemctl', ['show', 'stuco-web', '--property=ActiveState', '--value'], { encoding: 'utf8' }).trim();
-  if (!['inactive', 'failed'].includes(state)) throw new Error(`Refusing import while stuco-web is ${state || 'unknown'}`);
+  assertWebStopped();
   const sourceStat = fs.statSync(sourcePath);
   if (fs.existsSync(targetPath)) {
     const targetStat = fs.statSync(targetPath);

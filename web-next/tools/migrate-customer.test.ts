@@ -15,15 +15,17 @@ test("maintenance requires stopped writers, refuses active service and verifies 
   setup.close();
   const bin = path.join(directory, "bin");
   fs.mkdirSync(bin);
-  fs.writeFileSync(path.join(bin, "systemctl"), '#!/bin/sh\nprintf "%s\\n" "$FAKE_SERVICE_STATE"\n', { mode: 0o700 });
-  const env = { ...process.env, DATABASE_PATH: path.relative(web, filename), PATH: `${bin}:${process.env.PATH}`, FAKE_SERVICE_STATE: "inactive", NEXT_TELEMETRY_DISABLED: "1" };
-  const run = (args: string[], state = "inactive") => spawnSync(process.execPath, ["--import", "tsx", "tools/migrate-customer.ts", ...args], { cwd: web, env: { ...env, FAKE_SERVICE_STATE: state }, encoding: "utf8", timeout: 15_000 });
+  fs.writeFileSync(path.join(bin, "systemctl"), '#!/bin/sh\ncase "$*" in *LoadState*) echo loaded;; *"$ACTIVE_UNIT"*) echo active;; *) echo inactive;; esac\n', { mode: 0o700 });
+  const env = { ...process.env, DATABASE_PATH: path.relative(web, filename), PATH: `${bin}:${process.env.PATH}`, ACTIVE_UNIT: "none", NEXT_TELEMETRY_DISABLED: "1" };
+  const run = (args: string[], state = "none") => spawnSync(process.execPath, ["--import", "tsx", "tools/migrate-customer.ts", ...args], { cwd: web, env: { ...env, ACTIVE_UNIT: state }, encoding: "utf8", timeout: 15_000 });
   try {
     assert.notEqual(run([]).status, 0);
-    const active = run(["--writers-stopped"], "active");
-    assert.notEqual(active.status, 0);
-    assert.match(active.stderr, /Stop stuco-web/);
-    assert.equal(fs.readdirSync(directory).filter(name => name.includes("pre-customer")).length, 0);
+    for (const unit of ["scps.service", "stuco-web.service"]) {
+      const active = run(["--writers-stopped"], unit);
+      assert.notEqual(active.status, 0);
+      assert.match(active.stderr, /Stop/);
+      assert.equal(fs.readdirSync(directory).filter(name => name.includes("pre-customer")).length, 0);
+    }
     const migrated = run(["--writers-stopped"]);
     assert.equal(migrated.status, 0, migrated.stderr);
     assert.match(migrated.stdout, /Verified pre-migration backup/);

@@ -15,10 +15,20 @@ async function main() {
   const program = new Command().description("Atomically migrate the stopped SCPS ledger and account roles to customer naming")
     .requiredOption("--writers-stopped", "Assert every writer is stopped; arbitrary external writers cannot be detected");
   program.parse();
-  const service = spawnSync("systemctl", ["show", "--property=ActiveState", "--value", "stuco-web.service"], { encoding: "utf8" });
-  if (service.error && (service.error as NodeJS.ErrnoException).code !== "ENOENT") throw service.error;
-  if (service.status === 0 && /^(active|activating|reloading)$/m.test(service.stdout.trim())) throw new Error("Stop stuco-web.service before migrating");
-  if (service.error || service.status !== 0) console.warn("Local systemd service state unavailable; --writers-stopped must cover every writer.");
+  for (const unit of ["scps.service", "stuco-web.service"]) {
+    const load = spawnSync("systemctl", ["show", "--property=LoadState", "--value", unit], { encoding: "utf8" });
+    if ((load.error as NodeJS.ErrnoException | undefined)?.code === "ENOENT" || (load.status !== 0 && /failed to connect to bus|not been booted with systemd/i.test(load.stderr))) {
+      console.warn("Local systemd service state unavailable; --writers-stopped must cover every writer.");
+      break;
+    }
+    if (load.error) throw load.error;
+    if (load.status !== 0) throw new Error(`Cannot determine ${unit} load state: ${load.stderr}`);
+    if (unit === "stuco-web.service" && load.stdout.trim() === "not-found") continue;
+    if (load.stdout.trim() !== "loaded") throw new Error(`Cannot determine ${unit} load state`);
+    const state = spawnSync("systemctl", ["show", "--property=ActiveState", "--value", unit], { encoding: "utf8" });
+    if (state.error) throw state.error;
+    if (state.status !== 0 || !["inactive", "failed"].includes(state.stdout.trim())) throw new Error(`Stop ${unit} before migrating; state is ${state.stdout.trim() || "unknown"}`);
+  }
   console.warn("This command cannot detect arbitrary external writers; --writers-stopped asserts that all are stopped.");
   const databasePath = resolveDatabasePath();
   const database = new Database(databasePath, { fileMustExist: true });

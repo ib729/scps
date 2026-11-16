@@ -147,10 +147,14 @@ test('actual command requires stopped writers, refuses active service and preser
     const missingFlag = spawnSync(process.execPath, args, { cwd: path.join(root, 'web-next'), env, encoding: 'utf8' });
     assert.notEqual(missingFlag.status, 0);
     assert.match(missingFlag.stderr, /writers-stopped/);
-    const active = spawnSync(process.execPath, [...args, '--writers-stopped'], { cwd: path.join(root, 'web-next'), env, encoding: 'utf8' });
-    assert.notEqual(active.status, 0);
-    assert.match(active.stderr, /stuco-web is active/);
-    fs.writeFileSync(systemctl, '#!/bin/sh\nprintf \"inactive\\\\n\"\n', { mode: 0o700 });
+    for (const unit of ['scps.service', 'stuco-web.service']) {
+      fs.writeFileSync(systemctl, `#!/bin/sh\ncase "$*" in *LoadState*) echo loaded;; *${unit}*) echo active;; *) echo inactive;; esac\n`, { mode: 0o700 });
+      const active = spawnSync(process.execPath, [...args, '--writers-stopped'], { cwd: path.join(root, 'web-next'), env, encoding: 'utf8' });
+      assert.notEqual(active.status, 0);
+      assert.match(active.stderr, /Stop/);
+      assert.deepEqual(fs.readFileSync(target), before);
+    }
+    fs.writeFileSync(systemctl, '#!/bin/sh\ncase "$*" in *LoadState*stuco-web.service*) echo not-found;; *LoadState*) echo loaded;; *) echo inactive;; esac\n', { mode: 0o700 });
     const invalid = spawnSync(process.execPath, [...args, '--writers-stopped'], { cwd: path.join(root, 'web-next'), env, encoding: 'utf8' });
     assert.notEqual(invalid.status, 0);
     assert.match(invalid.stderr, /currency scale/);

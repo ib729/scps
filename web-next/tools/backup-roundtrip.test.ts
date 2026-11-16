@@ -30,7 +30,7 @@ function fixture(t: TestContext) {
   fs.symlinkSync(path.join(root, "migrations"), path.join(repository, "migrations"));
   const bin = path.join(directory, "bin");
   fs.mkdirSync(bin);
-  fs.writeFileSync(path.join(bin, "systemctl"), "#!/bin/sh\nprintf 'inactive\\n'\nexit 0\n", { mode: 0o700 });
+  fs.writeFileSync(path.join(bin, "systemctl"), "#!/bin/sh\ncase \"$*\" in *LoadState*stuco-web.service*) echo not-found;; *LoadState*) echo loaded;; *) echo inactive;; esac\n", { mode: 0o700 });
   const filename = path.join(directory, "scps.db");
   const database = new Database(filename);
   database.exec(fs.readFileSync(path.join(root, "migrations/schema.sql"), "utf8") + fs.readFileSync(path.join(web, "migrations/better_auth_schema.sql"), "utf8"));
