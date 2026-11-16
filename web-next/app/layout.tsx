@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
+import { GeistSans } from "geist/font/sans";
 import "./globals.css";
 import "lenis/dist/lenis.css";
 import { Toaster } from "@/components/ui/sonner";
@@ -63,7 +64,7 @@ export default async function RootLayout({
         />
       </head>
       <body
-        className="antialiased"
+        className={`${GeistSans.variable} font-sans antialiased`}
       >
         <ThemeProvider
           attribute="class"

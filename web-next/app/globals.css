@@ -46,7 +46,6 @@
 
 :root {
   --radius: 0.625rem;
-  --font-geist-sans: "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
   --font-geist-mono: "SF Mono", "Menlo", "Consolas", monospace;
 
   /* Light mode colors */
