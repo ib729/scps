@@ -31,7 +31,7 @@ function fixture(t: TestContext) {
   const bin = path.join(directory, "bin");
   fs.mkdirSync(bin);
   fs.writeFileSync(path.join(bin, "systemctl"), "#!/bin/sh\nprintf 'inactive\\n'\nexit 0\n", { mode: 0o700 });
-  const filename = path.join(directory, "active ledger.db");
+  const filename = path.join(directory, "scps.db");
   const database = new Database(filename);
   database.exec(fs.readFileSync(path.join(root, "migrations/schema.sql"), "utf8") + fs.readFileSync(path.join(web, "migrations/better_auth_schema.sql"), "utf8"));
   database.exec("INSERT INTO customers(id,name) VALUES(1,'Backup check'); INSERT INTO accounts(customer_id,balance) VALUES(1,731)");

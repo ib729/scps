@@ -56,7 +56,7 @@ function ensureApplicationSchema(database: Database.Database) {
 export function getDb(): Database.Database {
   if (!db) {
     if (!fs.existsSync(dbPath)) {
-      throw new Error(`SQLite database not found at ${dbPath}. Set DATABASE_PATH or place stuco.db in the project root.`);
+      throw new Error(`SQLite database not found at ${dbPath}. Set DATABASE_PATH or place scps.db in the project root.`);
     }
     db = new Database(dbPath, {
       verbose: process.env.NODE_ENV === "development" ? console.log : undefined,
