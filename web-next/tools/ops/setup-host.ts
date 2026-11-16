@@ -80,6 +80,7 @@ export function main(args = process.argv.slice(2)): number {
   const replacements: [string, string][] = [
     ["__RUN_USER__", unitValue(appUser)], ["__REPO_ROOT__", unitValue(repository.replace(/\/$/, ""))],
     ["__NODE_EXEC__", unitValue(process.execPath)], ["__RUN_PATH__", unitValue(process.env.PATH ?? "/usr/bin:/bin")],
+    ["__WORKING_DIR__", web.replaceAll("%", "%%")],
   ];
   const freshEnv = !fs.existsSync(envFile);
   if (freshEnv) fs.copyFileSync(path.join(web, ".env.local.example"), envFile, fs.constants.COPYFILE_EXCL);
@@ -98,7 +99,7 @@ export function main(args = process.argv.slice(2)): number {
   if (!readEnvValue("NEXT_PUBLIC_APP_URL")) ensureEnvValue("NEXT_PUBLIC_APP_URL", "http://localhost:3000");
   const origins = readEnvValue("TRUSTED_ORIGINS");
   if (!origins || origins === "http://localhost:3000") ensureEnvValue("TRUSTED_ORIGINS", readEnvValue("NEXT_PUBLIC_APP_URL"));
-  runAsUser("pnpm", ["--dir", web, "build"]);
+  runAsUser("env", ["NEXT_TELEMETRY_DISABLED=1", "pnpm", "--dir", web, "build"]);
   if (args[0] === "--no-systemd") {
     console.log(`SCPS setup complete. Start manually with: cd ${web} && pnpm start`);
     return 0;

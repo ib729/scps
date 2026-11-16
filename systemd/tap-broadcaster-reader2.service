@@ -1,5 +1,4 @@
-# Render __RUN_USER__, __REPO_ROOT__, __NODE_EXEC__ and __RUN_PATH__ with
-# tools/ops/setup-host.ts before installing this unit.
+# Render placeholders with tools/ops/setup-host.ts before installing this unit.
 
 [Unit]
 Description=NFC Tap Broadcaster Reader 2 for SCPS POS (WebSocket)
@@ -8,7 +7,7 @@ After=network.target
 [Service]
 Type=simple
 User=__RUN_USER__
-WorkingDirectory="__REPO_ROOT__/web-next"
+WorkingDirectory=__WORKING_DIR__
 # Load environment variables from file (including NFC_TAP_SECRET)
 EnvironmentFile="__REPO_ROOT__/.env.broadcaster"
 Environment="NEXTJS_URL=http://localhost:3000"

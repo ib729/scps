@@ -47,6 +47,8 @@ From the repository root, as the intended service user with sudo access:
 
 This bootstrap detects Debian, Ubuntu and derivatives, installs OS/Node/native-build prerequisites, pins pnpm and installs package dependencies, then invokes `web-next/tools/ops/setup-host.ts`. The typed stage configures the private env file, creates a missing auth secret without printing it, initializes core+auth only for a **missing** ledger, and builds. A new environment defaults to port **38173** and matching localhost URL and trusted origin. Existing environment settings and ledgers are preserved.
 
+The automated production build and web service disable Next.js telemetry with `NEXT_TELEMETRY_DISABLED=1`.
+
 The script asks whether to install systemd services. Answer yes to render all three units and enable/restart **web only**. Reader units remain inactive until you configure `.env.broadcaster`, device selection, serial access and noninteractive USB reset privileges. Use `--systemd` or `--no-systemd` to select explicitly; noninteractive runs without a flag skip services. Without systemd, start the production server from `web-next` with `pnpm start`.
 
 The web service binds all interfaces by default. Restrict port 38173 with a firewall or loopback override before exposing the host.

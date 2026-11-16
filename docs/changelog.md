@@ -36,6 +36,7 @@ Use the current guides for operations.
 - Bound each reader child to five seconds, await close before replacement, and discard cancelled-generation UIDs. Physical PN532/native USB acceptance is still required on deployed hardware.
 
 ### Typed operational workflows
+- Render valid systemd working directories and disable Next.js telemetry during automated builds.
 - Remove the optional Docker build and container deployment instructions. Native deployment remains available.
 - Rename the Debian and Ubuntu bootstrap to `scripts/setup.sh`.
 - Detect Debian and Ubuntu, offer optional systemd services, and use port 38173 for new automated installations without changing existing environments.

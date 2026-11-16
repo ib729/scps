@@ -84,7 +84,7 @@ else if(args[0]==='tee'&&args[1].startsWith('/etc/systemd/system/'))fs.writeFile
 else if(args[0]!=='systemctl')throw new Error('Unexpected privileged command: '+args);
 `;
   await fs.writeFile(path.join(f.binaries, "sudo"), fakeSudo, { mode: 0o700 });
-  await fs.writeFile(path.join(f.binaries, "pnpm"), `#!${process.execPath}\nrequire(${JSON.stringify(path.join(f.web, "node_modules/dotenv"))}).config({path:${JSON.stringify(path.join(f.web, ".env.local"))},quiet:true});\nif(!process.env.BETTER_AUTH_SECRET||process.env.BETTER_AUTH_SECRET==='replace-with-a-random-secret'){console.error('Build inherited a stale auth secret');process.exit(41);}\nrequire('node:fs').appendFileSync(${JSON.stringify(log)},JSON.stringify(['pnpm',...process.argv.slice(2)])+'\\n');\n`, { mode: 0o700 });
+  await fs.writeFile(path.join(f.binaries, "pnpm"), `#!${process.execPath}\nrequire(${JSON.stringify(path.join(f.web, "node_modules/dotenv"))}).config({path:${JSON.stringify(path.join(f.web, ".env.local"))},quiet:true});\nif(!process.env.BETTER_AUTH_SECRET||process.env.BETTER_AUTH_SECRET==='replace-with-a-random-secret'){console.error('Build inherited a stale auth secret');process.exit(41);}\nif(process.env.NEXT_TELEMETRY_DISABLED!=='1'){console.error('Build did not opt out of telemetry');process.exit(42);}\nrequire('node:fs').appendFileSync(${JSON.stringify(log)},JSON.stringify(['pnpm',...process.argv.slice(2)])+'\\n');\n`, { mode: 0o700 });
   const result = await probe(f.web, `import fs from 'node:fs';
 const read=fs.readFileSync;fs.readFileSync=((file,...args)=>String(file)==='/etc/os-release'?'ID=ubuntu\\n':Reflect.apply(read,fs,[file,...args])) as typeof fs.readFileSync;
 import { main } from './ops/setup-host';
@@ -98,16 +98,19 @@ Promise.resolve().then(()=>main(["--systemd"])).then(code=>{process.exitCode=cod
   assert.equal(env.NEXT_PUBLIC_APP_URL, "http://localhost:38173");
   assert.equal(env.TRUSTED_ORIGINS, "http://localhost:38173");
   assert.equal(env.PORT, "38173");
-  const escapedRoot = f.root.replaceAll("%", "%%").replaceAll("\\", "\\\\").replaceAll('"', '\\"');
   for (const [name, usb, lane] of [["tap-broadcaster.service", "USB0", "reader-1"], ["tap-broadcaster-reader2.service", "USB1", "reader-2"]]) {
     const unit = await fs.readFile(path.join(units, name), "utf8");
-    assert.ok(unit.includes(`WorkingDirectory="${escapedRoot}/web-next"`));
+    const verification = spawnSync("systemd-analyze", ["verify", path.join(units, name)], { encoding: "utf8" });
+    if (verification.error?.message.includes("ENOENT")) t.diagnostic("systemd-analyze unavailable; unit verification skipped");
+    else assert.equal(verification.status, 0, verification.stderr);
     assert.ok(unit.includes(`tools/ops/reset-usb-nfc.ts ${usb}`));
     assert.ok(unit.includes(`POS_LANE_ID=${lane}`));
     assert.match(unit, /TimeoutStopSec=10/);
     assert.doesNotMatch(unit, /YOUR_USERNAME|__REPO_ROOT__|\.py|\.venv/);
     if (usb === "USB1") assert.match(unit, /ExecStartPre=\/bin\/sleep 5/);
   }
+  const webVerification = spawnSync("systemd-analyze", ["verify", path.join(units, "stuco-web.service")], { encoding: "utf8" });
+  if (!webVerification.error?.message.includes("ENOENT")) assert.equal(webVerification.status, 0, webVerification.stderr);
   const calls = (await fs.readFile(log, "utf8")).trim().split("\n").map(line => JSON.parse(line) as string[]);
   assert.ok(calls.some(args => args.join(" ") === "systemctl restart stuco-web.service"));
   assert.ok(!calls.some(args => args[0] === "systemctl" && args.some(arg => arg.startsWith("tap-broadcaster"))));
