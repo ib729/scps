@@ -76,7 +76,7 @@ export async function main(args = process.argv.slice(2)): Promise<void> {
     console.log("No active broadcaster to observe; unattended recovery is unverified.");
     failed = true;
   }
-  console.log("For continued diagnosis: journalctl -u tap-broadcaster.service -u tap-broadcaster-reader2.service --since today; check USB power, kernel errors and real taps after removal/reconnect. Overnight stability and service-stop timing require separate physical acceptance.");
+  console.log("For continued diagnosis: journalctl -u scps-reader.service -u scps-reader2.service --since today; check USB power, kernel errors and real taps after removal/reconnect. Overnight stability and service-stop timing require separate physical acceptance.");
   if (failed) throw new Error("NFC recovery verification did not establish all required runtime checks");
 }
 

@@ -24,7 +24,7 @@ export async function main(args = process.argv.slice(2)): Promise<void> {
   console.log(`Serial configuration observation:\n${serial.output}`);
   const result = await probeReader("pn532_uart:/dev/ttyUSB1");
   if (!result.ok) throw new Error(`Reader 2 PN532 communication failed: ${result.error}. Check UART mode, TX/RX wiring, loose connections, power and PN532 module; a TTY alone is not reader health.`);
-  console.log("Reader 2 native PN532 communication verified. Restart with: sudo systemctl start tap-broadcaster.service tap-broadcaster-reader2.service; then verify a real tap on each.");
+  console.log("Reader 2 native PN532 communication verified. Restart with: sudo systemctl start scps-reader.service scps-reader2.service; then verify a real tap on each.");
 }
 
 if (process.argv[1] && existsSync(process.argv[1]) && pathToFileURL(realpathSync(process.argv[1])).href === import.meta.url) main().catch(exitFailure);
