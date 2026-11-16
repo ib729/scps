@@ -15,7 +15,7 @@ const loader = pathToFileURL(createRequire(import.meta.url).resolve("tsx")).href
 async function fixture(t: TestContext) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "scps setup ' % "));
   t.after(() => fs.rm(root, { recursive: true, force: true }));
-  for (const name of ["web-next/tools/ops/setup-host.ts", "web-next/lib/database-path.ts", "migrations/schema.sql", "web-next/migrations/better_auth_schema.sql", "web-next/.env.local.example", "systemd/stuco-web.service", "systemd/tap-broadcaster.service", "systemd/tap-broadcaster-reader2.service"]) {
+  for (const name of ["web-next/tools/ops/setup-host.ts", "web-next/lib/database-path.ts", "migrations/schema.sql", "web-next/migrations/better_auth_schema.sql", "web-next/.env.local.example", "systemd/scps.service", "systemd/scps-reader.service", "systemd/scps-reader2.service"]) {
     const destination = path.join(root, name);
     await fs.mkdir(path.dirname(destination), { recursive: true });
     await fs.copyFile(path.join(sourceRoot, name), destination);
@@ -125,6 +125,8 @@ else if(args[0]==='tee'&&args[1].startsWith('/etc/systemd/system/'))fs.writeFile
 else if(args[0]!=='systemctl')throw new Error('Unexpected privileged command: '+args);
 `;
   await fs.writeFile(path.join(f.binaries, "sudo"), fakeSudo, { mode: 0o700 });
+  await fs.writeFile(path.join(f.binaries, "systemctl"), `#!/bin/sh\ncase "$*" in *Version*) echo 255;; *LoadState*) echo not-found;; esac\n`, { mode: 0o700 });
+  await fs.writeFile(path.join(f.binaries, "systemd-analyze"), `#!/bin/sh\ncase "$*" in */etc/systemd/system/*) exit 0;; *) exec /usr/bin/systemd-analyze "$@";; esac\n`, { mode: 0o700 });
   await fs.writeFile(path.join(f.binaries, "pnpm"), `#!${process.execPath}\nrequire(${JSON.stringify(path.join(f.web, "node_modules/dotenv"))}).config({path:${JSON.stringify(path.join(f.web, ".env.local"))},quiet:true});\nif(!process.env.BETTER_AUTH_SECRET||process.env.BETTER_AUTH_SECRET==='replace-with-a-random-secret'){console.error('Build inherited a stale auth secret');process.exit(41);}\nif(process.env.NEXT_TELEMETRY_DISABLED!=='1'){console.error('Build did not opt out of telemetry');process.exit(42);}\nrequire('node:fs').appendFileSync(${JSON.stringify(log)},JSON.stringify(['pnpm',...process.argv.slice(2)])+'\\n');\n`, { mode: 0o700 });
   const result = await probe(f.web, `import fs from 'node:fs';
 const read=fs.readFileSync;fs.readFileSync=((file,...args)=>String(file)==='/etc/os-release'?'ID=ubuntu\\n':Reflect.apply(read,fs,[file,...args])) as typeof fs.readFileSync;
@@ -139,7 +141,7 @@ Promise.resolve().then(()=>main(["--systemd"])).then(code=>{process.exitCode=cod
   assert.equal(env.NEXT_PUBLIC_APP_URL, "http://localhost:38173");
   assert.equal(env.TRUSTED_ORIGINS, "http://localhost:38173");
   assert.equal(env.PORT, "38173");
-  for (const [name, usb, lane] of [["tap-broadcaster.service", "USB0", "reader-1"], ["tap-broadcaster-reader2.service", "USB1", "reader-2"]]) {
+  for (const [name, usb, lane] of [["scps-reader.service", "USB0", "reader-1"], ["scps-reader2.service", "USB1", "reader-2"]]) {
     const unit = await fs.readFile(path.join(units, name), "utf8");
     const verification = spawnSync("systemd-analyze", ["verify", path.join(units, name)], { encoding: "utf8" });
     if (verification.error?.message.includes("ENOENT")) t.diagnostic("systemd-analyze unavailable; unit verification skipped");
@@ -150,11 +152,34 @@ Promise.resolve().then(()=>main(["--systemd"])).then(code=>{process.exitCode=cod
     assert.doesNotMatch(unit, /YOUR_USERNAME|__REPO_ROOT__|\.py|\.venv/);
     if (usb === "USB1") assert.match(unit, /ExecStartPre=\/bin\/sleep 5/);
   }
-  const webVerification = spawnSync("systemd-analyze", ["verify", path.join(units, "stuco-web.service")], { encoding: "utf8" });
+  const webVerification = spawnSync("systemd-analyze", ["verify", path.join(units, "scps.service")], { encoding: "utf8" });
   if (!webVerification.error?.message.includes("ENOENT")) assert.equal(webVerification.status, 0, webVerification.stderr);
   const calls = (await fs.readFile(log, "utf8")).trim().split("\n").map(line => JSON.parse(line) as string[]);
-  assert.ok(calls.some(args => args.join(" ") === "systemctl restart stuco-web.service"));
-  assert.ok(!calls.some(args => args[0] === "systemctl" && args.some(arg => arg.startsWith("tap-broadcaster"))));
+  assert.ok(calls.some(args => args.join(" ") === "systemctl restart scps.service"));
+  assert.ok(!calls.some(args => args[0] === "systemctl" && args.some(arg => arg.startsWith("scps-reader"))));
+});
+
+test("cutover retires owned legacy units before restart and refuses unsafe transitions", async t => {
+  for (const mode of ["owned", "override", "stop-failure", "invalid-unit", "repeat"]) {
+    const f = await fixture(t);
+    const log = path.join(f.root, "cutover-log");
+    await fs.writeFile(path.join(f.binaries, "pnpm"), "#!/bin/sh\nexit 0\n", { mode: 0o700 });
+    await fs.writeFile(path.join(f.binaries, "sudo"), `#!/bin/sh\necho "$*" >> "$LOG"\nif [ "$1" = -u ]; then shift 2; exec "$@"; fi\nif [ "$1" = tee ]; then cat >/dev/null; exit 0; fi\nif [ "$MODE" = stop-failure ] && [ "$2" = stop ]; then exit 9; fi\nexit 0\n`, { mode: 0o700 });
+    await fs.writeFile(path.join(f.binaries, "systemctl"), `#!/bin/sh\ncase "$*" in\n*Version*) echo 255;;\n*LoadState*) case "$*" in *stuco-web.service*) echo loaded;; *scps-reader.service*) [ "$MODE" = repeat ] && echo loaded || echo not-found;; *) echo not-found;; esac;;\n*FragmentPath*) echo /etc/systemd/system/example.service;;\n*WorkingDirectory*) printf '%s\\n' "$WEB";;\n*DropInPaths*) [ "$MODE" = override ] && echo /etc/systemd/system/example.service.d/custom.conf || true;;\n*ActiveState*) echo inactive;;\nesac\n`, { mode: 0o700 });
+    await fs.writeFile(path.join(f.binaries, "systemd-analyze"), `#!/bin/sh\n[ "$1" = --version ] && exit 0\n[ "$MODE" = invalid-unit ] && exit 1\nexit 0\n`, { mode: 0o700 });
+    const result = await probe(f.web, `import fs from 'node:fs'; const read=fs.readFileSync; fs.readFileSync=((file,...args)=>String(file)==='/etc/os-release'?'ID=ubuntu\\n':Reflect.apply(read,fs,[file,...args])) as typeof fs.readFileSync; import { main } from './ops/setup-host'; main(['--systemd']);`, f.root, { ...f.env, MODE: mode, LOG: log, WEB: f.web, PATH: `${f.binaries}:${f.env.PATH ?? ""}` });
+    const calls = await fs.readFile(log, "utf8").catch(() => "");
+    if (mode === "owned" || mode === "repeat") {
+      assert.equal(result.status, 0, result.stderr);
+      assert.ok(calls.indexOf("systemctl stop stuco-web.service") < calls.indexOf("tee /etc/systemd/system/scps.service"));
+      assert.ok(calls.indexOf("systemctl disable stuco-web.service") < calls.indexOf("systemctl restart scps.service"));
+      assert.doesNotMatch(calls, /systemctl (stop|disable|start|restart) scps-reader/);
+    } else {
+      assert.notEqual(result.status, 0, mode);
+      assert.doesNotMatch(calls, /tee |systemctl restart/);
+      if (mode === "override" || mode === "invalid-unit") assert.doesNotMatch(calls, /systemctl stop/);
+    }
+  }
 });
 
 test("setup without systemd builds without installing or restarting services", async t => {

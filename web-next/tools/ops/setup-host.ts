@@ -88,11 +88,46 @@ export function main(args = process.argv.slice(2)): number {
     runAsUser(process.execPath, ["--import", "tsx", fileURLToPath(import.meta.url), ...args]);
     return 0;
   }
+  const managed = ["scps.service", "scps-reader.service", "scps-reader2.service"];
+  const legacy = ["stuco-web.service", "tap-broadcaster.service", "tap-broadcaster-reader2.service"];
+  const installedLegacy: string[] = [];
+  const rendered = new Map<string, string>();
+  if (args[0] === "--systemd") {
+    try {
+      if (!execFileSync("systemctl", ["show", "--property=Version", "--value"], { encoding: "utf8" }).trim()) throw new Error("empty manager version");
+      execFileSync("systemd-analyze", ["--version"], { stdio: "ignore" });
+    } catch { throw new Error("systemd is unavailable; use --no-systemd"); }
+  }
   const replacements: [string, string][] = [
     ["__RUN_USER__", unitValue(appUser)], ["__REPO_ROOT__", unitValue(repository.replace(/\/$/, ""))],
     ["__NODE_EXEC__", unitValue(process.execPath)], ["__RUN_PATH__", unitValue(process.env.PATH ?? "/usr/bin:/bin")],
-    ["__WORKING_DIR__", web.replaceAll("%", "%%")],
+    ["__WORKING_DIR__", (() => { if (/[\0\r\n]/.test(web)) throw new Error("Systemd paths must be single-line values"); return web.replaceAll("%", "%%").replaceAll("\\", "\\\\"); })()],
   ];
+  if (args[0] === "--systemd") {
+    const staging = fs.mkdtempSync(path.join(os.tmpdir(), "scps-units-"));
+    try {
+      for (const name of managed) {
+        let unit = fs.readFileSync(path.join(repository, "systemd", name), "utf8");
+        for (const [placeholder, value] of replacements) unit = unit.replaceAll(placeholder, value);
+        rendered.set(name, unit);
+        fs.writeFileSync(path.join(staging, name), unit);
+      }
+      execFileSync("systemd-analyze", ["verify", ...managed.map(name => path.join(staging, name))], { stdio: "inherit" });
+    } finally { fs.rmSync(staging, { recursive: true, force: true }); }
+    for (const name of [...legacy, ...managed]) {
+      const props: Record<string, string> = {};
+      for (const property of ["LoadState", "FragmentPath", "DropInPaths", "WorkingDirectory"]) {
+        props[property] = execFileSync("systemctl", ["show", `--property=${property}`, "--value", name], { encoding: "utf8" }).trim();
+        if (property === "LoadState" && props[property] === "not-found") break;
+      }
+      if (props.LoadState === "not-found") continue;
+      if (props.LoadState !== "loaded" || !props.FragmentPath || !props.WorkingDirectory) throw new Error(`Cannot establish ownership of ${name}: ${JSON.stringify(props)}`);
+      if (path.resolve(props.WorkingDirectory) !== path.resolve(web) || (legacy.includes(name) && props.DropInPaths)) {
+        throw new Error(`Cannot replace ${name}: fragment ${props.FragmentPath}, working directory ${props.WorkingDirectory}, drop-ins ${props.DropInPaths || "(none)"}; migrate overrides to the chosen new name manually`);
+      }
+      if (legacy.includes(name)) installedLegacy.push(name);
+    }
+  }
   const freshEnv = !fs.existsSync(envFile);
   if (freshEnv) fs.copyFileSync(path.join(web, ".env.local.example"), envFile, fs.constants.COPYFILE_EXCL);
   fs.chmodSync(envFile, 0o600);
@@ -116,16 +151,21 @@ export function main(args = process.argv.slice(2)): number {
     console.log(`SCPS setup complete. Start manually with: cd ${web} && pnpm start`);
     return 0;
   }
-  for (const name of ["stuco-web.service", "tap-broadcaster.service", "tap-broadcaster-reader2.service"]) {
-    let unit = fs.readFileSync(path.join(repository, "systemd", name), "utf8");
-    for (const [placeholder, value] of replacements) unit = unit.replaceAll(placeholder, value);
-    execFileSync("sudo", ["tee", `/etc/systemd/system/${name}`], { input: unit, stdio: ["pipe", "ignore", "inherit"] });
+  for (const name of installedLegacy) {
+    execFileSync("sudo", ["systemctl", "stop", name], { stdio: "inherit" });
+    execFileSync("sudo", ["systemctl", "disable", name], { stdio: "inherit" });
+    const state = execFileSync("systemctl", ["show", "--property=ActiveState", "--value", name], { encoding: "utf8" }).trim();
+    if (state !== "inactive" && state !== "failed") throw new Error(`Failed to stop ${name}: ${state || "unknown state"}`);
+  }
+  for (const name of managed) {
+    execFileSync("sudo", ["tee", `/etc/systemd/system/${name}`], { input: rendered.get(name)!, stdio: ["pipe", "ignore", "inherit"] });
   }
   execFileSync("sudo", ["systemctl", "daemon-reload"], { stdio: "inherit" });
-  execFileSync("sudo", ["systemctl", "enable", "stuco-web.service"], { stdio: "inherit" });
-  execFileSync("sudo", ["systemctl", "restart", "stuco-web.service"], { stdio: "inherit" });
-  execFileSync("sudo", ["systemctl", "--no-pager", "--full", "status", "stuco-web.service"], { stdio: "inherit" });
-  console.log(`SCPS setup complete.\nEdit ${envFile} for the public URL and trusted origins, then restart stuco-web.\nReader units are installed but inactive: configure .env.broadcaster, serial permissions and noninteractive USB reset privileges before enabling the desired reader service.\nEncrypted backups: node --import tsx tools/ops/setup-r2-crypt.ts\nFuture deploy: node --import tsx tools/ops/deploy-vps.ts`);
+  execFileSync("systemd-analyze", ["verify", ...managed.map(name => `/etc/systemd/system/${name}`)], { stdio: "inherit" });
+  execFileSync("sudo", ["systemctl", "enable", "scps.service"], { stdio: "inherit" });
+  execFileSync("sudo", ["systemctl", "restart", "scps.service"], { stdio: "inherit" });
+  execFileSync("sudo", ["systemctl", "--no-pager", "--full", "status", "scps.service"], { stdio: "inherit" });
+  console.log(`SCPS setup complete.\nEdit ${envFile} for the public URL and trusted origins, then restart scps.service.\nFor readers, set NEXTJS_URL=${readEnvValue("NEXT_PUBLIC_APP_URL")} and the matching NFC_TAP_SECRET in .env.broadcaster; configure serial permissions and USB reset privileges before enabling a reader.\nEncrypted backups: node --import tsx tools/ops/setup-r2-crypt.ts\nFuture deploy: node --import tsx tools/ops/deploy-vps.ts`);
   return 0;
 }
 
