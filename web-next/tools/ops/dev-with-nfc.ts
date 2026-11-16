@@ -4,7 +4,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { config } from "dotenv";
 import { assertReaderReleased, exitFailure, serialSelection } from "./check_usb_port";
-import { command, readerServices, startReaders } from "./recover-nfc";
+import { assertLegacyReadersStopped, command, readerServices, startReaders } from "./recover-nfc";
 
 const web = fileURLToPath(new URL("../../", import.meta.url));
 
@@ -17,6 +17,7 @@ export async function main(args = process.argv.slice(2)): Promise<void> {
   const environment = config({ path: fileURLToPath(new URL("../../.env.local", import.meta.url)), override: false, quiet: true });
   if (environment.error && environment.error.code !== "ENOENT") throw environment.error;
   const ports = await serialSelection();
+  assertLegacyReadersStopped();
   const installed: string[] = [];
   const previouslyActive = new Set<string>();
   for (const service of readerServices) {
@@ -28,7 +29,7 @@ export async function main(args = process.argv.slice(2)): Promise<void> {
     if (["active", "activating", "reloading"].includes(state)) previouslyActive.add(service);
     else if (!["inactive", "failed"].includes(state)) throw new Error(`Cannot establish ${service} state (${state})`);
   }
-  if (!installed.includes("tap-broadcaster.service")) throw new Error("Install the primary broadcaster service before coordinated development startup");
+  if (!installed.includes("scps-reader.service")) throw new Error("Install the primary broadcaster service before coordinated development startup");
   await command("sudo", ["systemctl", "stop", ...installed]);
   for (const service of installed) {
     const state = execFileSync("systemctl", ["show", service, "-p", "ActiveState", "--value"], { encoding: "utf8", timeout: 5000 }).trim();
@@ -63,7 +64,7 @@ export async function main(args = process.argv.slice(2)): Promise<void> {
       if (performance.now() >= deadline) throw new Error("Development server was not ready within 20 seconds; reader services remain stopped");
       await delay(1000, undefined, { signal: stopped.signal });
     }
-    await startReaders(installed.filter(service => service === "tap-broadcaster.service" || previouslyActive.has(service)));
+    await startReaders(installed.filter(service => service === "scps-reader.service" || previouslyActive.has(service)));
     await delay(2000, undefined, { signal: stopped.signal });
     console.log(`Development web server ready at ${url} (PID ${child.pid}); reader services started, hardware health unverified. Ctrl+C stops web and leaves reader services running.`);
     const result = await closed.promise;

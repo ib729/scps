@@ -15,7 +15,7 @@ test("failed broadcaster stop aborts development startup before reset, probing o
     const scripts: Record<string, string> = {
       ls: "console.log('ttyUSB0');",
       udevadm: "console.log('ID_VENDOR_ID=1a86');",
-      systemctl: "console.log(process.argv.includes('LoadState')?'loaded':'inactive');",
+      systemctl: "console.log(process.argv.includes('LoadState')?(process.argv.some(x=>x.startsWith('tap-broadcaster'))?'not-found':'loaded'):'inactive');",
       sudo: `require('node:fs').appendFileSync(${JSON.stringify(log)},JSON.stringify(process.argv.slice(2))+'\\n');if(process.argv[2]==='systemctl'&&process.argv[3]==='stop')process.exit(7);throw new Error('UNEXPECTED_PRIVILEGED_OPERATION');`,
     };
     for (const [name, body] of Object.entries(scripts)) await fs.writeFile(path.join(directory, name), `#!${process.execPath}\n${body}\n`, { mode: 0o700 });
@@ -23,7 +23,7 @@ test("failed broadcaster stop aborts development startup before reset, probing o
     assert.equal(result.status, 7, result.stderr);
     const calls = (await fs.readFile(log, "utf8")).trim().split("\n").map(line => JSON.parse(line) as string[]);
     assert.equal(calls.length, 1);
-    assert.deepEqual(calls[0], ["systemctl", "stop", "tap-broadcaster.service", "tap-broadcaster-reader2.service"]);
+    assert.deepEqual(calls[0], ["systemctl", "stop", "scps-reader.service", "scps-reader2.service"]);
     await assert.rejects(fs.stat(path.join(directory, "must-not-open.db")), { code: "ENOENT" });
   } finally {
     await fs.rm(directory, { recursive: true, force: true });

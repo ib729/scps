@@ -25,7 +25,7 @@ if(name==='sudo') {
  if(result.signal) process.kill(process.pid,result.signal); else process.exit(result.status??1);
 }
 if(name==='systemctl') {
- if(args[0]==='show') console.log(args.includes('Restart')?'always':args.includes('LoadState')?(process.env.SINGLE_READER&&args.includes('tap-broadcaster-reader2.service')?'not-found':'loaded'):args.includes('UnitFileState')?'enabled':fs.existsSync(process.env.STARTED_FILE)?'active':process.env.SERVICE_STATE||'inactive');
+ if(args[0]==='show') console.log(args.includes('Restart')?'always':args.includes('LoadState')?(args.some(x=>x.startsWith('tap-broadcaster'))?(process.env.LEGACY_ACTIVE?'loaded':'not-found'):process.env.SINGLE_READER&&args.includes('scps-reader2.service')?'not-found':'loaded'):args.includes('UnitFileState')?'enabled':args.some(x=>x.startsWith('tap-broadcaster'))?'active':fs.existsSync(process.env.STARTED_FILE)?'active':process.env.SERVICE_STATE||'inactive');
  if(args[0]==='start') fs.writeFileSync(process.env.STARTED_FILE,'started');
 }
 if(name==='lsusb') console.log(args[0]==='-t'?'Bus 02: Port 3: Driver=ch341':'Bus 002 Device 003: ID 1a86:7523 QinHeng CH340');
@@ -73,7 +73,7 @@ test("recovery stops both reader owners, resets, probes, then starts", { timeout
     const probe = commands.findIndex(command => command[0] === "nfc-list");
     const started = commands.findIndex(command => command[0] === "systemctl" && command[1] === "start");
     assert.ok(stopped >= 0 && reset > stopped && probe > reset && started > probe);
-    assert.deepEqual(commands[stopped], ["systemctl", "stop", "tap-broadcaster.service", "tap-broadcaster-reader2.service"]);
+    assert.deepEqual(commands[stopped], ["systemctl", "stop", "scps-reader.service", "scps-reader2.service"]);
     assert.ok(commands[reset].includes("/dev/ttyUSB1"));
   } finally { await rm(f.directory, { recursive: true, force: true }); }
 });
@@ -96,6 +96,15 @@ test("unmanaged reader owner blocks reset and driver unload", async () => {
       assert.notEqual(result.code, 0, result.output);
     }
     assert.doesNotMatch(await readFile(f.log, "utf8"), /modprobe|--import|"start"/);
+  } finally { await rm(f.directory, { recursive: true, force: true }); }
+});
+
+test("active legacy reader blocks hardware access and service changes", async () => {
+  const f = await fixture();
+  try {
+    const result = await invoke("recover-nfc", { ...f.env, LEGACY_ACTIVE: "1" }, ["USB1"]);
+    assert.notEqual(result.code, 0);
+    assert.doesNotMatch(await readFile(f.log, "utf8"), /"stop"|"start"|--import|nfc-list/);
   } finally { await rm(f.directory, { recursive: true, force: true }); }
 });
 
@@ -239,7 +248,7 @@ test("single-reader recovery skips an absent optional second-reader service", { 
     const result = await invoke("recover-nfc", { ...f.env, SINGLE_READER: "1" }, ["USB0"]);
     assert.equal(result.code, 0, result.output);
     const commands = (await readFile(f.log, "utf8")).trim().split("\n").map(line => JSON.parse(line) as string[]);
-    assert.deepEqual(commands.find(command => command[0] === "systemctl" && command[1] === "start"), ["systemctl", "start", "tap-broadcaster.service"]);
+    assert.deepEqual(commands.find(command => command[0] === "systemctl" && command[1] === "start"), ["systemctl", "start", "scps-reader.service"]);
   } finally { await rm(f.directory, { recursive: true, force: true }); }
 });
 

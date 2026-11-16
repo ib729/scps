@@ -26,7 +26,7 @@ if(name==='ls')console.log('ttyUSB0');
 if(name==='udevadm')console.log('ID_VENDOR_ID=1a86');
 if(name==='lsof')process.exit(1);
 if(name==='systemctl'){
- if(args[0]==='show')console.log(args.includes('LoadState')?(args.includes('tap-broadcaster-reader2.service')?'not-found':'loaded'):fs.existsSync(${JSON.stringify(started)})?'active':'inactive');
+ if(args[0]==='show')console.log(args.includes('LoadState')?(args.some(x=>x.startsWith('tap-broadcaster'))||args.includes('scps-reader2.service')?'not-found':'loaded'):fs.existsSync(${JSON.stringify(started)})?'active':'inactive');
  if(args[0]==='start')fs.writeFileSync(${JSON.stringify(started)},'active');
  if(args[0]==='stop')fs.rmSync(${JSON.stringify(started)},{force:true});
 }

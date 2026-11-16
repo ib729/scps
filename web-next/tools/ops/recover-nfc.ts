@@ -5,7 +5,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { probeReader } from "../../hardware/diagnose-nfc";
 import { assertReaderReleased, exitFailure, serialSelection } from "./check_usb_port";
 
-export const readerServices = ["tap-broadcaster.service", "tap-broadcaster-reader2.service"];
+export const readerServices = ["scps-reader.service", "scps-reader2.service"];
 const packageDirectory = fileURLToPath(new URL("../../", import.meta.url));
 
 export async function command(program: string, args: string[]): Promise<void> {
@@ -26,7 +26,18 @@ export async function command(program: string, args: string[]): Promise<void> {
   finally { process.off("SIGINT", interrupt); process.off("SIGTERM", terminate); }
 }
 
+export function assertLegacyReadersStopped(): void {
+  for (const service of ["tap-broadcaster.service", "tap-broadcaster-reader2.service"]) {
+    const load = execFileSync("systemctl", ["show", service, "-p", "LoadState", "--value"], { encoding: "utf8", timeout: 5000 }).trim();
+    if (load === "not-found") continue;
+    if (load !== "loaded") throw new Error(`Cannot establish ${service} ownership (load state ${load || "empty"})`);
+    const state = execFileSync("systemctl", ["show", service, "-p", "ActiveState", "--value"], { encoding: "utf8", timeout: 5000 }).trim();
+    if (state !== "inactive" && state !== "failed") throw new Error(`Stop legacy reader ${service}; state ${state || "unknown"}`);
+  }
+}
+
 export async function stopReaders(ports: string[]): Promise<string[]> {
+  assertLegacyReadersStopped();
   const services: string[] = [];
   for (const service of readerServices) {
     const load = execFileSync("systemctl", ["show", service, "-p", "LoadState", "--value"], { encoding: "utf8", timeout: 5000 }).trim();
