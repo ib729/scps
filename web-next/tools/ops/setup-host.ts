@@ -55,7 +55,7 @@ export function configureDatabase(): string {
         database!.exec(fs.readFileSync(path.join(repository, "migrations/schema.sql"), "utf8"));
         database!.exec(fs.readFileSync(path.join(web, "migrations/better_auth_schema.sql"), "utf8"));
       })();
-      if (database.pragma("integrity_check", { simple: true }) !== "ok" || database.pragma("foreign_key_check").length) throw new Error("Initialized database failed integrity checks");
+      if (database.pragma("integrity_check", { simple: true }) !== "ok" || (database.pragma("foreign_key_check") as unknown[]).length) throw new Error("Initialized database failed integrity checks");
       database.close();
       database = undefined;
       fs.linkSync(temporary, target);
