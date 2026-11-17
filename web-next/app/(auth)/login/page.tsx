@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
@@ -139,12 +138,6 @@ export default function LoginPage() {
             </Tooltip>
           </TooltipProvider>
         </form>
-        <div className="mt-6 text-center text-sm">
-          Don&apos;t have an account?{" "}
-          <Link href="/signup" className="font-semibold text-primary hover:underline">
-            Sign up
-          </Link>
-        </div>
       </CardContent>
     </Card>
   );

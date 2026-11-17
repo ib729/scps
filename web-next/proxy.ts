@@ -15,6 +15,11 @@ export function proxy(request: NextRequest) {
   // Redirect pages, never POST server actions or their request bodies.
   if (request.method !== "GET" && request.method !== "HEAD") return NextResponse.next();
   const pathname = request.nextUrl.pathname;
+  // Park these pages without changing their APIs or stored records.
+  if (pathname === "/signup" || pathname === "/customer" || pathname.startsWith("/customer/") ||
+      pathname === "/admin/payments" || pathname.startsWith("/admin/payments/")) {
+    return new NextResponse("Not found", { status: 404, headers: { "Cache-Control": "no-store" } });
+  }
   const slash = pathname.indexOf("/", 1);
   const destination = destinations[slash < 0 ? pathname : pathname.slice(0, slash)];
   if (!destination) return NextResponse.next();
@@ -24,5 +29,5 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard", "/customers/:path*", "/students/:path*", "/transactions/:path*", "/pos/:path*", "/topup/:path*", "/wcp/:path*", "/student/:path*"],
+  matcher: ["/dashboard", "/customers/:path*", "/students/:path*", "/transactions/:path*", "/pos/:path*", "/topup/:path*", "/wcp/:path*", "/student/:path*", "/signup", "/customer/:path*", "/admin/payments/:path*"],
 };

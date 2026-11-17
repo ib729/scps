@@ -521,7 +521,6 @@ export function AppSidebar({ user: initialUser, initialPreferences, ...props }: 
             <SidebarMenu>
               {[...navItems, ...(user?.role === "admin" ? [
                 { title: "Accounts", url: "/admin/users", icon: Users },
-                { title: "Payment review", url: "/admin/payments", icon: Receipt },
               ] : [])].map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
