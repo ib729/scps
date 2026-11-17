@@ -75,6 +75,10 @@ In **Payment review**, investigate the request/receipt, then confirm actual rece
 
 The website queue/status is authoritative. Optional Telegram messages are alerts linking to the website, not approval buttons.
 
+## School Details
+
+Administrators can open **Settings** from the sidebar account menu and change the school year or upload a school logo under **School details**. Select **Save school details** to apply them for all staff. Logos must be PNG, JPEG or WebP files no larger than 512 KB. Select **Use default logo** and save to remove an uploaded logo.
+
 ## Reader and System Status
 
 **Connected** means an authenticated broadcaster is present on the selected lane. It does not prove PN532 communication, a good cable or a successful payment. Verify a real tap when opening a lane; use manual mode if hardware is unavailable.

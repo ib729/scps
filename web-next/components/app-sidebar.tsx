@@ -6,6 +6,7 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { authClient } from "@/lib/auth-client"
 import { updateCurrentUserPreferencesAction } from "@/app/actions/user-preferences"
+import { updateSchoolSettingsAction } from "@/app/actions/school-settings"
 import {
   AnimatedIconHandle,
   LayoutDashboard,
@@ -32,6 +33,7 @@ import {
 } from "@/lib/pos-preferences"
 import type { UserPreferences } from "@/lib/models"
 import type { AuthenticatedUser } from "@/lib/auth-session"
+import type { SchoolSettings } from "@/lib/school-settings"
 
 import {
   Sidebar,
@@ -120,6 +122,7 @@ const BRAND_LOGO_SOURCES = [
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   user?: AuthenticatedUser
   initialPreferences: UserPreferences
+  initialSchoolSettings: SchoolSettings
 }
 
 type SidebarNavItem = {
@@ -191,10 +194,14 @@ const SidebarNavLink = React.forwardRef<HTMLAnchorElement, SidebarNavLinkProps>(
   )
 })
 
-export function AppSidebar({ user: initialUser, initialPreferences, ...props }: AppSidebarProps) {
+export function AppSidebar({ user: initialUser, initialPreferences, initialSchoolSettings, ...props }: AppSidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const [brandLogoIndex, setBrandLogoIndex] = React.useState(0)
+  const schoolSettings = initialSchoolSettings
+  const [draftSchoolSettings, setDraftSchoolSettings] = React.useState(initialSchoolSettings)
+  const [savingSchool, setSavingSchool] = React.useState(false)
+  const [readingLogo, setReadingLogo] = React.useState(false)
   const { setTheme, resolvedTheme } = useTheme()
   const { selectedReader, setSelectedReader } = useNFCReader()
   const [mounted, setMounted] = React.useState(false)
@@ -234,7 +241,8 @@ export function AppSidebar({ user: initialUser, initialPreferences, ...props }: 
   const [showCurrentPassword, setShowCurrentPassword] = React.useState(false)
   const [showNewPassword, setShowNewPassword] = React.useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = React.useState(false)
-  const brandLogoSrc = BRAND_LOGO_SOURCES[brandLogoIndex] ?? null
+  const brandLogoSources = schoolSettings.logo ? [schoolSettings.logo, ...BRAND_LOGO_SOURCES] : BRAND_LOGO_SOURCES
+  const brandLogoSrc = brandLogoSources[brandLogoIndex] ?? null
 
   // Update local state when context changes
   React.useEffect(() => {
@@ -245,6 +253,54 @@ export function AppSidebar({ user: initialUser, initialPreferences, ...props }: 
     setLocalSelectedReader(initialPreferences.selected_reader)
     setLocalDefaultPosMode(initialPreferences.pos_default_mode)
   }, [initialPreferences.pos_default_mode, initialPreferences.selected_reader])
+
+  const handleLogoChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.currentTarget.files?.[0]
+    event.currentTarget.value = ""
+    if (!file) return
+    if (!["image/png", "image/jpeg", "image/webp"].includes(file.type) || file.size > 512 * 1024) {
+      toast.error("Choose a PNG, JPEG, or WebP image up to 512 KB")
+      return
+    }
+    setReadingLogo(true)
+    const url = URL.createObjectURL(file)
+    try {
+      const image = new window.Image()
+      image.src = url
+      await image.decode()
+      const { promise, resolve, reject } = Promise.withResolvers<string>()
+      const reader = new FileReader()
+      reader.onload = () => typeof reader.result === "string" ? resolve(reader.result) : reject()
+      reader.onerror = () => reject()
+      reader.readAsDataURL(file)
+      const logo = await promise
+      setDraftSchoolSettings((current) => ({ ...current, logo }))
+    } catch {
+      toast.error("Could not read that image")
+    } finally {
+      URL.revokeObjectURL(url)
+      setReadingLogo(false)
+    }
+  }
+
+  const handleSaveSchool = async () => {
+    setSavingSchool(true)
+    try {
+      const result = await updateSchoolSettingsAction(draftSchoolSettings)
+      if (!result.success || !result.data) {
+        toast.error(result.error || "Failed to save school details")
+        return
+      }
+      setDraftSchoolSettings(result.data)
+      setBrandLogoIndex(0)
+      router.refresh()
+      toast.success("School details saved")
+    } catch {
+      toast.error("Failed to save school details")
+    } finally {
+      setSavingSchool(false)
+    }
+  }
 
   // Handle saving settings
   const handleSaveSettings = async () => {
@@ -490,7 +546,7 @@ export function AppSidebar({ user: initialUser, initialPreferences, ...props }: 
                 <div className="flex flex-1 items-center gap-3 group-data-[collapsible=icon]:justify-center">
                   <div className="grid min-w-0 flex-1 text-left text-lg leading-tight group-data-[collapsible=icon]:hidden">
                     <span className="truncate font-semibold tracking-tight">Student Council</span>
-                    <span className="truncate text-base text-sidebar-foreground/70">2025-2026</span>
+                    <span className="truncate text-base text-sidebar-foreground/70">{schoolSettings.schoolYear}</span>
                   </div>
                   <div className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border border-sidebar-border/70 bg-sidebar-accent/40 group-data-[collapsible=icon]:h-9 group-data-[collapsible=icon]:w-9">
                     {brandLogoSrc ? (
@@ -500,6 +556,7 @@ export function AppSidebar({ user: initialUser, initialPreferences, ...props }: 
                         alt="School logo"
                         fill
                         sizes="(max-width: 768px) 36px, 44px"
+                        unoptimized={brandLogoSrc.startsWith("data:")}
                         className="object-cover"
                         onError={() => setBrandLogoIndex((currentIndex) => currentIndex + 1)}
                       />
@@ -584,7 +641,10 @@ export function AppSidebar({ user: initialUser, initialPreferences, ...props }: 
                     <User className="mr-2 h-4 w-4" />
                     Account
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setShowSettingsDialog(true)}>
+                  <DropdownMenuItem onClick={() => {
+                    setDraftSchoolSettings(schoolSettings)
+                    setShowSettingsDialog(true)
+                  }}>
                     <Settings className="mr-2 h-4 w-4" />
                     Settings
                   </DropdownMenuItem>
@@ -984,6 +1044,26 @@ export function AppSidebar({ user: initialUser, initialPreferences, ...props }: 
 
               {user?.role === "admin" ? (
                 <>
+                  <div className="space-y-3 border-t pt-4">
+                    <h3 className="text-base font-semibold">School details</h3>
+                    <p className="text-sm text-muted-foreground">These details are shared across the dashboard for all staff.</p>
+                    <Label htmlFor="school-year">School year</Label>
+                    <Input id="school-year" value={draftSchoolSettings.schoolYear} maxLength={40}
+                      onChange={(event) => setDraftSchoolSettings((current) => ({ ...current, schoolYear: event.target.value }))} />
+                    <Label htmlFor="school-logo">School logo</Label>
+                    <Input id="school-logo" type="file" accept="image/png,image/jpeg,image/webp" disabled={readingLogo}
+                      onChange={handleLogoChange} />
+                    <p className="text-xs text-muted-foreground">PNG, JPEG, or WebP, up to 512 KB. {draftSchoolSettings.logo ? "Custom logo selected." : "Using the default logo."}</p>
+                    {draftSchoolSettings.logo && (
+                      <Button variant="outline" onClick={() => setDraftSchoolSettings((current) => ({ ...current, logo: null }))}>
+                        Use default logo
+                      </Button>
+                    )}
+                    <Button className="w-full" onClick={handleSaveSchool} disabled={savingSchool || readingLogo}>
+                      {savingSchool ? "Saving..." : "Save school details"}
+                    </Button>
+                  </div>
+
                   <div className="space-y-3 border-t pt-4">
                     <Label className="text-base font-semibold">
                       Database Management

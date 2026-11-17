@@ -4,6 +4,8 @@ import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/s
 import { NFCReaderProvider } from "@/lib/nfc-reader-context";
 import { requirePageStaffContext } from "@/lib/auth-session";
 import { getUserPreferencesByUserId } from "@/lib/repositories/user-preferences";
+import { getDb } from "@/lib/db";
+import { getSchoolSettings } from "@/lib/school-settings";
 
 export default async function AppLayout({
   children,
@@ -17,7 +19,7 @@ export default async function AppLayout({
   return (
     <NFCReaderProvider initialSelectedReader={preferences.selected_reader}>
       <SidebarProvider>
-        <AppSidebar user={session.user} initialPreferences={preferences} />
+        <AppSidebar user={session.user} initialPreferences={preferences} initialSchoolSettings={getSchoolSettings(getDb())} />
         <SidebarInset className="min-h-svh overflow-hidden">
           <header className="flex h-14 shrink-0 items-center px-4 md:hidden">
             <SidebarTrigger className="-ml-1" />
