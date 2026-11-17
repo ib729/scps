@@ -222,24 +222,6 @@ html.dark,
 }
 
 @layer utilities {
-  @keyframes breathe {
-
-    0%,
-    100% {
-      opacity: 1;
-      transform: scale(1);
-    }
-
-    50% {
-      opacity: 0.6;
-      transform: scale(1.02);
-    }
-  }
-
-  .animate-breathe {
-    animation: breathe 3s ease-in-out infinite;
-  }
-
   /* Custom Slim Scrollbar */
   .custom-scrollbar::-webkit-scrollbar {
     width: 6px;
