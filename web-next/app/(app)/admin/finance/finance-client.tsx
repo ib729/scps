@@ -2,7 +2,7 @@
 
 import { useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { saveFinanceSetupAction, saveFinanceEntryAction, saveFinanceObservationAction, closeFinanceMonthAction } from "@/app/actions/finance";
+import { saveFinanceSetupAction, saveFinanceEntryAction, saveFinanceObservationAction, closeFinanceMonthAction, calculateFinanceProfitAction } from "@/app/actions/finance";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -62,16 +62,19 @@ export function FinanceClient({ data }: { data: FinancePageData }) {
   const [channel, setChannel] = useState<FinanceChannel>("WeChat");
   const [destination, setDestination] = useState<FinanceChannel>("Cash");
   const [selectedReport, setSelectedReport] = useState<number | null>(null);
+  const [profit, setProfit] = useState<{ month: string; salesCents: number; profitCents: number; endUtc: string } | null>(null);
+  const [profitError, setProfitError] = useState<{ month: string; message: string } | null>(null);
   const newEntryId = useRef<string | null>(null);
   const selected = data.revisions.find(report => report.id === selectedReport);
   const savedRevision = data.revisions[0]?.snapshot.revision ?? 0;
+  const instantAvailable = !!data.draft && data.draft.startUtc <= data.draft.preparedAt;
 
   async function perform(action: () => Promise<{ success: boolean; error?: string }>, success: string, after?: () => void) {
     setBusy(true); setError(""); setMessage("");
     try {
       const result = await action();
       if (!result.success) setError(result.error || "Unable to save finance changes");
-      else { setMessage(success); after?.(); router.refresh(); }
+      else { setMessage(success); setProfit(null); after?.(); router.refresh(); }
     } catch { setError("Unable to save finance changes. Refresh before retrying."); }
     finally { setBusy(false); }
   }
@@ -99,6 +102,17 @@ export function FinanceClient({ data }: { data: FinancePageData }) {
     const form = new FormData(event.currentTarget);
     void perform(() => closeFinanceMonthAction({ month: data.month, expectedRevision: savedRevision, expectedHash: data.draft!.sourceHash, reason: text(form, "reason") || undefined }), "Statement saved.");
   }
+  async function submitProfit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    setBusy(true); setProfitError(null); setProfit(null);
+    try {
+      const result = await calculateFinanceProfitAction({ month: data.month, goodsCost: text(form, "goodsCost"), otherExpenses: text(form, "otherExpenses") });
+      if (!result.success) setProfitError({ month: data.month, message: result.error });
+      else setProfit({ month: data.month, ...result.data });
+    } catch { setProfitError({ month: data.month, message: "Unable to calculate estimated profit." }); }
+    finally { setBusy(false); }
+  }
   const setupForm = <form method="post" onSubmit={submitSetup} className="space-y-4">{!data.setup && <div className="space-y-2"><Label htmlFor="startMonth">Start month</Label><Input id="startMonth" name="startMonth" type="month" defaultValue={data.month} required /></div>}<BalanceFields values={data.setup?.balancesCents} />{data.setup && <div className="space-y-2"><Label htmlFor="setup-reason">Reason for correction</Label><Textarea id="setup-reason" name="reason" maxLength={1000} required /></div>}<Button type="submit" disabled={busy}>{busy ? "Saving…" : data.setup ? "Save correction" : "Save opening balances"}</Button></form>;
 
   return <div className="min-h-0 flex-1 space-y-6 overflow-auto pb-8">
@@ -108,6 +122,24 @@ export function FinanceClient({ data }: { data: FinancePageData }) {
       <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground"><span>Opening balances start {data.setup.startMonth} · revision {data.setup.revision}</span><Button variant="outline" onClick={() => setSetupOpen(true)}>Correct opening balances</Button></div>
       <Dialog open={setupOpen} onOpenChange={open => { if (!busy) setSetupOpen(open); }}><DialogContent><DialogHeader><DialogTitle>Correct opening balances</DialogTitle><DialogDescription>The start month stays fixed. Corrections make affected saved statements stale.</DialogDescription></DialogHeader>{setupForm}</DialogContent></Dialog>
       {data.error && <p role="alert" className="text-destructive">{data.error}</p>}
+      <Card>
+        <CardHeader><CardTitle>Quick profit estimate</CardTitle><CardDescription>Recorded sales minus the cost of goods sold and other expenses you enter. Do not count the same cost twice. Inventory is not tracked, so this is an estimate, not an accounting profit statement.</CardDescription></CardHeader>
+        <CardContent className="space-y-4">
+          <form method="post" onSubmit={submitProfit} onChange={() => { setProfit(null); setProfitError(null); }} className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-2"><Label htmlFor="goods-cost">Cost of goods sold (¥)</Label><Input id="goods-cost" name="goodsCost" inputMode="decimal" placeholder="Enter 0 if none" disabled={busy || !instantAvailable} required /></div>
+              <div className="space-y-2"><Label htmlFor="other-expenses">Other expenses (¥)</Label><Input id="other-expenses" name="otherExpenses" inputMode="decimal" placeholder="Enter 0 if none" disabled={busy || !instantAvailable} required /></div>
+            </div>
+            <Button type="submit" disabled={busy || !instantAvailable}>{busy ? "Calculating…" : "Calculate estimate"}</Button>
+          </form>
+          {profitError?.month === data.month && <p role="alert" className="text-destructive">{profitError.message}</p>}
+          {profit?.month === data.month && <div role="status" className="rounded-lg border p-3"><p>Recorded sales: {money(profit.salesCents)}</p><p className="font-semibold">Estimated profit / loss: {money(profit.profitCents)}</p><p className="text-sm text-muted-foreground">Selected month through {new Date(profit.endUtc).toLocaleString("en-GB", { timeZone: "Asia/Shanghai", year: "numeric", month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", fractionalSecondDigits: 3, hourCycle: "h23" })} China time, exclusive. Entered costs are not saved or included in reports.</p></div>}
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader><CardTitle>Instant report</CardTitle><CardDescription>Generate a provisional report for the selected month up to now, without closing it or entering month-end balances. It is not a saved statement. Each export is generated separately and can differ if records change.</CardDescription></CardHeader>
+        <CardContent>{instantAvailable ? <div className="flex flex-wrap gap-4"><a className="underline" href={`/api/finance/instant/export?month=${encodeURIComponent(data.month)}`}>Download provisional Excel</a><a className="underline" href={`/finance/instant?month=${encodeURIComponent(data.month)}`} target="_blank" rel="noopener noreferrer">Print provisional / Save as PDF</a></div> : <p className="text-sm text-muted-foreground">Choose a started month with valid finance data to generate a report.</p>}</CardContent>
+      </Card>
       {data.draft && <Card><CardHeader><CardTitle>Draft for {data.month}</CardTitle><CardDescription>China time, {chinaTime(data.draft.startUtc)} inclusive to {chinaTime(data.draft.endUtc)} exclusive. Prepared {chinaTime(data.draft.preparedAt)}.</CardDescription></CardHeader><CardContent><Reconciliation draft={data.draft} /></CardContent></Card>}
       <Card><CardHeader><CardTitle>Balance at end of selected month</CardTitle><CardDescription>Enter actual balances for {data.month}. They do not change the expected ledger or the next month’s opening funds.</CardDescription></CardHeader><CardContent><form method="post" key={`${data.month}-${data.observation?.revision ?? 0}`} className="space-y-4" onSubmit={submitObservation}><BalanceFields values={data.observation?.balancesCents} /><div className="space-y-2"><Label htmlFor="explanation">Explanation for differences or warnings</Label><Textarea id="explanation" name="explanation" maxLength={1000} defaultValue={data.observation?.explanation ?? ""} /></div><Button type="submit" disabled={busy}>{busy ? "Saving…" : "Save actual balances"}</Button></form></CardContent></Card>
       <Card><CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3"><div><CardTitle>Manual register</CardTitle><CardDescription>Expenses, other income and transfers for {data.month}.</CardDescription></div><Button disabled={busy} onClick={() => openEntry(null)}>Add entry</Button></CardHeader><CardContent><Table><TableHeader><TableRow><TableHead>Date</TableHead><TableHead>Type</TableHead><TableHead>Channel</TableHead><TableHead>Amount</TableHead><TableHead>Purpose</TableHead><TableHead>Status</TableHead><TableHead><span className="sr-only">Actions</span></TableHead></TableRow></TableHeader><TableBody>{data.entries.map(entry => <TableRow key={entry.id}><TableCell>{entry.date}</TableCell><TableCell>{entry.kind}</TableCell><TableCell>{entry.channel}{entry.toChannel ? ` → ${entry.toChannel}` : ""}</TableCell><TableCell>{money(entry.amountCents)}</TableCell><TableCell className="max-w-xs whitespace-normal">{entry.description}</TableCell><TableCell>{entry.voided ? "Voided" : !entry.date.startsWith(data.month) ? "Moved out" : "Active"}</TableCell><TableCell><div className="flex gap-2"><Button size="sm" variant="outline" onClick={() => openEntry(entry)} disabled={busy}>Review / edit</Button>{!entry.voided && <Button size="sm" variant="outline" onClick={() => openEntry(entry, true)} disabled={busy}>Void</Button>}</div></TableCell></TableRow>)}</TableBody></Table>{!data.entries.length && <p className="py-4 text-sm text-muted-foreground">No manual entries for this month.</p>}</CardContent></Card>

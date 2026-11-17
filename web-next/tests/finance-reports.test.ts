@@ -47,6 +47,25 @@ test("saved finance exports enforce staff access and preserve old revisions", as
       assert.equal(values.get("Expected funds"), 65);
       assert.equal(values.get("Revision"), 1);
     }
+    const instantUrl = `${server.baseURL}/api/finance/instant/export?month=2020-10`;
+    assert.equal((await request(undefined, instantUrl)).status, 401);
+    assert.equal((await request(customer, instantUrl)).status, 403);
+    for (const cookie of [staff, admin]) {
+      const response = await request(cookie, instantUrl);
+      assert.equal(response.status, 200);
+      assert.equal(response.headers.get("cache-control"), "private, no-store");
+      assert.equal(response.headers.get("content-disposition"), 'attachment; filename="scps-finance-2020-10-provisional.xlsx"');
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.load(Buffer.from(await response.arrayBuffer()) as never);
+      const summary = JSON.stringify(workbook.getWorksheet("Summary")!.getSheetValues());
+      assert.match(summary, /Provisional report, not a closed statement/);
+      assert.doesNotMatch(summary, /"Revision"/);
+    }
+    assert.equal((await request(staff, `${server.baseURL}/api/finance/instant/export?month=9999-12`)).status, 400);
+    const instantPrint = await fetch(`${server.baseURL}/finance/instant?month=2020-10`, { headers: { Cookie: staff } });
+    assert.equal(instantPrint.status, 200);
+    assert.match(await instantPrint.text(), /Provisional finance report/);
+    assert.equal(db.prepare("SELECT count(*) FROM finance_reports").pluck().get(), 1);
     assert.equal((await request(staff, `${server.baseURL}/api/finance/reports/1x/export`)).status, 400);
     assert.equal((await request(staff, `${server.baseURL}/api/finance/reports/999999/export`)).status, 404);
     const print = await fetch(`${server.baseURL}/finance/reports/${id}`, { headers: { Cookie: staff } });

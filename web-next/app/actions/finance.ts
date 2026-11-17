@@ -6,7 +6,7 @@ import { AuthError, requireStaffContext } from "@/lib/auth-session";
 import { getDb } from "@/lib/db";
 import {
   FinanceError, financeSetupSchema, financeEntrySchema, financeObservationSchema, financeCloseSchema,
-  saveFinanceSetup, saveFinanceEntry, saveFinanceObservation, closeFinanceMonth,
+  saveFinanceSetup, saveFinanceEntry, saveFinanceObservation, closeFinanceMonth, calculateFinanceProfit, getFinanceProvisional,
 } from "@/lib/finance";
 
 function failure(error: unknown) {
@@ -49,5 +49,16 @@ export async function closeFinanceMonthAction(data: unknown) {
     const id = closeFinanceMonth(getDb(), financeCloseSchema.parse(data), { id: user.id, name: user.name });
     revalidatePath("/admin/finance");
     return { success: true as const, data: { id } };
+  } catch (error) { return failure(error); }
+}
+
+export async function calculateFinanceProfitAction(data: unknown) {
+  try {
+    const { user } = await requireStaffContext();
+    const input = z.object({ month: z.string(), goodsCost: z.string(), otherExpenses: z.string() }).strict().parse(data);
+    const report = getFinanceProvisional(getDb(), input.month, { id: user.id, name: user.name });
+    if (!report) throw new FinanceError("Set opening balances first");
+    const salesCents = report.draft.summary.salesCents;
+    return { success: true as const, data: { salesCents, profitCents: calculateFinanceProfit(salesCents, input.goodsCost, input.otherExpenses), endUtc: report.draft.endUtc } };
   } catch (error) { return failure(error); }
 }

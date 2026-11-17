@@ -4,7 +4,7 @@ import type { FinanceBookAmounts, FinanceProvisional, FinanceSnapshot } from "./
 const currencyFormat = '"¥"#,##0.00;[Red]-"¥"#,##0.00';
 const maxRows = 1_048_576;
 const maxCellLength = 32_767;
-const chinaTime = (value: string) => new Date(value).toLocaleString("en-GB", { timeZone: "Asia/Shanghai", dateStyle: "medium", timeStyle: "medium" });
+const chinaTime = (value: string) => new Date(value).toLocaleString("en-GB", { timeZone: "Asia/Shanghai", year: "numeric", month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", fractionalSecondDigits: 3, hourCycle: "h23" });
 const channels = ["WeChat", "Alipay", "Cash", "Unassigned"] as const;
 const total = (values: FinanceBookAmounts) => channels.reduce((sum, channel) => sum + values[channel], 0);
 
@@ -69,7 +69,7 @@ export async function buildFinanceWorkbook(snapshot: FinanceSnapshot | FinancePr
   addRow(balances, ["Reconciliation", ...channels, "Total"]).font = { bold: true };
   const components: Array<[string, FinanceBookAmounts]> = [
     ["Expected opening", s.openingCents], ["Recorded receipts", s.receiptsCents], ["Other income", s.incomeCents],
-    ["Expenses", s.expensesCents], ["Transfers in", s.transfersInCents], ["Transfers out", s.transfersOutCents], ["Expected closing", s.expectedClosingCents],
+    ["Expenses", s.expensesCents], ["Transfers in", s.transfersInCents], ["Transfers out", s.transfersOutCents], ["kind" in snapshot ? "Expected at cutoff" : "Expected closing", s.expectedClosingCents],
   ];
   for (const [label, values] of components) {
     const row = addRow(balances, [label, ...channels.map(channel => values[channel] / 100), total(values) / 100]); currency(row, 2, 3, 4, 5, 6);

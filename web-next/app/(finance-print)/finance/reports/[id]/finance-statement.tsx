@@ -7,7 +7,7 @@ import type { FinanceBookAmounts, FinanceProvisional, FinanceSnapshot } from "@/
 
 const channels = ["WeChat", "Alipay", "Cash", "Unassigned"] as const;
 const money = (amount: number | null) => amount === null ? "Not entered" : `¥${formatCurrency(amount)}`;
-const chinaTime = (value: string) => new Date(value).toLocaleString("en-GB", { timeZone: "Asia/Shanghai", dateStyle: "medium", timeStyle: "medium" });
+const chinaTime = (value: string) => new Date(value).toLocaleString("en-GB", { timeZone: "Asia/Shanghai", year: "numeric", month: "short", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", fractionalSecondDigits: 3, hourCycle: "h23" });
 const total = (values: FinanceBookAmounts) => channels.reduce((sum, channel) => sum + values[channel], 0);
 
 export function FinanceStatement({ snapshot, stale, staleReason }: { snapshot: FinanceSnapshot | FinanceProvisional; stale: boolean; staleReason: string | null }) {
@@ -17,7 +17,7 @@ export function FinanceStatement({ snapshot, stale, staleReason }: { snapshot: F
     ["Expected opening", summary.openingCents], ["Recorded receipts", summary.receiptsCents],
     ["Other income", summary.incomeCents], ["Expenses", summary.expensesCents],
     ["Transfers in", summary.transfersInCents], ["Transfers out", summary.transfersOutCents],
-    ["Expected closing", summary.expectedClosingCents], ["Actual closing", summary.actualClosingCents],
+    ["kind" in snapshot ? "Expected at cutoff" : "Expected closing", summary.expectedClosingCents], ["Actual closing", summary.actualClosingCents],
     ["Difference", summary.varianceCents],
   ] as const;
   const expenses = draft.entries.filter(entry => entry.kind === "expense");
