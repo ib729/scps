@@ -313,3 +313,21 @@ test("channel differences cannot cancel and month boundaries exclude the followi
     fs.rmSync(directory, { recursive: true, force: true });
   }
 });
+
+test("unsafe receipt aggregates are rejected even when closing funds remain safe", t => {
+  t.mock.timers.enable({ apis: ["Date"], now: new Date("2026-11-16T00:00:00Z") });
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "scps-finance-"));
+  const db = new Database(path.join(directory, "ledger.sqlite"));
+  try {
+    db.exec(fs.readFileSync("../migrations/schema.sql", "utf8"));
+    ensureFinanceSchema(db);
+    db.exec("INSERT INTO customers(id,name) VALUES(1,'Fixture'); INSERT INTO transactions(customer_id,type,amount,payment_method,created_at) VALUES(1,'TOPUP',9007199254740991,'WeChat','2026-10-10 00:00:00'),(1,'TOPUP',1,'Cash','2026-10-10 00:00:00');");
+    const actor = { id: "staff", name: "Staff" };
+    saveFinanceSetup(db, { startMonth: "2026-10", balances: { WeChat: "0", Alipay: "0", Cash: "0" }, expectedRevision: 0 }, actor);
+    saveFinanceEntry(db, { id: "24473b85-674f-4d54-b6bb-4d277dd90676", expectedRevision: 0, kind: "expense", date: "2026-10-11", channel: "WeChat", amount: "90071992547409.91", description: "Expense", voided: false }, actor);
+    assert.throws(() => getFinanceDraft(db, "2026-10", new Date("2026-11-02T00:00:00Z")), /unsafe amount/i);
+  } finally {
+    db.close();
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});

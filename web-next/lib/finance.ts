@@ -297,6 +297,7 @@ function calculateFinance(db: Database.Database, month: string, now: Date): { dr
       details.push({ source: "manual_income", sourceId: entry.id, postedAt: new Date(Date.parse(`${entry.date}T00:00:00Z`) - 8 * 3600_000).toISOString(), channel: entry.channel, originalMethod: entry.channel, amountCents: entry.amountCents, creditedCents: null, description: entry.description, recipient: entry.recipient, reference: entry.reference });
     }
   }
+  for (const values of [opening, receipts, income, expenses, transfersIn, transfersOut]) bookTotal(values);
   const closing = zeroBook();
   for (const channel of channels) {
     closing[channel] = checked(opening[channel], channel);
