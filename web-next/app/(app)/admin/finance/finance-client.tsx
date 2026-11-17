@@ -130,8 +130,11 @@ export function FinanceClient({ data }: { data: FinancePageData }) {
             <Button variant="outline" onClick={() => router.push(`/admin/finance?month=${report.month}`)}>Open month</Button>
           </div>)}
           {data.revisions.length > 0 && <div className="space-y-2"><h3 className="font-medium">Revisions for {data.month}</h3>
+            <p className="text-sm text-muted-foreground">PDF is created using your browser’s Print / Save as PDF option.</p>
             {data.revisions.map(report => <div className="flex flex-wrap items-center gap-3" key={report.id}>
               <Button size="sm" variant="outline" onClick={() => setSelectedReport(report.id)}>Inspect revision {report.snapshot.revision}</Button>
+              <a className="text-sm underline" href={`/api/finance/reports/${report.id}/export`}>Download Excel</a>
+              <a className="text-sm underline" href={`/finance/reports/${report.id}`} target="_blank" rel="noopener noreferrer">Print / Save as PDF</a>
               <span className="text-sm">{report.snapshot.savedBy.name} · {chinaTime(report.snapshot.savedAt)} · {report.stale ? "Stale" : "Current"}{report.snapshot.reason ? ` · ${report.snapshot.reason}` : ""}</span>
             </div>)}
           </div>}
