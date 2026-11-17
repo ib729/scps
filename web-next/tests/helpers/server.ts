@@ -15,7 +15,7 @@ export interface TestServer {
   close(): Promise<void>;
 }
 
-export async function startTestServer(): Promise<TestServer> {
+export async function startTestServer(options: { webpack?: boolean } = {}): Promise<TestServer> {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "scps-http-"));
   const databasePath = path.join(directory, "stuco.db");
   const database = new Database(databasePath);
@@ -53,7 +53,10 @@ export async function startTestServer(): Promise<TestServer> {
   listener.close(error => error ? closing.reject(error) : closing.resolve());
   await closing.promise;
   const baseURL = `http://localhost:${port}`;
-  const child = spawn(process.execPath, ["--import", "tsx", "server.ts"], {
+  const args = options.webpack
+    ? [path.join(webDirectory, "node_modules/next/dist/bin/next"), "dev", "--webpack", "--hostname", "localhost", "--port", String(port)]
+    : ["--import", "tsx", "server.ts"];
+  const child = spawn(process.execPath, args, {
     cwd: webDirectory,
     env: {
       ...process.env, NODE_ENV: "development", HOSTNAME: "localhost", PORT: String(port), DATABASE_PATH: databasePath,
