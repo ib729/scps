@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import Database from "better-sqlite3";
 import { ensureFinanceSchema } from "./finance-schema";
-import { getFinanceMonthBounds, parseFinanceAmount, saveFinanceSetup, saveFinanceEntry, saveFinanceObservation, getFinanceDraft, closeFinanceMonth, getFinanceReport, getFinancePageData } from "./finance";
+import { getFinanceMonthBounds, parseFinanceAmount, saveFinanceSetup, saveFinanceEntry, saveFinanceObservation, getFinanceDraft, closeFinanceMonth, getFinanceReport, getFinancePageData, calculateFinanceProfit, getFinanceProvisional } from "./finance";
 
 test("amounts are exact cents and reject invalid or unsafe values", () => {
   assert.equal(parseFinanceAmount(" 100.17 ", false), 10017);
@@ -326,6 +326,65 @@ test("unsafe receipt aggregates are rejected even when closing funds remain safe
     saveFinanceSetup(db, { startMonth: "2026-10", balances: { WeChat: "0", Alipay: "0", Cash: "0" }, expectedRevision: 0 }, actor);
     saveFinanceEntry(db, { id: "24473b85-674f-4d54-b6bb-4d277dd90676", expectedRevision: 0, kind: "expense", date: "2026-10-11", channel: "WeChat", amount: "90071992547409.91", description: "Expense", voided: false }, actor);
     assert.throws(() => getFinanceDraft(db, "2026-10", new Date("2026-11-02T00:00:00Z")), /unsafe amount/i);
+  } finally {
+    db.close();
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("estimated profit uses exact entered costs without silently rounding", () => {
+  assert.equal(calculateFinanceProfit(6000, "20.25", "3.50"), 3625);
+  assert.equal(calculateFinanceProfit(100, "3", "2"), -400);
+  for (const cost of ["", "-1", "1.001", "90071992547409.92"]) {
+    assert.throws(() => calculateFinanceProfit(6000, cost, "0"));
+  }
+  assert.throws(() => calculateFinanceProfit(-1, "0", "0"));
+  assert.throws(() => calculateFinanceProfit(0, "90071992547409.91", "0.01"));
+});
+
+test("provisional reports stop at their cutoff without inventing month-end actuals", () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "scps-finance-asof-"));
+  const db = new Database(path.join(directory, "ledger.sqlite"));
+  try {
+    db.exec(fs.readFileSync("../migrations/schema.sql", "utf8"));
+    ensureFinanceSchema(db);
+    db.exec("INSERT INTO customers(id,name) VALUES(1,'Fixture'); INSERT INTO transactions(customer_id,type,amount,payment_method,created_at) VALUES(1,'TOPUP',1000,'Cash','2020-10-03 00:00:00'),(1,'DEBIT',-500,'Balance','2020-10-06 00:00:00'),(1,'DEBIT',-900,'Balance','2020-10-20 00:00:00');");
+    const actor = { id: "staff", name: "Staff" };
+    saveFinanceSetup(db, { startMonth: "2020-10", balances: { WeChat: "0", Alipay: "0", Cash: "0" }, expectedRevision: 0 }, actor);
+    for (const [id, date, amount] of [["64d00855-d72e-4e04-9a04-83eea3803801", "2020-10-04", "2"], ["64d00855-d72e-4e04-9a04-83eea3803802", "2020-10-18", "4"]]) {
+      saveFinanceEntry(db, { id, expectedRevision: 0, kind: "expense", date, channel: "Cash", amount, description: date, voided: false }, actor);
+    }
+    saveFinanceObservation(db, { month: "2020-10", balances: { WeChat: "0", Alipay: "0", Cash: "99" }, expectedRevision: 0 }, actor);
+    const now = new Date("2020-10-10T04:00:00Z");
+    const report = getFinanceProvisional(db, "2020-10", actor, now)!;
+    assert.equal(report.kind, "provisional");
+    assert.equal(report.draft.endUtc, "2020-10-10T04:00:00.000Z");
+    assert.equal(report.draft.summary.receiptsCents.Cash, 1000);
+    assert.equal(report.draft.summary.salesCents, 500);
+    assert.equal(report.draft.summary.expensesCents.Cash, 200);
+    assert.equal(report.draft.summary.totalExpectedCents, 800);
+    assert.equal(report.draft.summary.actualClosingCents, null);
+    assert.equal(report.draft.entries.length, 1);
+    assert.equal(getFinanceDraft(db, "2020-10", now)!.summary.salesCents, 1400);
+    assert.throws(() => getFinanceProvisional(db, "2020-11", actor, now));
+    assert.equal(db.prepare("SELECT count(*) FROM finance_reports").pluck().get(), 0);
+  } finally {
+    db.close();
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("provisional reports do not count a linked top-up before its later approval", () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "scps-finance-asof-link-"));
+  const db = new Database(path.join(directory, "ledger.sqlite"));
+  try {
+    db.exec(fs.readFileSync("../migrations/schema.sql", "utf8"));
+    ensureFinanceSchema(db);
+    db.exec("INSERT INTO customers(id,name) VALUES(1,'Fixture'); INSERT INTO transactions(id,customer_id,type,amount,payment_method,created_at) VALUES(1,1,'TOPUP',1000,'WeChat','2020-10-03 00:00:00'); INSERT INTO wechat_topup_requests(customer_id,requested_amount,payable_amount,status,created_by_user_id,approved_transaction_id,expires_at,reviewed_at) VALUES(1,1000,1010,'approved','u',1,'2020-10-11 00:00:00','2020-10-11 00:00:00');");
+    const actor = { id: "staff", name: "Staff" };
+    saveFinanceSetup(db, { startMonth: "2020-10", balances: { WeChat: "0", Alipay: "0", Cash: "0" }, expectedRevision: 0 }, actor);
+    assert.equal(getFinanceProvisional(db, "2020-10", actor, new Date("2020-10-10T00:00:00Z"))!.draft.summary.receiptsCents.WeChat, 0);
+    assert.equal(getFinanceDraft(db, "2020-10", new Date("2020-11-02T00:00:00Z"))!.summary.receiptsCents.WeChat, 1010);
   } finally {
     db.close();
     fs.rmSync(directory, { recursive: true, force: true });

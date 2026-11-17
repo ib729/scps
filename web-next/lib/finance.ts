@@ -48,6 +48,12 @@ export function parseFinanceAmount(value: string, allowZero: boolean): number {
   return Number(cents);
 }
 
+export function calculateFinanceProfit(salesCents: number, goodsCost: string, otherExpenses: string): number {
+  if (!Number.isSafeInteger(salesCents) || salesCents < 0) throw new FinanceError("Invalid recorded sales");
+  const afterGoods = checked(salesCents - parseFinanceAmount(goodsCost, true), "estimated profit");
+  return checked(afterGoods - parseFinanceAmount(otherExpenses, true), "estimated profit");
+}
+
 export function getFinanceMonthBounds(month: string): { startUtc: string; endUtc: string } {
   const match = /^(\d{4})-(0[1-9]|1[0-2])$/.exec(month);
   if (!match || Number(match[1]) < 2000) throw new FinanceError("Enter a valid month from 2000 onward");
@@ -151,6 +157,10 @@ export type FinanceSnapshot = {
   schemaVersion: 1; month: string; revision: number; savedAt: string; savedBy: FinanceActor; reason: string | null; draft: FinanceDraft;
   evidence: { setup: FinanceSetup; entries: FinanceEntry[]; transactions: FinanceTransactionSource[]; wechatRequests: FinanceWechatSource[]; observation: FinanceObservation };
 };
+export type FinanceProvisional = {
+  kind: "provisional"; month: string; generatedAt: string; generatedBy: FinanceActor; draft: FinanceDraft;
+  evidence: { setup: FinanceSetup; entries: FinanceEntry[]; transactions: FinanceTransactionSource[]; wechatRequests: FinanceWechatSource[]; observation: null };
+};
 export type FinanceReportView = { snapshot: FinanceSnapshot; stale: boolean; staleReason: string | null };
 export type FinanceReportIndex = { id: number; month: string; revision: number; savedAt: string; savedBy: FinanceActor; reason: string | null; stale: boolean; staleReason: string | null };
 export type FinancePageData = {
@@ -194,22 +204,30 @@ function bookTotal(book: FinanceBookAmounts): number {
   return channels.reduce((sum, channel) => checked(sum + book[channel], "total"), 0);
 }
 
-function calculateFinance(db: Database.Database, month: string, now: Date): { draft: FinanceDraft; evidence: Omit<FinanceSnapshot["evidence"], "observation"> & { observation: FinanceObservation | null } } | null {
+function calculateFinance(db: Database.Database, month: string, now: Date, provisional = false): { draft: FinanceDraft; evidence: Omit<FinanceSnapshot["evidence"], "observation"> & { observation: FinanceObservation | null } } | null {
   const bounds = getFinanceMonthBounds(month);
+  if (provisional && now.toISOString() < bounds.startUtc) throw new FinanceError("The selected month has not started");
+  if (provisional && now.toISOString() < bounds.endUtc) bounds.endUtc = now.toISOString();
   const setupRow = db.prepare<[], SetupRow>("SELECT * FROM finance_setup_versions ORDER BY revision DESC LIMIT 1").get();
   if (!setupRow) return null;
   const setup = setupFromRow(setupRow);
   if (month < setup.startMonth) throw new FinanceError("The selected month is before the finance start month");
   const cutover = getFinanceMonthBounds(setup.startMonth).startUtc;
-  const observationRow = db.prepare<[string], BalanceRow>("SELECT * FROM finance_balance_versions WHERE month=? ORDER BY revision DESC LIMIT 1").get(month);
+  const observationRow = provisional ? undefined : db.prepare<[string], BalanceRow>("SELECT * FROM finance_balance_versions WHERE month=? ORDER BY revision DESC LIMIT 1").get(month);
   const observation = observationRow ? observationFromRow(observationRow) : null;
   const entryRows = db.prepare<[], EntryRow>(`SELECT e.* FROM finance_entry_versions e
     WHERE e.revision=(SELECT MAX(x.revision) FROM finance_entry_versions x WHERE x.entry_id=e.entry_id)
     ORDER BY e.entry_id`).all();
-  const entries = entryRows.map(entryFromRow).filter(entry => entry.date >= `${setup.startMonth}-01` && entry.date < month + "-32");
+  const inPeriod = (entry: FinanceEntry) => {
+    if (entry.date < `${setup.startMonth}-01` || entry.date >= `${month}-32`) return false;
+    if (!provisional) return true;
+    checkDate(entry.date);
+    return new Date(Date.parse(`${entry.date}T00:00:00Z`) - 8 * 3600_000).toISOString() < bounds.endUtc;
+  };
+  const entries = entryRows.map(entryFromRow).filter(inPeriod);
   const entryHistory = db.prepare<[string, string], EntryRow>(`SELECT * FROM finance_entry_versions WHERE entry_id IN
     (SELECT entry_id FROM finance_entry_versions WHERE effective_date>=? AND effective_date<?)
-    ORDER BY entry_id,revision`).all(`${setup.startMonth}-01`, `${month}-32`).map(entryFromRow);
+    ORDER BY entry_id,revision`).all(`${setup.startMonth}-01`, `${month}-32`).map(entryFromRow).filter(inPeriod);
   const transactionRows = db.prepare<[], TransactionRow>("SELECT id,customer_id,type,amount,payment_method,staff,description,created_at FROM transactions ORDER BY id").all();
   const requestRows = db.prepare<[], RequestRow>("SELECT id,customer_id,approved_transaction_id,requested_amount,payable_amount,reviewed_at FROM wechat_topup_requests WHERE status='approved' ORDER BY id").all();
   const links = new Map<number, number>();
@@ -336,6 +354,16 @@ function calculateFinance(db: Database.Database, month: string, now: Date): { dr
 
 export function getFinanceDraft(db: Database.Database, month: string, now = new Date()): FinanceDraft | null {
   return calculateFinance(db, month, now)?.draft ?? null;
+}
+
+export function getFinanceProvisional(db: Database.Database, month: string, actor: FinanceActor, now = new Date()): FinanceProvisional | null {
+  return db.transaction((): FinanceProvisional | null => {
+    const calculated = calculateFinance(db, month, now, true);
+    if (!calculated) return null;
+    calculated.draft.canClose = false;
+    calculated.draft.blockers = ["Provisional reports are not closed statements"];
+    return { kind: "provisional", month, generatedAt: now.toISOString(), generatedBy: actor, draft: calculated.draft, evidence: { ...calculated.evidence, observation: null } };
+  }).deferred();
 }
 
 export function closeFinanceMonth(db: Database.Database, input: FinanceCloseInput, actor: FinanceActor, now = new Date()): number {
