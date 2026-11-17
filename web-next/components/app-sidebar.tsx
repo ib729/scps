@@ -96,11 +96,6 @@ const navItems = [
     icon: Receipt,
   },
   {
-    title: "Finance",
-    url: "/admin/finance",
-    icon: Receipt,
-  },
-  {
     title: "POS",
     url: "/admin/pos",
     icon: ShoppingCart,
