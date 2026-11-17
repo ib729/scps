@@ -767,7 +767,6 @@ export function TransactionsClient({
 
       <div
         ref={scrollContainerRef}
-        data-native-scroll
         className="relative min-h-0 flex-1 overflow-auto rounded-md border custom-scrollbar"
         onScroll={handleScroll}
       >
@@ -879,7 +878,6 @@ export function TransactionsClient({
             <div className="space-y-2">
               <div className="text-sm font-medium">Version history</div>
               <div
-                data-native-scroll
                 className="max-h-56 space-y-2 overflow-y-auto rounded-md border p-3"
               >
                 {noteHistoryLoading ? (

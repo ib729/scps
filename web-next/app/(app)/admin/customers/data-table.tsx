@@ -95,7 +95,6 @@ export function DataTable({
         </div>
       </div>
       <div
-        data-native-scroll
         className="relative min-h-0 flex-1 overflow-auto rounded-md border custom-scrollbar"
       >
         <table className="w-full caption-bottom text-sm">

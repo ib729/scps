@@ -2,10 +2,8 @@ import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { GeistSans } from "geist/font/sans";
 import "./globals.css";
-import "lenis/dist/lenis.css";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/theme-provider";
-import { LenisProvider } from "@/components/lenis-provider";
 import { THEME_BOOTSTRAP_SCRIPT } from "@/lib/theme-bootstrap";
 
 export const metadata: Metadata = {
@@ -73,10 +71,8 @@ export default async function RootLayout({
           disableTransitionOnChange
           storageKey="theme"
         >
-          <LenisProvider>
-            {children}
-            <Toaster />
-          </LenisProvider>
+          {children}
+          <Toaster />
         </ThemeProvider>
       </body>
     </html>

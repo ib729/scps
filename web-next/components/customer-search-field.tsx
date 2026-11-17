@@ -163,7 +163,7 @@ export function CustomerSearchField({
             {isSearching ? (
               <p className="px-3 py-2 text-sm text-muted-foreground">Searching...</p>
             ) : results.length > 0 ? (
-              <div data-native-scroll className="max-h-64 overflow-y-auto py-1">
+              <div className="max-h-64 overflow-y-auto py-1">
                 {results.map((customer, index) => (
                   <button
                     key={customer.id}
