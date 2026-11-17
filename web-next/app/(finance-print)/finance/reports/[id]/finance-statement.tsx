@@ -3,14 +3,14 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/currency";
-import type { FinanceBookAmounts, FinanceSnapshot } from "@/lib/finance";
+import type { FinanceBookAmounts, FinanceProvisional, FinanceSnapshot } from "@/lib/finance";
 
 const channels = ["WeChat", "Alipay", "Cash", "Unassigned"] as const;
 const money = (amount: number | null) => amount === null ? "Not entered" : `¥${formatCurrency(amount)}`;
-const chinaTime = (value: string) => new Date(value).toLocaleString("en-GB", { timeZone: "Asia/Shanghai", dateStyle: "medium", timeStyle: "short" });
+const chinaTime = (value: string) => new Date(value).toLocaleString("en-GB", { timeZone: "Asia/Shanghai", dateStyle: "medium", timeStyle: "medium" });
 const total = (values: FinanceBookAmounts) => channels.reduce((sum, channel) => sum + values[channel], 0);
 
-export function FinanceStatement({ snapshot, stale, staleReason }: { snapshot: FinanceSnapshot; stale: boolean; staleReason: string | null }) {
+export function FinanceStatement({ snapshot, stale, staleReason }: { snapshot: FinanceSnapshot | FinanceProvisional; stale: boolean; staleReason: string | null }) {
   const draft = snapshot.draft;
   const summary = draft.summary;
   const rows = [
@@ -25,16 +25,16 @@ export function FinanceStatement({ snapshot, stale, staleReason }: { snapshot: F
   const relevantIds = new Set(snapshot.evidence.entries.filter(entry => entry.date.startsWith(`${snapshot.month}-`)).map(entry => entry.id));
   const history = snapshot.evidence.entries.filter(entry => relevantIds.has(entry.id));
   return <>
-    <div className="finance-toolbar"><Link href={`/admin/finance?month=${snapshot.month}`}>Back to Finance</Link><span>{stale ? `Stale: ${staleReason ?? "source records changed"}` : "Current"}</span><Button onClick={() => window.print()}>Print / Save as PDF</Button></div>
+    <div className="finance-toolbar"><Link href={`/admin/finance?month=${snapshot.month}`}>Back to Finance</Link><span>{"kind" in snapshot ? "Provisional, not a closed statement" : stale ? `Stale: ${staleReason ?? "source records changed"}` : "Current"}</span><Button onClick={() => window.print()}>Print / Save as PDF</Button></div>
     <main className="finance-statement">
-      <header><p className="eyebrow">Student council · finance</p><h1>Monthly statement</h1><p className="identity">{snapshot.month} · revision {snapshot.revision}</p><p>China time: {chinaTime(draft.startUtc)} inclusive to {chinaTime(draft.endUtc)} exclusive</p><p>Saved {chinaTime(snapshot.savedAt)} China time by {snapshot.savedBy.name}{snapshot.reason ? ` · Revision reason: ${snapshot.reason}` : ""}</p></header>
+      <header><p className="eyebrow">Student council · finance</p><h1>{"kind" in snapshot ? "Provisional finance report" : "Monthly statement"}</h1><p className="identity">{snapshot.month}{"kind" in snapshot ? " · provisional, not a closed statement" : ` · revision ${snapshot.revision}`}</p><p>China time: {chinaTime(draft.startUtc)} inclusive to {chinaTime(draft.endUtc)} exclusive</p><p>{"kind" in snapshot ? `Generated ${chinaTime(snapshot.generatedAt)} China time by ${snapshot.generatedBy.name}. Actual month-end balances are not included.` : `Saved ${chinaTime(snapshot.savedAt)} China time by ${snapshot.savedBy.name}${snapshot.reason ? ` · Revision reason: ${snapshot.reason}` : ""}`}</p></header>
       <section><h2>Summary</h2><div className="finance-table"><table><tbody>
         <tr><th scope="row">Recorded receipts</th><td>{money(total(summary.receiptsCents))}</td><th scope="row">Other income</th><td>{money(total(summary.incomeCents))}</td></tr>
         <tr><th scope="row">Expenses</th><td>{money(total(summary.expensesCents))}</td><th scope="row">Recorded sales</th><td>{money(summary.salesCents)}</td></tr>
         <tr><th scope="row">Sales less recorded expenses</th><td>{money(summary.salesLessExpensesCents)}</td><th scope="row">Wallet adjustments</th><td>{money(summary.walletAdjustmentsCents)}</td></tr>
         <tr><th scope="row">Expected funds</th><td>{money(summary.totalExpectedCents)}</td><th scope="row">Actual funds</th><td>{money(summary.totalActualCents)}</td></tr>
         <tr><th scope="row">Overall difference</th><td>{money(summary.totalVarianceCents)}</td><th scope="row">Explanation</th><td>{draft.observation?.explanation || "None"}</td></tr>
-      </tbody></table></div><p>Actual balance observation recorded {draft.observation ? `${chinaTime(draft.observation.recordedAt)} China time by ${draft.observation.actor.name}` : "not entered"}.</p></section>
+      </tbody></table></div><p>{"kind" in snapshot ? "Month-end actual balances are not included in a provisional report." : `Actual balance observation recorded ${draft.observation ? `${chinaTime(draft.observation.recordedAt)} China time by ${draft.observation.actor.name}` : "not entered"}.`}</p></section>
       <section><h2>Channel reconciliation</h2><div className="finance-table"><table><thead><tr><th scope="col">Movement</th>{channels.map(channel => <th scope="col" key={channel}>{channel}</th>)}</tr></thead><tbody>{rows.map(([label, values]) => <tr key={label}><th scope="row">{label}</th>{channels.map(channel => <td key={channel}>{values && channel in values ? money(values[channel as keyof typeof values]) : "—"}</td>)}</tr>)}</tbody></table></div><p>Unassigned is expected only. Overall difference includes Unassigned and is not the sum of the three channel differences.</p></section>
       <section><h2>Expenses</h2><div className="finance-table"><table><thead><tr><th>Date</th><th>Channel</th><th>Amount</th><th>Purpose</th><th>Recipient</th><th>Reference</th><th>Recorded by</th></tr></thead><tbody>{expenses.map(entry => <tr key={entry.id}><td>{entry.date}</td><td>{entry.channel}</td><td>{money(entry.amountCents)}</td><td>{entry.description}</td><td>{entry.recipient || "—"}</td><td>{entry.reference || "—"}</td><td>{entry.actor.name}</td></tr>)}</tbody></table></div>{!expenses.length && <p>No expenses recorded.</p>}</section>
       <section><h2>Recorded receipts and other income</h2><div className="finance-table"><table><thead><tr><th>Source / ID</th><th>Posted, China time</th><th>Channel / method</th><th>Customer credit</th><th>Receipt</th><th>Purpose / reference</th></tr></thead><tbody>{draft.receipts.map(receipt => <tr key={`${receipt.source}-${receipt.sourceId}`}><td>{receipt.source} #{receipt.sourceId}</td><td>{chinaTime(receipt.postedAt)}</td><td>{receipt.channel}{receipt.channel === "Unassigned" ? ` (${receipt.originalMethod ?? "not specified"})` : ""}</td><td>{receipt.creditedCents === null ? "—" : money(receipt.creditedCents)}</td><td>{money(receipt.amountCents)}</td><td>{[receipt.description, receipt.recipient, receipt.reference].filter(Boolean).join(" · ") || "—"}</td></tr>)}</tbody></table></div>{!draft.receipts.length && <p>No receipts recorded.</p>}</section>
