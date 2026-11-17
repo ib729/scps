@@ -37,7 +37,7 @@ test("final user schema validation preserves identities, credentials, links and 
   } finally { db.close(); }
 });
 
-test("administrator linking and grants preserve ownership and financial history", async () => {
+test("administrator grants preserve ownership and financial history", async () => {
   const os = await import("node:os");
   const path = await import("node:path");
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), "scps-access-"));
@@ -52,21 +52,20 @@ test("administrator linking and grants preserve ownership and financial history"
   try {
     const db = getDb();
     db.exec("INSERT INTO user(id,name,email,role) VALUES('a','A','a@test','customer'),('b','B','b@test','customer'),('staff','Staff','staff@test','staff'); INSERT INTO customers(id,name,archived) VALUES(2,'Archived',1),(3,'No account',0); INSERT INTO accounts(customer_id,balance) VALUES(2,700)");
-    assert.throws(() => access.approveCustomerRegistration("staff","a",1), /Forbidden/);
-    assert.throws(() => access.approveCustomerRegistration("a","a",1), /Forbidden/);
-    access.approveCustomerRegistration("operator","a",1);
-    access.approveCustomerRegistration("operator","a",1);
+    db.prepare("INSERT INTO user_customer_links(user_id,customer_id) VALUES('a',1)").run();
     assert.equal(access.getLinkedCustomerId("a"), 1);
-    assert.throws(() => access.approveCustomerRegistration("operator","b",1), /already linked/);
-    assert.throws(() => access.approveCustomerRegistration("operator","a",2), /already linked/);
-    for (const id of [2,3,999]) assert.throws(() => access.approveCustomerRegistration("operator","b",id), /unavailable/);
+    assert.throws(() => Reflect.apply(access.setUserRole, undefined, ["operator", "a", "customer"]), /Invalid operator role/);
+    assert.equal(db.prepare("SELECT role FROM user WHERE id='a'").pluck().get(), "customer");
+    assert.equal(access.getLinkedCustomerId("a"), 1);
+    assert.equal(db.prepare("SELECT balance FROM accounts WHERE customer_id=1").pluck().get(), 531);
     assert.throws(() => access.setUserRole("staff","staff","admin"), /Forbidden/);
+    assert.throws(() => access.setUserRole("operator","missing","staff"), /User not found/);
     assert.throws(() => access.setUserRole("operator","operator","staff"), /last administrator/);
     access.setUserRole("operator","a","admin");
     access.setUserRole("operator","operator","staff");
     assert.throws(() => access.setUserRole("operator","b","admin"), /Forbidden/);
     access.setUserRole("a","operator","admin");
-    access.setUserRole("operator","a","customer");
+    access.setUserRole("operator","a","staff");
     assert.equal(access.getLinkedCustomerId("a"),1);
     assert.equal(db.prepare("SELECT balance FROM accounts WHERE customer_id=1").pluck().get(),531);
     assert.deepEqual(db.prepare("SELECT type,amount FROM transactions").all(), [{type:"TOPUP",amount:531}]);

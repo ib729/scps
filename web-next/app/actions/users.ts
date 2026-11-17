@@ -12,7 +12,7 @@ import {
   requireRole,
 } from "@/lib/auth-session";
 import { consumeSignupAttempt } from "@/lib/signup-rate-limit";
-import { approveCustomerRegistration, listUserAccess, setUserRole } from "@/lib/repositories/account-access";
+import { listUserAccess, setUserRole } from "@/lib/repositories/account-access";
 
 const signupSchema = z.object({
   name: z.string().trim().min(1).max(255),
@@ -179,7 +179,7 @@ export async function createUser(data: unknown) {
     const { user: actor } = await requireRole("admin");
     const validated = signupSchema.extend({
       image: z.string().url().nullable().optional(),
-      role: z.enum(["admin", "staff", "customer"]),
+      role: z.enum(["admin", "staff"]),
     }).parse(data);
     const result = await auth.api.signUpEmail({
       headers: await headers(),
@@ -202,24 +202,10 @@ export async function listUserAccessAction() {
   }
 }
 
-export async function approveCustomerRegistrationAction(data: unknown) {
-  try {
-    const { user } = await requireRole("admin");
-    const input = z.object({ user_id: z.string().min(1), customer_id: z.number().int().positive() }).strict().parse(data);
-    approveCustomerRegistration(user.id, input.user_id, input.customer_id);
-    revalidatePath("/admin/users");
-    revalidatePath("/customer");
-    revalidatePath("/customer/pending");
-    return { success: true };
-  } catch (error) {
-    return { success: false, error: error instanceof Error ? error.message : "Failed to approve registration" };
-  }
-}
-
 export async function setUserRoleAction(data: unknown) {
   try {
     const { user } = await requireRole("admin");
-    const input = z.object({ user_id: z.string().min(1), role: z.enum(["admin", "staff", "customer"]) }).strict().parse(data);
+    const input = z.object({ user_id: z.string().min(1), role: z.enum(["admin", "staff"]) }).strict().parse(data);
     setUserRole(user.id, input.user_id, input.role);
     revalidatePath("/admin/users");
     revalidatePath("/customer");
