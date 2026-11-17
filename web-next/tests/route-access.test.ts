@@ -62,3 +62,27 @@ test("customer and payment-review pages stay unavailable while staff admin pages
     await server.close();
   }
 });
+
+test("unapproved accounts can check access but cannot use staff data", async () => {
+  const server = await startTestServer({ webpack: true });
+  try {
+    const login = await fetch(`${server.baseURL}/api/auth/sign-in/email`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Origin: server.baseURL },
+      body: JSON.stringify({ email: "customer@example.test", password: "scps-test-password-123" }),
+    });
+    assert.equal(login.status, 200);
+    const cookie = login.headers.getSetCookie().map(value => value.split(";")[0]).join("; ");
+    const headers = { Cookie: cookie };
+    const home = await fetch(server.baseURL + "/", { headers, redirect: "manual" });
+    assert.equal(new URL(home.headers.get("location")!, server.baseURL).pathname, "/pending");
+    assert.equal((await fetch(server.baseURL + "/pending", { headers })).status, 200);
+    assert.equal((await fetch(server.baseURL + "/api/transactions", { headers })).status, 403);
+    server.database.prepare("UPDATE user SET role = 'staff' WHERE email = ?").run("customer@example.test");
+    const approved = await fetch(server.baseURL + "/", { headers, redirect: "manual" });
+    assert.equal(new URL(approved.headers.get("location")!, server.baseURL).pathname, "/admin");
+    assert.equal((await fetch(server.baseURL + "/api/transactions", { headers })).status, 200);
+  } finally {
+    await server.close();
+  }
+});
