@@ -18,13 +18,13 @@ export default async function AppLayout({
 
   return (
     <NFCReaderProvider initialSelectedReader={preferences.selected_reader}>
-      <SidebarProvider>
+      <SidebarProvider className="h-svh">
         <AppSidebar user={session.user} initialPreferences={preferences} initialSchoolSettings={getSchoolSettings(getDb())} />
-        <SidebarInset className="min-h-svh overflow-hidden">
+        <SidebarInset className="min-h-0 overflow-hidden">
           <header className="flex h-14 shrink-0 items-center px-4 md:hidden">
             <SidebarTrigger className="-ml-1" />
           </header>
-          <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden px-4 pb-4 pt-1 md:px-6 md:pb-6 md:pt-3 lg:px-8 lg:pb-8 lg:pt-5">
+          <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-auto px-4 pb-4 pt-1 md:px-6 md:pb-6 md:pt-3 lg:px-8 lg:pb-8 lg:pt-5">
             <TapAlert />
             {children}
           </div>
