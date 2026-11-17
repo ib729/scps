@@ -87,3 +87,24 @@ test("unapproved accounts can check access but cannot use staff data", async () 
     await server.close();
   }
 });
+
+test("retired finance routes return 404 for operators without attachments", async () => {
+  const server = await startTestServer({ webpack: true });
+  try {
+    for (const email of ["staff@example.test", "admin@example.test"]) {
+      const login = await fetch(`${server.baseURL}/api/auth/sign-in/email`, {
+        method: "POST", headers: { "Content-Type": "application/json", Origin: server.baseURL },
+        body: JSON.stringify({ email, password: "scps-test-password-123" }),
+      });
+      assert.equal(login.status, 200);
+      const cookie = login.headers.getSetCookie().map(value => value.split(";")[0]).join("; ");
+      for (const route of ["/admin/finance", "/finance/instant?month=2020-10", "/finance/reports/1", "/api/finance/instant/export?month=2020-10", "/api/finance/reports/1/export"]) {
+        const response = await fetch(server.baseURL + route, { headers: { Cookie: cookie }, redirect: "manual" });
+        assert.equal(response.status, 404, `${email} ${route}`);
+        assert.doesNotMatch(response.headers.get("content-disposition") ?? "", /attachment/i);
+      }
+    }
+  } finally {
+    await server.close();
+  }
+});
