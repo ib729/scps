@@ -13,12 +13,6 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { toast } from "sonner";
 
 export default function SignupPage() {
@@ -120,42 +114,6 @@ export default function SignupPage() {
           <Button type="submit" className="w-full" disabled={loading} size="lg">
             {loading ? "Creating account..." : "Create account"}
           </Button>
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-card px-2 text-muted-foreground">
-                Or continue with
-              </span>
-            </div>
-          </div>
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div className="w-full">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full"
-                    disabled
-                    size="lg"
-                  >
-                    <svg className="mr-2 h-4 w-4" viewBox="0 0 21 21">
-                      <rect x="1" y="1" width="9" height="9" fill="#f25022"/>
-                      <rect x="1" y="11" width="9" height="9" fill="#00a4ef"/>
-                      <rect x="11" y="1" width="9" height="9" fill="#7fba00"/>
-                      <rect x="11" y="11" width="9" height="9" fill="#ffb900"/>
-                    </svg>
-                    Sign up with Microsoft
-                  </Button>
-                </div>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Microsoft OAuth coming soon</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
           </form>
           <div className="mt-6 text-center text-sm">
             Already have an account?{" "}
