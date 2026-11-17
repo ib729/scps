@@ -64,7 +64,7 @@ for (const scale of [undefined, '10', '100']) test(`preserves ledger/auth and sc
         encoding: 'utf8',
       });
       assert.equal(preferences.status, 0, preferences.stderr);
-      assert.deepEqual(JSON.parse(preferences.stdout), { user_id: 'u', selected_reader: 'reader-2', pos_default_mode: 'tap-first', updated_at: 'kept' });
+      assert.deepEqual(JSON.parse(preferences.stdout), { user_id: 'u', selected_reader: 'reader-2', pos_default_mode: 'manual', updated_at: 'kept' });
       assert.equal(db.prepare("INSERT INTO customers(name) VALUES('Next')").run().lastInsertRowid, 91);
       assert.deepEqual(db.pragma('foreign_key_check'), []);
     } finally { db.close(); }

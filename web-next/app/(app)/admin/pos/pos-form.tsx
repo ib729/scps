@@ -22,7 +22,6 @@ import type { CustomerWithAccount } from "@/lib/models";
 import { posCheckoutAction } from "@/app/actions/pos";
 import { getCardByUidAction, createCardAction } from "@/app/actions/cards";
 import { createCustomerAction, getCustomerByIdAction } from "@/app/actions/customers";
-import { EncryptedText } from "@/components/ui/encrypted-text";
 import { formatCurrency, LOW_BALANCE_THRESHOLD } from "@/lib/currency";
 import { useNFCWebSocket } from "@/lib/use-nfc-websocket";
 import { useNFCReader } from "@/lib/nfc-reader-context";
@@ -82,9 +81,6 @@ export function PosForm({ customerIdsWithTransactions, userName, initialMode }: 
 
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerWithAccount | null>(null);
   const [dialogCustomer, setDialogCustomer] = useState<CustomerWithAccount | null>(null);
-
-  // State to trigger re-animation of the encrypted text
-  const [animationKey, setAnimationKey] = useState(0);
 
   const readerLabel =
     selectedReader === "reader-1" ? "Reader 1 (USB0)" : "Reader 2 (USB1)";
@@ -160,17 +156,6 @@ export function PosForm({ customerIdsWithTransactions, userName, initialMode }: 
       setShowReaderPrompt(true);
     }
   }, [mode, selectedReader]);
-
-  // Repeat the encryption animation every 3 seconds when in tap-first mode
-  useEffect(() => {
-    if (mode !== "tap-first") return;
-
-    const interval = setInterval(() => {
-      setAnimationKey((prev) => prev + 1);
-    }, 5000); // Change this value to adjust repeat frequency
-
-    return () => clearInterval(interval);
-  }, [mode]);
 
   const nfcStatusMessage = !isWebSocketConnected
     ? tapStatus || "Connecting..."
@@ -569,24 +554,6 @@ export function PosForm({ customerIdsWithTransactions, userName, initialMode }: 
                 </Badge>
               </AlertDescription>
             </Alert>
-
-            {/* Waiting card with instructions */}
-            <Card className="border-2 border-primary/20 flex-1">
-              <CardContent className="flex items-center justify-center min-h-[400px] py-12 text-center">
-                <div className="space-y-4 max-w-2xl mx-auto">
-                  <p className="text-lg font-normal">
-                    <EncryptedText
-                      key={animationKey}
-                      text="Waiting for customer to tap card..."
-                      encryptedClassName="text-neutral-500"
-                      revealedClassName="dark:text-white text-black"
-                      revealDelayMs={50}
-                      completedClassName="animate-breathe"
-                    />
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
           </>
         )}
 
