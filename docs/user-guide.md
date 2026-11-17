@@ -1,14 +1,14 @@
 # User Guide
 
-The Student Council Payment System has an operator workspace and a separate customer portal. Open your deployment URL, or `http://localhost:3000` locally.
+Open the operator workspace at your deployment URL, or `http://localhost:3000` locally. Customer portal and payment-review pages are currently parked.
 
 ## Navigation and Access
 
 - Staff/admin: `/admin` dashboard, `/admin/pos`, `/admin/topup`, `/admin/customers` and `/admin/transactions`.
-- Administrators only: **Accounts** at `/admin/users` and **Payment review** at `/admin/payments`.
-- Customers: `/customer`; new/unlinked registrations wait at `/customer/pending`.
+- Administrators only: **Accounts** at `/admin/users`.
+- New staff: select **Create an account** on the sign-in page, then ask an administrator to grant the staff role in **Accounts**.
 
-Public registration never grants operator access or creates a financial balance. An administrator verifies the person and links the correct existing customer ledger. A teacher who only buys uses the customer role.
+Public registration does not grant operator access or create a financial balance. Until an administrator grants staff access, signing in shows the pending access page.
 
 ## Processing Sales
 
@@ -56,12 +56,7 @@ Review history at `/admin/transactions` or on the customer detail page. Use the 
 
 ## Customer Portal and QR Top-ups
 
-1. Register at `/signup`, then sign in.
-2. Wait for administrator approval/linking at `/customer/pending`.
-3. The linked portal shows only your balance, history and top-up requests.
-4. Request a base top-up amount and pay the exact distinct payable amount displayed against the configured merchant QR.
-5. Mark the request sent only after sending payment; keep the request ID/receipt.
-6. Wait for an administrator to verify the actual receipt and approve.
+Customer portal and QR top-up pages are currently inaccessible. Existing records remain stored.
 
 For example, a ¥30.00 request may ask for ¥30.01 to distinguish it. Only ¥30.00 is credited after approval. A sent claim does not change the balance. Rejection gives no credit and does not refund the merchant payment.
 

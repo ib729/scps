@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { authClient } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
 import {
@@ -138,6 +139,10 @@ export default function LoginPage() {
             </Tooltip>
           </TooltipProvider>
         </form>
+        <div className="mt-6 text-center text-sm">
+          Need staff access?{" "}
+          <Link href="/signup" className="font-semibold text-primary hover:underline">Create an account</Link>
+        </div>
       </CardContent>
     </Card>
   );

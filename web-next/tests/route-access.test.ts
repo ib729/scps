@@ -45,15 +45,16 @@ test("customer and payment-review pages stay unavailable while staff admin pages
     const admin = await login("admin@example.test");
     const customer = await login("customer@example.test");
     for (const cookie of [undefined, staff, admin, customer]) {
-      for (const route of ["/signup", "/customer", "/customer/pending", "/admin/payments"]) {
+      for (const route of ["/customer", "/customer/pending", "/admin/payments"]) {
         const response = await fetch(server.baseURL + route, { headers: cookie ? { Cookie: cookie } : {}, redirect: "manual" });
         assert.equal(response.status, 404, `${route} must be unavailable`);
         assert.equal(response.headers.get("cache-control"), "no-store");
       }
     }
-    for (const route of ["/signup", "/customer", "/admin/payments"]) {
+    for (const route of ["/customer", "/admin/payments"]) {
       assert.equal((await fetch(server.baseURL + route, { method: "HEAD", redirect: "manual" })).status, 404);
     }
+    assert.equal((await fetch(server.baseURL + "/signup")).status, 200);
     for (const [route, cookie] of [["/admin", staff], ["/admin/topup", staff], ["/admin", admin]] as const) {
       const response = await fetch(server.baseURL + route, { headers: { Cookie: cookie }, redirect: "manual" });
       assert.equal(response.status, 200, `${route} must remain available`);

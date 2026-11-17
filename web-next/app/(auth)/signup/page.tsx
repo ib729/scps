@@ -23,6 +23,7 @@ import { toast } from "sonner";
 
 export default function SignupPage() {
   const [loading, setLoading] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -40,8 +41,7 @@ export default function SignupPage() {
         return;
       }
 
-      toast.success("Account created. Sign in to check your approval status.");
-      window.location.replace("/login");
+      setSubmitted(true);
     } catch {
       toast.error("An unexpected error occurred");
     } finally {
@@ -49,14 +49,26 @@ export default function SignupPage() {
     }
   };
 
+  if (submitted) {
+    return (
+      <Card className="w-full shadow-lg">
+        <CardHeader><CardTitle>Account created</CardTitle></CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">Ask an administrator to grant you staff access in Accounts. You can sign in to check your status.</p>
+          <Button asChild><Link href="/login">Sign in</Link></Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <>
       <Card className="w-full shadow-lg">
         <CardHeader className="space-y-1">
           <CardTitle className="text-3xl font-bold tracking-tight">
-            Create an account
+            Request staff access
           </CardTitle>
-          <CardDescription className="text-base" />
+          <CardDescription className="text-base">An administrator must approve your account before you can access the dashboard.</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSignup} className="grid gap-4">
