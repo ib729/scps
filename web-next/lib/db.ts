@@ -3,7 +3,6 @@ import fs from "node:fs";
 import Database from "better-sqlite3";
 import { DEFAULT_NFC_READER, DEFAULT_POS_MODE } from "./pos-preferences";
 import { assertCustomerSchema } from "./customer-schema";
-import { ensureFinanceSchema } from "./finance-schema";
 
 import { resolveDatabasePath } from "./database-path";
 
@@ -13,7 +12,6 @@ let db: Database.Database | null = null;
 
 function ensureApplicationSchema(database: Database.Database) {
   assertCustomerSchema(database);
-  ensureFinanceSchema(database);
   database.exec(`
     CREATE TABLE IF NOT EXISTS user_preferences (
       user_id TEXT PRIMARY KEY,
