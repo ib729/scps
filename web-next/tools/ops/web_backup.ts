@@ -14,7 +14,8 @@ const web = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const environment = config({ path: path.join(web, ".env.local"), override: false, quiet: true });
 if (environment.error && environment.error.code !== "ENOENT") throw environment.error;
 
-export async function createWebBackup(outputFile: string): Promise<string> {
+export async function createWebBackup(outputFile: string, timestamp = new Date().toISOString().replace(/[:.]/g, "-")): Promise<string> {
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z$/.test(timestamp)) throw new Error("Invalid backup timestamp");
   const source = resolveDatabasePath();
   const level = process.env.ZSTD_CLEVEL || "15";
   const threads = process.env.ZSTD_NBTHREADS || "0";
@@ -55,7 +56,7 @@ export async function createWebBackup(outputFile: string): Promise<string> {
     process.on("SIGINT", onInt);
     process.on("SIGTERM", onTerm);
     try {
-      const entry = archive.entry({ name: "stuco.db", size: snapshotSize, mode: 0o600 });
+      const entry = archive.entry({ name: `scps_${timestamp}.db`, size: snapshotSize, mode: 0o600 });
       const reading = pipeline(fs.createReadStream(snapshot), entry).catch(error => { archive.destroy(error); throw error; });
       archive.finalize();
       const results = await Promise.allSettled([
@@ -83,9 +84,9 @@ export async function createWebBackup(outputFile: string): Promise<string> {
 }
 
 export async function main(args = process.argv.slice(2)): Promise<void> {
-  if (args.length === 1 && ["--help", "-h"].includes(args[0])) { console.log("Usage: node --import tsx tools/ops/web_backup.ts <output_file>"); return; }
-  if (args.length !== 1) throw new Error("Usage: node --import tsx tools/ops/web_backup.ts <output_file>");
-  await createWebBackup(args[0]);
+  if (args.length === 1 && ["--help", "-h"].includes(args[0])) { console.log("Usage: node --import tsx tools/ops/web_backup.ts <output_file> [timestamp]"); return; }
+  if (args.length < 1 || args.length > 2) throw new Error("Usage: node --import tsx tools/ops/web_backup.ts <output_file> [timestamp]");
+  await createWebBackup(args[0], args[1]);
 }
 
 if (process.argv[1] && fs.existsSync(process.argv[1]) && import.meta.url === pathToFileURL(fs.realpathSync(process.argv[1])).href) {

@@ -88,7 +88,7 @@ For first-time Debian or Ubuntu setup run `./scripts/setup.sh` from the reposito
 | `reset_db` | `node --import tsx tools/ops/reset_db.ts --writers-stopped` | **Deletes all ledger and authentication data.** Requires known stopped web state plus exact interactive `yes`; cancellation changes nothing. Backs up an existing ledger, transactionally replaces schema/content and verifies final schema/integrity/FKs. Never unlinks a live database. |
 | `run_migration` | `node --import tsx tools/ops/run_migration.ts /absolute/path/to/migration.sql` | Accepts exactly one SQL path, or a basename found in root `migrations/`. Creates verified `<database>.backup.<timestamp>.<pid>`, then runs `sqlite3 -bail`. Preserves SQL/dot-command/explicit-transaction semantics; failure retains the snapshot, with no automatic rollback of earlier SQL. Stop writers yourself; this workflow has no stopped-state flag/guard. |
 
-`web_backup` snapshots online; do not archive a live database and its sidecars by copying them separately. Default compression is `zstd -15 -T0`; `ZSTD_CLEVEL` and `ZSTD_NBTHREADS` override compression level/thread count. Archives contain the verified snapshot as root `stuco.db`.
+`web_backup` snapshots online; do not archive a live database and its sidecars by copying them separately. Default compression is `zstd -15 -T0`; `ZSTD_CLEVEL` and `ZSTD_NBTHREADS` override compression level/thread count. Archives contain the verified snapshot as root `scps_<UTC timestamp>.db`. Downloads use the same timestamp in the archive name.
 
 Backup configuration:
 
@@ -262,7 +262,7 @@ names, invalid hexadecimal UIDs, conflicting card owners and malformed CSV rows
 need correction in the source file. Export Excel/Sheets data as UTF-8 CSV, retain
 quoted names, preview with `--dry-run`, then try a small batch first.
 
-Snapshot uses SQLite's online backup API and verifies integrity/FKs. Extraction accepts only root regular `stuco.db` plus optional legacy WAL/SHM, rejects unsafe/duplicate/truncated members, and folds staged WAL without touching a live ledger. Extraction stdout is the verified staged database path only.
+Snapshot uses SQLite's online backup API and verifies integrity/FKs. Extraction accepts one root regular `scps_<UTC timestamp>.db`, or legacy `stuco.db` with optional WAL/SHM. It rejects unsafe, duplicate and truncated members, and folds staged WAL without touching a live ledger. Extraction stdout is the verified staged database path only.
 
 ### Existing installations
 

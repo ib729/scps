@@ -139,10 +139,11 @@ node --import tsx tools/sqlite-snapshot.ts extract \
   /absolute/path/to/backup.tar.zst /absolute/path/to/empty-staging
 ```
 
-Extraction prints only the staged database path. Only root regular `stuco.db` and
-optional WAL/SHM members are accepted; paths, links, duplicate/unexpected members,
-missing main files, truncated tar and decompressor failure refuse. Staged WAL is
-folded through SQLite into a verified snapshot. Never extract over a live ledger.
+Extraction prints only the staged database path. Archives contain one root regular
+`scps_<UTC timestamp>.db`. Older archives with `stuco.db` and optional WAL/SHM
+remain supported. Paths, links, duplicate or unexpected members, missing main
+files, truncated tar and decompressor failure refuse. Staged WAL is folded through
+SQLite into a verified snapshot. Never extract over a live ledger.
 
 ### Encrypted R2 backups
 

@@ -131,6 +131,9 @@ test("extraction refuses traversal, absolute, links, duplicate, unexpected and W
     [{ name: "stuco.db", type: "link", linkname: filename }],
     [{ name: "stuco.db", type: "directory" }],
     [{ name: "stuco.db" }, { name: "stuco.db" }],
+    [{ name: "stuco.db" }, { name: "scps_2026-11-17T12-30-00-000Z.db" }],
+    [{ name: "scps_2026-11-17T12-30-00-000Z.db" }, { name: "scps_2026-11-17T12-30-00-001Z.db" }],
+    [{ name: "../scps_2026-11-17T12-30-00-000Z.db" }],
     [{ name: "stuco.db" }, { name: "other.db" }],
     [{ name: "stuco.db-wal" }], [],
   ];

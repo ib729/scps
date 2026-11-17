@@ -63,11 +63,16 @@ if(name==='nfc-list')console.log('NFC device: PN532 opened\\n0 ISO14443A passive
     const download = await request("/api/backup/download", admin);
     assert.equal(download.status, 200);
     assert.equal(download.headers.get("Content-Type"), "application/zstd");
+    const disposition = download.headers.get("Content-Disposition");
+    const match = /^attachment; filename="scps_(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z)\.tar\.zst"$/.exec(disposition ?? "");
+    assert.ok(match, `Unexpected backup filename: ${disposition}`);
     const archive = path.join(directory, "download.tar.zst");
     await fs.writeFile(archive, Buffer.from(await download.arrayBuffer()));
     const staging = path.join(directory, "extract");
     await fs.mkdir(staging);
-    const snapshot = new Database(await extractBackup(archive, staging), { readonly: true });
+    const extracted = await extractBackup(archive, staging);
+    assert.equal(path.basename(extracted), `scps_${match[1]}.db`);
+    const snapshot = new Database(extracted, { readonly: true });
     try { assert.equal(snapshot.prepare("SELECT balance FROM accounts WHERE customer_id=2").pluck().get(), 1000); }
     finally { snapshot.close(); }
     const restarted = await request("/api/system/restart-services", admin, "POST");

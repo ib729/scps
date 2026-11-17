@@ -82,7 +82,7 @@ export async function extractBackup(archivePath: string, directory: string): Pro
   const entries = (async () => {
     for await (const entry of archive) {
       const header = entry.header;
-      if (!Object.hasOwn(allowed, header.name) || header.type !== "file" || names.has(header.name) || !Number.isSafeInteger(header.size) || header.size < 0) {
+      if ((!Object.hasOwn(allowed, header.name) && !/^scps_\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z\.db$/.test(header.name)) || header.type !== "file" || names.has(header.name) || !Number.isSafeInteger(header.size) || header.size < 0) {
         throw new Error("Unexpected, duplicate or unsafe backup member");
       }
       names.add(header.name);
@@ -113,9 +113,10 @@ export async function extractBackup(archivePath: string, directory: string): Pro
     const status = await closed;
     if (spawnError) throw spawnError;
     if (status.code !== 0 || status.signal) throw new Error(`Backup decompression failed: ${stderr.trim() || status.signal || status.code}`);
-    if (!names.has("stuco.db")) throw new Error("Backup is missing stuco.db");
+    const modern = [...names].filter(name => /^scps_\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z\.db$/.test(name));
+    if (modern.length ? modern.length !== 1 || names.size !== 1 : !names.has("stuco.db")) throw new Error("Backup must contain exactly one database");
     if (size % 512 || size < lastEntryEnd + 1024 || tail.length !== 1024 || tail.some(byte => byte !== 0)) throw new Error("Truncated tar archive");
-    const main = path.join(stage, "stuco.db");
+    const main = path.join(stage, modern[0] ?? "stuco.db");
     const clean = path.join(stage, "validated.db");
     // Read-only SQLite may create SHM for a legacy WAL; these are staged, never live.
     for (const suffix of ["-wal", "-shm"]) created.add(`${main}${suffix}`);

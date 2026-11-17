@@ -17,11 +17,11 @@ export async function GET(request: Request) {
         requireTrustedRequestOrigin(request);
         await requireRole("admin");
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-    const filename = `stuco_backup_${timestamp}.tar.zst`;
+    const filename = `scps_${timestamp}.tar.zst`;
     const tempFilePath = path.join(os.tmpdir(), `backup_${Date.now()}_${Math.random().toString(36).substring(7)}.tar.zst`);
 
     try {
-        await execFileAsync(process.execPath, ["--import", "tsx", getBackupScriptPath(), tempFilePath], {
+        await execFileAsync(process.execPath, ["--import", "tsx", getBackupScriptPath(), tempFilePath, timestamp], {
             cwd: path.join(getProjectRoot(), "web-next"),
         });
 
