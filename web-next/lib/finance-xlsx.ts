@@ -1,0 +1,119 @@
+import ExcelJS from "exceljs";
+import type { FinanceBookAmounts, FinanceSnapshot } from "./finance";
+
+const currencyFormat = '"¥"#,##0.00;[Red]-"¥"#,##0.00';
+const maxRows = 1_048_576;
+const maxCellLength = 32_767;
+const chinaTime = (value: string) => new Date(value).toLocaleString("en-GB", { timeZone: "Asia/Shanghai", dateStyle: "medium", timeStyle: "short" });
+const channels = ["WeChat", "Alipay", "Cash", "Unassigned"] as const;
+const total = (values: FinanceBookAmounts) => channels.reduce((sum, channel) => sum + values[channel], 0);
+
+function addRow(sheet: ExcelJS.Worksheet, values: (string | number | null)[]): ExcelJS.Row {
+  if (sheet.rowCount >= maxRows) throw new Error(`Finance export exceeds Excel's row limit in ${sheet.name}`);
+  if (values.some(value => typeof value === "string" && value.length > maxCellLength)) throw new Error(`Finance export exceeds Excel's cell text limit in ${sheet.name}`);
+  return sheet.addRow(values);
+}
+
+function prepareDetail(sheet: ExcelJS.Worksheet, headers: string[], widths: number[]): void {
+  sheet.columns = widths.map(width => ({ width }));
+  addRow(sheet, headers).font = { bold: true };
+  sheet.views = [{ state: "frozen", ySplit: 1 }];
+}
+
+function finishDetail(sheet: ExcelJS.Worksheet): void {
+  sheet.autoFilter = { from: { row: 1, column: 1 }, to: { row: sheet.rowCount, column: sheet.columnCount } };
+}
+
+function currency(row: ExcelJS.Row, ...columns: number[]): void {
+  for (const column of columns) row.getCell(column).numFmt = currencyFormat;
+}
+
+export async function buildFinanceWorkbook(snapshot: FinanceSnapshot): Promise<Uint8Array> {
+  const draft = snapshot.draft;
+  const relevantIds = new Set(snapshot.evidence.entries.filter(entry => entry.date.startsWith(`${snapshot.month}-`)).map(entry => entry.id));
+  const expenseCount = draft.entries.filter(entry => entry.kind === "expense").length;
+  const transferCount = draft.entries.filter(entry => entry.kind === "transfer").length;
+  const historyCount = snapshot.evidence.entries.filter(entry => relevantIds.has(entry.id)).length;
+  for (const [name, count] of [["Expenses", expenseCount + 2], ["Receipts", draft.receipts.length + 3], ["Transfers", transferCount + 2], ["Notes", 4 + draft.warnings.length + historyCount]] as const) {
+    if (count > maxRows) throw new Error(`Finance export exceeds Excel's row limit in ${name}`);
+  }
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = "SCPS";
+  workbook.created = new Date(snapshot.savedAt);
+  workbook.modified = new Date(snapshot.savedAt);
+
+  const s = draft.summary;
+  const summary = workbook.addWorksheet("Summary");
+  summary.columns = [{ width: 32 }, { width: 72 }];
+  const summaryRows: Array<[string, string | number | null, boolean?]> = [
+    ["Month", snapshot.month], ["Revision", snapshot.revision], ["Period start (China time)", chinaTime(draft.startUtc)],
+    ["Period end exclusive (China time)", chinaTime(draft.endUtc)], ["Saved at (China time)", chinaTime(snapshot.savedAt)],
+    ["Saved by", snapshot.savedBy.name], ["Revision reason", snapshot.reason],
+    ["Recorded receipts", total(s.receiptsCents) / 100, true], ["Other income", total(s.incomeCents) / 100, true],
+    ["Expenses", total(s.expensesCents) / 100, true], ["Recorded sales", s.salesCents / 100, true],
+    ["Sales less recorded expenses", s.salesLessExpensesCents / 100, true], ["Expected funds", s.totalExpectedCents / 100, true],
+    ["Actual funds", s.totalActualCents === null ? null : s.totalActualCents / 100, true],
+    ["Overall difference", s.totalVarianceCents === null ? null : s.totalVarianceCents / 100, true],
+    ["Explanation", draft.observation?.explanation ?? null],
+  ];
+  for (const [label, value, isCurrency] of summaryRows) {
+    const row = addRow(summary, [label, value]); row.getCell(1).font = { bold: true };
+    row.getCell(2).alignment = { wrapText: true, vertical: "top" };
+    if (isCurrency) currency(row, 2);
+  }
+  const balances = workbook.addWorksheet("Balances");
+  balances.columns = [{ width: 24 }, ...Array.from({ length: 5 }, () => ({ width: 18 }))];
+  addRow(balances, ["Reconciliation", ...channels, "Total"]).font = { bold: true };
+  const components: Array<[string, FinanceBookAmounts]> = [
+    ["Expected opening", s.openingCents], ["Recorded receipts", s.receiptsCents], ["Other income", s.incomeCents],
+    ["Expenses", s.expensesCents], ["Transfers in", s.transfersInCents], ["Transfers out", s.transfersOutCents], ["Expected closing", s.expectedClosingCents],
+  ];
+  for (const [label, values] of components) {
+    const row = addRow(balances, [label, ...channels.map(channel => values[channel] / 100), total(values) / 100]); currency(row, 2, 3, 4, 5, 6);
+  }
+  for (const [label, values, sum] of [["Actual closing", s.actualClosingCents, s.totalActualCents], ["Difference", s.varianceCents, s.totalVarianceCents]] as const) {
+    const row = addRow(balances, [label, ...(["WeChat", "Alipay", "Cash"] as const).map(channel => values ? values[channel] / 100 : null), null, sum === null ? null : sum / 100]); currency(row, 2, 3, 4, 6);
+  }
+  const expenses = workbook.addWorksheet("Expenses");
+  prepareDetail(expenses, ["Date", "Channel", "Amount (CNY)", "Purpose", "Recipient", "Reference", "Recorded by"], [16, 16, 18, 48, 28, 28, 24]);
+  for (const entry of draft.entries.filter(item => item.kind === "expense")) {
+    const row = addRow(expenses, [entry.date, entry.channel, entry.amountCents / 100, entry.description, entry.recipient, entry.reference, entry.actor.name]);
+    currency(row, 3); for (const column of [4, 5, 6]) row.getCell(column).alignment = { wrapText: true, vertical: "top" };
+  }
+  finishDetail(expenses);
+  currency(addRow(expenses, ["Total", null, total(s.expensesCents) / 100]), 3);
+  const receipts = workbook.addWorksheet("Receipts");
+  prepareDetail(receipts, ["Source", "Source ID", "Posted (China time)", "Channel", "Original method", "Customer credit (CNY)", "Receipt (CNY)", "Purpose", "Recipient", "Reference"], [20, 38, 25, 18, 24, 22, 20, 48, 28, 28]);
+  for (const receipt of draft.receipts) {
+    const row = addRow(receipts, [receipt.source, receipt.sourceId, chinaTime(receipt.postedAt), receipt.channel, receipt.originalMethod, receipt.creditedCents === null ? null : receipt.creditedCents / 100, receipt.amountCents / 100, receipt.description, receipt.recipient, receipt.reference]);
+    currency(row, 6, 7); for (const column of [8, 9, 10]) row.getCell(column).alignment = { wrapText: true, vertical: "top" };
+  }
+  finishDetail(receipts);
+  currency(addRow(receipts, ["Total recorded receipts", null, null, null, null, null, total(s.receiptsCents) / 100]), 7);
+  currency(addRow(receipts, ["Total other income", null, null, null, null, null, total(s.incomeCents) / 100]), 7);
+  const transfers = workbook.addWorksheet("Transfers");
+  prepareDetail(transfers, ["Date", "Source", "Amount (CNY)", "Destination", "Purpose", "Reference", "Recorded by"], [16, 16, 18, 16, 48, 28, 24]);
+  for (const entry of draft.entries.filter(item => item.kind === "transfer")) {
+    const row = addRow(transfers, [entry.date, entry.channel, entry.amountCents / 100, entry.toChannel, entry.description, entry.reference, entry.actor.name]);
+    currency(row, 3); for (const column of [5, 6]) row.getCell(column).alignment = { wrapText: true, vertical: "top" };
+  }
+  finishDetail(transfers);
+  currency(addRow(transfers, ["Total", null, total(s.transfersOutCents) / 100]), 3);
+  const notes = workbook.addWorksheet("Notes");
+  notes.columns = [{ width: 28 }, { width: 90 }];
+  const noteRows: [string, string][] = [
+    ["Source limitations", "Recorded receipts are not verified bank settlement. Approved WeChat requests use approval time and payable amount; customer credit is separate. Purchases must be entered manually."],
+    ["Wallet adjustments", "Wallet adjustments do not change council funds. CLI-Admin is a legacy marker, not verified payment evidence. Other administrative errors cannot be identified automatically."],
+    ["Customer balances", `Current customer balances at preparation, not historical month-end balances. Observed ${chinaTime(draft.creditObservation.observedAt)} China time. Credit owed: ¥${(draft.creditObservation.creditOwedCents / 100).toFixed(2)}; debt: ¥${(draft.creditObservation.debtCents / 100).toFixed(2)}.`],
+    ["Explanation", draft.observation?.explanation ?? "None"],
+    ...draft.warnings.map(warning => ["Warning", warning] as [string, string]),
+  ];
+  for (const entry of snapshot.evidence.entries.filter(item => relevantIds.has(item.id))) {
+    noteRows.push(["Entry history", `${entry.id} revision ${entry.revision}: ${entry.date}, ${entry.kind}, ${entry.voided ? "voided, " : ""}${entry.description}; ${entry.actor.name}, ${chinaTime(entry.recordedAt)}${entry.reason ? `; reason: ${entry.reason}` : ""}`]);
+  }
+  for (const [label, text] of noteRows) {
+    const row = addRow(notes, [label, text]); row.getCell(1).font = { bold: true }; row.getCell(2).alignment = { wrapText: true, vertical: "top" };
+  }
+  const buffer = await workbook.xlsx.writeBuffer();
+  return new Uint8Array(buffer);
+}
