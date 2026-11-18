@@ -8,7 +8,6 @@ import { authClient } from "@/lib/auth-client"
 import { updateCurrentUserPreferencesAction } from "@/app/actions/user-preferences"
 import { updateSchoolSettingsAction } from "@/app/actions/school-settings"
 import {
-  AnimatedIconHandle,
   LayoutDashboard,
   Users,
   Receipt,
@@ -18,6 +17,7 @@ import {
   ChevronsUpDown,
   LogOut,
   User,
+  UserCog,
   Moon,
   Sun,
   Eye,
@@ -119,75 +119,6 @@ interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   initialPreferences: UserPreferences
   initialSchoolSettings: SchoolSettings
 }
-
-type SidebarNavItem = {
-  title: string
-  url: string
-  icon: React.ComponentType<{
-    ref?: React.Ref<AnimatedIconHandle>
-    className?: string
-  }>
-}
-
-type SidebarNavLinkProps = Omit<React.ComponentPropsWithoutRef<typeof Link>, "href"> & {
-  item: SidebarNavItem
-  isActive: boolean
-}
-
-const SidebarNavLink = React.forwardRef<HTMLAnchorElement, SidebarNavLinkProps>(function SidebarNavLink({
-  item,
-  isActive,
-  className,
-  onMouseEnter,
-  onMouseLeave,
-  onFocus,
-  onBlur,
-  ...props
-}, ref) {
-  const iconRef = React.useRef<AnimatedIconHandle | null>(null)
-  const Icon = item.icon
-
-  const syncAnimation = React.useCallback(() => {
-    if (isActive) {
-      iconRef.current?.startAnimation?.()
-      return
-    }
-
-    iconRef.current?.stopAnimation?.()
-  }, [isActive])
-
-  React.useEffect(() => {
-    syncAnimation()
-  }, [syncAnimation])
-
-  return (
-    <Link
-      href={item.url}
-      ref={ref}
-      className={className}
-      onMouseEnter={(event) => {
-        iconRef.current?.startAnimation?.()
-        onMouseEnter?.(event)
-      }}
-      onMouseLeave={(event) => {
-        syncAnimation()
-        onMouseLeave?.(event)
-      }}
-      onFocus={(event) => {
-        iconRef.current?.startAnimation?.()
-        onFocus?.(event)
-      }}
-      onBlur={(event) => {
-        syncAnimation()
-        onBlur?.(event)
-      }}
-      {...props}
-    >
-      <Icon ref={iconRef} />
-      <span>{item.title}</span>
-    </Link>
-  )
-})
 
 const settingsDialogClassName = "max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain sm:max-w-[900px]"
 
@@ -574,22 +505,22 @@ export function AppSidebar({ user: initialUser, initialPreferences, initialSchoo
           <SidebarGroupContent>
             <SidebarMenu>
               {[...navItems, ...(user?.role === "admin" ? [
-                { title: "Accounts", url: "/admin/users", icon: Users },
-              ] : [])].map((item) => (
-                <SidebarMenuItem key={item.title}>
+                { title: "Accounts", url: "/admin/users", icon: UserCog },
+              ] : [])].map(({ title, url, icon: Icon }) => (
+                <SidebarMenuItem key={title}>
                   <SidebarMenuButton
                     asChild
-                    isActive={isNavItemActive(item.url)}
+                    isActive={isNavItemActive(url)}
                     className={
-                      isNavItemActive(item.url)
+                      isNavItemActive(url)
                         ? "bg-sidebar-primary/10 text-sidebar-foreground font-medium shadow-[inset_3px_0_0_hsl(var(--sidebar-primary))] dark:bg-sidebar-accent dark:text-sidebar-accent-foreground"
                         : undefined
                     }
                   >
-                    <SidebarNavLink
-                      item={item}
-                      isActive={isNavItemActive(item.url)}
-                    />
+                    <Link href={url}>
+                      <Icon aria-hidden="true" />
+                      <span>{title}</span>
+                    </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
@@ -990,7 +921,7 @@ export function AppSidebar({ user: initialUser, initialPreferences, initialSchoo
                     >
                       {downloadingBackup ? (
                         <>
-                          <RotateCw className="mr-2 h-4 w-4 animate-spin" />
+                          <RotateCw className="mr-2 h-4 w-4" />
                           Downloading...
                         </>
                       ) : (
@@ -1111,7 +1042,7 @@ export function AppSidebar({ user: initialUser, initialPreferences, initialSchoo
                   >
                     {restartingServices ? (
                       <>
-                        <RotateCw className="mr-2 h-4 w-4 animate-spin" />
+                        <RotateCw className="mr-2 h-4 w-4" />
                         Resetting Hardware...
                       </>
                     ) : (
