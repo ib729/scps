@@ -32,7 +32,7 @@ Outside the POS page, a tap alert can take staff to `/admin/pos` with the detect
 
 At `/admin/topup`, select the correct customer, enter a positive amount, record the payment description/staff and confirm. Enrollment can preselect the new customer.
 
-Use the balance-adjustment form for corrections: positive values add and negative values subtract. Record the reason and review the resulting balance before confirming. A ledger correction is not a refund to a merchant payment account.
+For a manual balance correction, run `./scps-cli ledger` from the repository root. Positive amounts add funds and negative amounts subtract funds. Record the reason and verify the customer and amount before confirming. A ledger correction is not a refund to a merchant payment account.
 
 ## Managing Customers and Cards
 

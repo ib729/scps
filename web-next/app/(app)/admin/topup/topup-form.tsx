@@ -8,7 +8,6 @@ import { getCustomerByIdAction } from "@/app/actions/customers";
 import {
   topupAction,
   topupAndPayAction,
-  adjustBalanceManualAction,
 } from "@/app/actions/topup";
 import { CustomerSearchField } from "@/components/customer-search-field";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -55,16 +54,6 @@ export function TopupForm({ customerIdsWithTransactions, userName }: TopupFormPr
   const [loading, setLoading] = useState(false);
   const [combinedLoading, setCombinedLoading] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerWithAccount | null>(null);
-  const [selectedAdjustCustomer, setSelectedAdjustCustomer] =
-    useState<CustomerWithAccount | null>(null);
-  const [adjustAmount, setAdjustAmount] = useState("");
-  const [adjustDescription, setAdjustDescription] = useState("");
-  const [adjustStaff, setAdjustStaff] = useState(userName || "");
-  const [adjustError, setAdjustError] = useState("");
-  const [adjustSuccess, setAdjustSuccess] = useState("");
-  const [adjustTransactionId, setAdjustTransactionId] = useState<number | null>(null);
-  const [adjustCopied, setAdjustCopied] = useState(false);
-  const [adjustLoading, setAdjustLoading] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -96,12 +85,6 @@ export function TopupForm({ customerIdsWithTransactions, userName }: TopupFormPr
       () => setCopiedTransactionId((current) => (current === txId ? null : current)),
       2000,
     );
-  };
-
-  const copyAdjustTransactionId = async (txId: number) => {
-    await navigator.clipboard.writeText(txId.toString());
-    setAdjustCopied(true);
-    setTimeout(() => setAdjustCopied(false), 2000);
   };
 
   const handleTopup = async (e: React.FormEvent) => {
@@ -199,43 +182,6 @@ export function TopupForm({ customerIdsWithTransactions, userName }: TopupFormPr
     }
 
     setCombinedLoading(false);
-  };
-
-  const handleAdjust = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedAdjustCustomer) {
-      return;
-    }
-
-    setAdjustError("");
-    setAdjustSuccess("");
-    setAdjustTransactionId(null);
-    setAdjustLoading(true);
-
-    const result = await adjustBalanceManualAction({
-      customer_id: selectedAdjustCustomer.id,
-      amount: parseFloat(adjustAmount),
-      description: adjustDescription,
-    });
-
-    if (result.success && result.data) {
-      setAdjustSuccess(
-        `Balance adjusted by ¥${adjustAmount} for ${selectedAdjustCustomer.name}. New balance: ¥${formatCurrency(
-          result.data.newBalance,
-        )}`,
-      );
-      setAdjustTransactionId(result.data.transaction.id);
-      setSelectedAdjustCustomer({
-        ...selectedAdjustCustomer,
-        balance: result.data.newBalance,
-      });
-      setAdjustAmount("");
-      setAdjustDescription("");
-    } else {
-      setAdjustError(result.error || "Failed to adjust balance");
-    }
-
-    setAdjustLoading(false);
   };
 
   return (
@@ -434,136 +380,6 @@ export function TopupForm({ customerIdsWithTransactions, userName }: TopupFormPr
                 {combinedLoading ? "Processing..." : `Add and deduct ¥${amount || "0"}`}
               </Button>
             </div>
-          </form>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Manual Balance Adjustment</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleAdjust} className="space-y-6">
-            {adjustError ? (
-              <Alert variant="destructive">
-                <AlertDescription>{adjustError}</AlertDescription>
-              </Alert>
-            ) : null}
-            {adjustSuccess ? (
-              <Alert>
-                <AlertDescription>
-                  <div className="space-y-2">
-                    <div>{adjustSuccess}</div>
-                    {adjustTransactionId ? (
-                      <div className="mt-2 flex items-center gap-2">
-                        <span className="text-sm text-muted-foreground">
-                          Transaction ID:{" "}
-                          <span className="font-mono font-medium">
-                            {adjustTransactionId}
-                          </span>
-                        </span>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => copyAdjustTransactionId(adjustTransactionId)}
-                          className="h-6 w-6 p-0"
-                        >
-                          {adjustCopied ? (
-                            <Check className="h-3 w-3" />
-                          ) : (
-                            <Copy className="h-3 w-3" />
-                          )}
-                        </Button>
-                      </div>
-                    ) : null}
-                  </div>
-                </AlertDescription>
-              </Alert>
-            ) : null}
-
-            <CustomerSearchField
-              id="adjust-customer"
-              label="Customer"
-              placeholder="Search customers by name"
-              selectedCustomer={selectedAdjustCustomer}
-              onSelect={setSelectedAdjustCustomer}
-            />
-
-            {selectedAdjustCustomer ? (
-              <div className="space-y-2 rounded-lg bg-muted p-4">
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Current Balance:</span>
-                  <span
-                    className={`font-bold ${
-                      selectedAdjustCustomer.balance < 0
-                        ? "text-red-600"
-                        : selectedAdjustCustomer.balance <= LOW_BALANCE_THRESHOLD &&
-                            customerIdsWithTransactions.includes(selectedAdjustCustomer.id)
-                          ? "text-orange-600"
-                          : ""
-                    }`}
-                  >
-                    ¥{formatCurrency(selectedAdjustCustomer.balance)}
-                  </span>
-                </div>
-              </div>
-            ) : null}
-
-            <div className="space-y-2">
-              <Label htmlFor="adjust-amount" className="text-base font-medium">
-                Adjustment Amount (¥)
-              </Label>
-              <Input
-                id="adjust-amount"
-                type="number"
-                step="0.01"
-                value={adjustAmount}
-                onChange={(e) => setAdjustAmount(e.target.value)}
-                placeholder="e.g., 10.50 or -5.25"
-                className="h-12 text-base md:text-base"
-                required
-              />
-              <p className="text-xs text-muted-foreground">
-                Use positive numbers to add, negative to subtract
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="adjust-description" className="text-base font-medium">
-                Reason (Required)
-              </Label>
-              <Textarea
-                id="adjust-description"
-                value={adjustDescription}
-                onChange={(e) => setAdjustDescription(e.target.value)}
-                placeholder="Explain the reason for this adjustment"
-                className="min-h-[88px] text-base md:text-base"
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="adjust-staff" className="text-base font-medium">
-                Staff Name
-              </Label>
-              <Input
-                id="adjust-staff"
-                value={adjustStaff}
-                onChange={(e) => setAdjustStaff(e.target.value)}
-                placeholder="Your name"
-                className="h-12 text-base"
-                disabled
-              />
-            </div>
-
-            <Button
-              type="submit"
-              disabled={adjustLoading || !selectedAdjustCustomer}
-              variant="secondary"
-              className="h-14 w-full text-base font-semibold"
-            >
-              {adjustLoading ? "Adjusting..." : "Apply Adjustment"}
-            </Button>
           </form>
         </CardContent>
       </Card>
