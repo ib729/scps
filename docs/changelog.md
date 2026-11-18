@@ -24,6 +24,7 @@ Use the current guides for operations.
 - Center Delete under Actions in Customers and put Edit notes beside the transaction ID.
 - Widen Top-up without changing its field proportions, and remove the placeholder text.
 - Expand the Top-up frame to fill the workspace while retaining the existing control sizes.
+- Apply the full-workspace frame to POS and Transactions without making their controls taller.
 
 ## 2026-11-15
 

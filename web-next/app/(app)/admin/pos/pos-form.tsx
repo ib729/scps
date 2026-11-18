@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -480,7 +480,7 @@ export function PosForm({ customerIdsWithTransactions, userName, initialMode }: 
         </DialogContent>
       </Dialog>
 
-      <div className="min-w-0 w-full space-y-3">
+      <Card className="w-full min-w-0 grow gap-3 p-4 sm:p-6">
         <div className="grid grid-cols-2 gap-2">
           <Button
             type="button"
@@ -555,11 +555,9 @@ export function PosForm({ customerIdsWithTransactions, userName, initialMode }: 
 
         {/* MANUAL MODE - Form */}
         {mode === "manual" && (
-          <Card className="gap-3">
-            <CardHeader className="px-4 pt-4">
-              <CardTitle className="text-lg">Process Purchase Manually</CardTitle>
-            </CardHeader>
-            <CardContent className="px-4 pb-4">
+          <section className="space-y-3">
+            <h2 className="text-lg font-semibold">Process Purchase Manually</h2>
+            <div>
               <form onSubmit={handleSubmit} className="grid gap-3">
                 <div className="col-span-full min-w-0">
                   <CustomerSearchField
@@ -653,10 +651,10 @@ export function PosForm({ customerIdsWithTransactions, userName, initialMode }: 
                   {loading ? "Processing..." : `Charge ¥${amount || "0"}`}
                 </Button>
               </form>
-            </CardContent>
-          </Card>
+            </div>
+          </section>
         )}
-      </div>
+      </Card>
 
       {/* Reader Selection Prompt Dialog */}
       <Dialog open={showReaderPrompt} onOpenChange={setShowReaderPrompt}>

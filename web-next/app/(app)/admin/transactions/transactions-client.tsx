@@ -12,6 +12,7 @@ import type {
 import { formatCurrency } from "@/lib/currency";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
@@ -748,8 +749,8 @@ export function TransactionsClient({
   const shouldShowVisibleLoader = loadingMoreVisible || (prefetchInFlight && nearEnd);
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-      <div className="sticky top-0 z-20 grid gap-2 bg-background/95 pb-4 backdrop-blur min-[420px]:grid-cols-[minmax(0,1fr)_auto]">
+    <Card className="min-h-0 min-w-0 flex-1 gap-0 overflow-hidden p-4 sm:p-6">
+      <div className="grid gap-2 pb-4 min-[420px]:grid-cols-[minmax(0,1fr)_auto]">
         <Input
           placeholder="Search by customer or transaction ID..."
           value={searchInput}
@@ -940,6 +941,6 @@ export function TransactionsClient({
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </Card>
   );
 }
