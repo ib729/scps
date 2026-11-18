@@ -12,9 +12,10 @@ import { formatCurrency } from "@/lib/currency";
 type CustomerSearchFieldProps = {
   id: string;
   label: string;
-  placeholder: string;
+  placeholder?: string;
   selectedCustomer: CustomerWithAccount | null;
   onSelect: (customer: CustomerWithAccount | null) => void;
+  onTabComplete?: () => void;
 };
 
 export function CustomerSearchField({
@@ -23,16 +24,13 @@ export function CustomerSearchField({
   placeholder,
   selectedCustomer,
   onSelect,
+  onTabComplete,
 }: CustomerSearchFieldProps) {
-  const [query, setQuery] = useState(selectedCustomer?.name ?? "");
+  const [query, setQuery] = useState("");
   const [results, setResults] = useState<CustomerWithAccount[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
-
-  useEffect(() => {
-    setQuery(selectedCustomer?.name ?? "");
-  }, [selectedCustomer?.id, selectedCustomer?.name]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -44,9 +42,11 @@ export function CustomerSearchField({
       return;
     }
 
+    let active = true;
     const timeoutId = window.setTimeout(async () => {
       setIsSearching(true);
       const result = await searchCustomersAction(trimmedQuery, 8);
+      if (!active) return;
       if (result.success) {
         const nextResults = result.data ?? [];
         setResults(nextResults);
@@ -58,8 +58,19 @@ export function CustomerSearchField({
       setIsSearching(false);
     }, 200);
 
-    return () => window.clearTimeout(timeoutId);
+    return () => {
+      active = false;
+      window.clearTimeout(timeoutId);
+    };
   }, [isOpen, query]);
+
+  const selectCustomer = (customer: CustomerWithAccount) => {
+    onSelect(customer);
+    setQuery("");
+    setResults([]);
+    setHighlightedIndex(-1);
+    setIsOpen(false);
+  };
 
   return (
     <div className="space-y-3">
@@ -69,36 +80,30 @@ export function CustomerSearchField({
       <div className="relative">
         <Input
           id={id}
-          value={query}
+          value={selectedCustomer?.name ?? query}
           onChange={(event) => {
             const nextQuery = event.target.value;
             setQuery(nextQuery);
             setIsOpen(true);
-            if (nextQuery.trim().length < 1) {
-              setResults([]);
-              setHighlightedIndex(-1);
-            }
+            setResults([]);
+            setHighlightedIndex(-1);
+            setIsSearching(nextQuery.trim().length > 0);
             if (selectedCustomer && nextQuery !== selectedCustomer.name) {
               onSelect(null);
             }
           }}
-          onFocus={() => setIsOpen(true)}
+          onFocus={() => {
+            if (!selectedCustomer) setIsOpen(true);
+          }}
           onBlur={() => {
             window.setTimeout(() => setIsOpen(false), 120);
           }}
           onKeyDown={(event) => {
-            if (!isOpen || results.length === 0) {
-              if (event.key === "Enter" && results.length === 1) {
-                event.preventDefault();
-                const customer = results[0];
-                onSelect(customer);
-                setQuery(customer.name);
-                setResults([]);
-                setHighlightedIndex(-1);
-                setIsOpen(false);
-              }
+            if (event.key === "Escape" && isOpen) {
+              setIsOpen(false);
               return;
             }
+            if (!isOpen || results.length === 0) return;
 
             if (event.key === "ArrowDown") {
               event.preventDefault();
@@ -116,30 +121,18 @@ export function CustomerSearchField({
               return;
             }
 
-            if (event.key === "Enter") {
-              const customer =
-                results[highlightedIndex] ??
-                (results.length === 1 ? results[0] : null);
-
-              if (!customer) {
-                return;
-              }
+            const completeWithTab = event.key === "Tab" && !event.shiftKey && onTabComplete;
+            if (event.key === "Enter" || completeWithTab) {
+              const customer = results[highlightedIndex];
+              if (!customer) return;
 
               event.preventDefault();
-              onSelect(customer);
-              setQuery(customer.name);
-              setResults([]);
-              setHighlightedIndex(-1);
-              setIsOpen(false);
-              return;
-            }
-
-            if (event.key === "Escape") {
-              setIsOpen(false);
+              selectCustomer(customer);
+              if (completeWithTab) completeWithTab();
             }
           }}
           placeholder={placeholder}
-          className="h-12 text-base md:text-base"
+          className={`h-12 text-base md:text-base ${selectedCustomer ? "pr-18" : ""}`}
           autoComplete="off"
         />
         {selectedCustomer ? (
@@ -168,23 +161,17 @@ export function CustomerSearchField({
                   <button
                     key={customer.id}
                     type="button"
-                    className={`flex w-full items-center justify-between px-3 py-2 text-left ${
+                    className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-left ${
                       highlightedIndex === index
                         ? "bg-muted"
                         : "hover:bg-muted"
                     }`}
                     onMouseDown={(event) => event.preventDefault()}
                     onMouseEnter={() => setHighlightedIndex(index)}
-                    onClick={() => {
-                      onSelect(customer);
-                      setQuery(customer.name);
-                      setResults([]);
-                      setHighlightedIndex(-1);
-                      setIsOpen(false);
-                    }}
+                    onClick={() => selectCustomer(customer)}
                   >
-                    <span className="font-medium">{customer.name}</span>
-                    <span className="text-sm text-muted-foreground">
+                    <span className="font-medium wrap-anywhere">{customer.name}</span>
+                    <span className="shrink-0 text-sm text-muted-foreground">
                       ¥{formatCurrency(customer.balance)}
                     </span>
                   </button>

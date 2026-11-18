@@ -12,6 +12,9 @@ Use the current guides for operations.
 ### Point of sale and customers
 - Fit POS purchase controls on short screens with a compact layout and scrollable dialogs.
 - Remove the total count footer from the customer table.
+- Show every transaction field without horizontal scrolling. Use labeled rows when the table does not fit.
+- Match the Manual POS input sizes, remove the sample text, and let Tab accept the highlighted customer and focus Amount.
+- Compact the Top-up form and remove the extra headings and copy from Top-up and Accounts.
 
 ## 2026-11-15
 

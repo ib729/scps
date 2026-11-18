@@ -12,7 +12,7 @@ import {
 import { CustomerSearchField } from "@/components/customer-search-field";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -185,26 +185,23 @@ export function TopupForm({ customerIdsWithTransactions, userName }: TopupFormPr
   };
 
   return (
-    <div className="w-full space-y-6">
+    <div className="min-w-0 w-full">
       <Card>
-        <CardHeader>
-          <CardTitle>Top-up Balance</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleTopup} className="space-y-6">
+        <CardContent className="p-4">
+          <form onSubmit={handleTopup} className="grid gap-2 sm:grid-cols-2">
             {error ? (
-              <Alert variant="destructive">
+              <Alert variant="destructive" className="col-span-full">
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             ) : null}
             {success ? (
-              <Alert>
+              <Alert className="col-span-full">
                 <AlertDescription>
                   <div className="space-y-2">
                     <div>{success}</div>
                     {receiptItems.map((item) => (
                       <div key={item.id} className="mt-2 flex items-center gap-2">
-                        <span className="text-sm text-muted-foreground">
+                        <span className="min-w-0 wrap-anywhere text-sm text-muted-foreground">
                           {item.label}: <span className="font-mono font-medium">{item.id}</span>
                         </span>
                         <Button
@@ -212,7 +209,7 @@ export function TopupForm({ customerIdsWithTransactions, userName }: TopupFormPr
                           variant="ghost"
                           size="sm"
                           onClick={() => copyTransactionId(item.id)}
-                          className="h-6 w-6 p-0"
+                          className="h-6 w-6 shrink-0 p-0"
                         >
                           {copiedTransactionId === item.id ? (
                             <Check className="h-3 w-3" />
@@ -227,16 +224,18 @@ export function TopupForm({ customerIdsWithTransactions, userName }: TopupFormPr
               </Alert>
             ) : null}
 
-            <CustomerSearchField
-              id="customer"
-              label="Customer"
-              placeholder="Search customers by name"
-              selectedCustomer={selectedCustomer}
-              onSelect={setSelectedCustomer}
-            />
+            <div className="col-span-full min-w-0">
+              <CustomerSearchField
+                id="customer"
+                label="Customer"
+                placeholder="Search customers by name"
+                selectedCustomer={selectedCustomer}
+                onSelect={setSelectedCustomer}
+              />
+            </div>
 
             {selectedCustomer ? (
-              <div className="space-y-2 rounded-lg bg-muted p-4">
+              <div className="col-span-full space-y-2 rounded-lg bg-muted px-3 py-2">
                 <div className="flex justify-between">
                   <span className="text-sm text-muted-foreground">Current Balance:</span>
                   <span
@@ -255,7 +254,7 @@ export function TopupForm({ customerIdsWithTransactions, userName }: TopupFormPr
               </div>
             ) : null}
 
-            <div className="space-y-2">
+            <div className="space-y-1">
               <Label htmlFor="amount" className="text-base font-medium">
                 Amount (¥)
               </Label>
@@ -272,7 +271,7 @@ export function TopupForm({ customerIdsWithTransactions, userName }: TopupFormPr
               />
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-1">
               <Label htmlFor="payment-method" className="text-base font-medium">
                 Payment Method
               </Label>
@@ -303,7 +302,7 @@ export function TopupForm({ customerIdsWithTransactions, userName }: TopupFormPr
             </div>
 
             {paymentMethod === "Other" ? (
-              <div className="space-y-2">
+              <div className="col-span-full space-y-1">
                 <Label htmlFor="other-payment-method" className="text-base font-medium">
                   Other Payment Method
                 </Label>
@@ -322,7 +321,7 @@ export function TopupForm({ customerIdsWithTransactions, userName }: TopupFormPr
               </div>
             ) : null}
 
-            <div className="space-y-2">
+            <div className="space-y-1">
               <Label htmlFor="description" className="text-base font-medium">
                 Notes (Optional)
               </Label>
@@ -331,11 +330,11 @@ export function TopupForm({ customerIdsWithTransactions, userName }: TopupFormPr
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Optional notes about the top-up"
-                className="min-h-[88px] text-base md:text-base"
+                className="h-12 min-h-12 text-base md:text-base"
               />
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-1">
               <Label htmlFor="staff" className="text-base font-medium">
                 Staff Name
               </Label>
@@ -349,7 +348,7 @@ export function TopupForm({ customerIdsWithTransactions, userName }: TopupFormPr
               />
             </div>
 
-            <div className="space-y-2 pt-1">
+            <div className="col-span-full grid gap-2 sm:grid-cols-2">
               <Button
                 type="submit"
                 disabled={
@@ -360,7 +359,7 @@ export function TopupForm({ customerIdsWithTransactions, userName }: TopupFormPr
                   !paymentMethod ||
                   (paymentMethod === "Other" && !otherPaymentMethod.trim())
                 }
-                className="h-14 w-full text-base font-semibold"
+                className="h-auto min-h-11 w-full whitespace-normal text-base font-semibold"
               >
                 {loading ? "Processing..." : `Add ¥${amount || "0"}`}
               </Button>
@@ -375,7 +374,7 @@ export function TopupForm({ customerIdsWithTransactions, userName }: TopupFormPr
                   (paymentMethod === "Other" && !otherPaymentMethod.trim())
                 }
                 onClick={() => void handleTopupAndPay()}
-                className="h-14 w-full text-base font-semibold"
+                className="h-auto min-h-11 w-full whitespace-normal text-base font-semibold"
               >
                 {combinedLoading ? "Processing..." : `Add and deduct ¥${amount || "0"}`}
               </Button>

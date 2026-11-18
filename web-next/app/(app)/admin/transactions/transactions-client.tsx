@@ -31,10 +31,11 @@ import { Textarea } from "@/components/ui/textarea";
 
 const BATCH_SIZE = 150;
 const ROW_HEIGHT = 84;
+const TABLE_MIN_WIDTH = 1040;
 const OVERSCAN_ROWS = 8;
 const PREFETCH_RATIO = 0.65;
 const GRID_TEMPLATE =
-  "128px 170px minmax(180px,1.5fr) 110px 150px minmax(220px,1.9fr) 120px 140px 56px";
+  "minmax(72px,0.7fr) minmax(130px,1.15fr) minmax(110px,1.3fr) 76px minmax(92px,1fr) minmax(155px,1.7fr) minmax(85px,0.8fr) minmax(92px,1fr) 36px";
 
 type TransactionTypeFilter = "all" | "TOPUP" | "DEBIT" | "ADJUST";
 
@@ -129,42 +130,46 @@ function mergeTransactions(
   return merged;
 }
 
-const rowBaseClass =
-  "grid items-center gap-3 border-b px-2 py-2 text-sm transition-colors hover:bg-muted/50";
-const mutedCellClass = "truncate text-sm text-muted-foreground";
+function TransactionLabel({ children }: { children: string }) {
+  return <span className="mb-0.5 block text-xs text-muted-foreground">{children}</span>;
+}
 
 const TransactionRow = React.memo(function TransactionRow({
   tx,
   top,
+  compact,
   onOpenNotes,
   onEditNotes,
 }: {
   tx: TransactionWithCustomer;
   top: number;
+  compact: boolean;
   onOpenNotes: (tx: TransactionWithCustomer) => void;
   onEditNotes: (tx: TransactionWithCustomer) => void;
 }) {
   const description = tx.description || "";
-  const isTruncated = description.length > 50;
+  const showNotesPreview = !compact || description.length > 50;
   const sign = tx.amount > 0 ? "+" : tx.amount < 0 ? "-" : "";
   const paymentMethodLabel =
     tx.type === "DEBIT" ? "Balance" : tx.payment_method || "-";
 
   return (
     <div
-      className={`${rowBaseClass} absolute left-0 right-0`}
-      style={{
-        top: `${top}px`,
-        height: `${ROW_HEIGHT}px`,
-        gridTemplateColumns: GRID_TEMPLATE,
-      }}
+      className={`grid gap-x-3 gap-y-2 border-b px-3 py-2 text-sm wrap-anywhere transition-colors hover:bg-muted/50 ${
+        compact ? "grid-cols-2" : "absolute inset-x-0 items-center"
+      }`}
+      style={compact ? undefined : { top, height: ROW_HEIGHT, gridTemplateColumns: GRID_TEMPLATE }}
     >
-      <div className="flex items-center gap-1 pl-2">
-        <span className="font-mono text-xs">{tx.id}</span>
-        <CopyButton txId={tx.id} />
+      <div>
+        {compact && <TransactionLabel>ID</TransactionLabel>}
+        <div className="flex items-center gap-1">
+          <span className="font-mono text-xs">{tx.id}</span>
+          <CopyButton txId={tx.id} />
+        </div>
       </div>
 
-      <div className="truncate px-2 text-sm">
+      <div>
+        {compact && <TransactionLabel>Date</TransactionLabel>}
         {new Date(`${tx.created_at}Z`).toLocaleString("en-US", {
           year: "numeric",
           month: "2-digit",
@@ -176,13 +181,15 @@ const TransactionRow = React.memo(function TransactionRow({
         })}
       </div>
 
-      <div className="truncate px-2">
+      <div className={compact ? "col-span-2" : "line-clamp-2"} title={tx.customer_name}>
+        {compact && <TransactionLabel>Customer</TransactionLabel>}
         <Link href={`/admin/customers/${tx.customer_id}`} className="font-medium hover:underline">
           {tx.customer_name}
         </Link>
       </div>
 
       <div>
+        {compact && <TransactionLabel>Type</TransactionLabel>}
         <Badge
           variant={tx.type === "TOPUP" ? "default" : "secondary"}
           className={
@@ -195,15 +202,19 @@ const TransactionRow = React.memo(function TransactionRow({
         </Badge>
       </div>
 
-      <div className={mutedCellClass}>{paymentMethodLabel}</div>
+      <div className={`text-muted-foreground ${compact ? "" : "line-clamp-2"}`} title={paymentMethodLabel}>
+        {compact && <TransactionLabel>Payment Method</TransactionLabel>}
+        {paymentMethodLabel}
+      </div>
 
-      <div className="max-w-full overflow-hidden">
+      <div className={compact ? "col-span-2" : "min-w-0"}>
+        {compact && <TransactionLabel>Notes</TransactionLabel>}
         {description ? (
           <>
-            <p className="truncate break-words text-sm">
-              {isTruncated ? `${description.slice(0, 50)}...` : description}
+            <p className={compact ? undefined : "truncate"}>
+              {compact && showNotesPreview ? `${description.slice(0, 50)}...` : description}
             </p>
-            {isTruncated ? (
+            {showNotesPreview ? (
               <Button
                 type="button"
                 variant="link"
@@ -218,15 +229,16 @@ const TransactionRow = React.memo(function TransactionRow({
           <span className="text-muted-foreground">-</span>
         )}
         {tx.overdraft_component > 0 ? (
-          <p className="mt-1 truncate text-xs text-orange-600">
+          <p className="mt-1 text-xs text-orange-600">
             Overdraft: ¥{formatCurrency(tx.overdraft_component)}
           </p>
         ) : null}
       </div>
 
-      <div className="min-w-[100px] px-2">
+      <div>
+        {compact && <TransactionLabel>Amount</TransactionLabel>}
         <span
-          className={`whitespace-nowrap font-bold ${
+          className={`font-bold ${
             tx.amount >= 0 ? "text-green-600" : "text-red-600"
           }`}
         >
@@ -234,9 +246,12 @@ const TransactionRow = React.memo(function TransactionRow({
         </span>
       </div>
 
-      <div className={mutedCellClass}>{tx.staff || "-"}</div>
+      <div className={`text-muted-foreground ${compact ? "" : "line-clamp-2"}`} title={tx.staff ?? undefined}>
+        {compact && <TransactionLabel>Staff</TransactionLabel>}
+        {tx.staff || "-"}
+      </div>
 
-      <div className="flex justify-end pr-1">
+      <div className={`flex justify-end ${compact ? "col-span-2" : ""}`}>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
@@ -280,8 +295,11 @@ export function TransactionsClient({
   const [noteError, setNoteError] = React.useState("");
   const [scrollTop, setScrollTop] = React.useState(0);
   const [viewportHeight, setViewportHeight] = React.useState(0);
+  const [compact, setCompact] = React.useState(true);
+  const [nearEnd, setNearEnd] = React.useState(false);
 
   const scrollContainerRef = React.useRef<HTMLDivElement | null>(null);
+  const rowsRef = React.useRef<HTMLDivElement | null>(null);
   const activeAbortRef = React.useRef<AbortController | null>(null);
   const requestVersionRef = React.useRef(0);
   const scrollFrameRef = React.useRef<number | null>(null);
@@ -534,9 +552,10 @@ export function TransactionsClient({
   const maybeLoadAhead = React.useCallback(() => {
     const viewport = scrollMetricsRef.current.viewport;
     const scrollBottom = scrollMetricsRef.current.top + viewport;
-    const loadedHeight = visibleItemsRef.current.length * ROW_HEIGHT;
+    const loadedHeight = rowsRef.current?.offsetHeight ?? 0;
     const visibleLoadThreshold = Math.max(viewport * 1.1, ROW_HEIGHT * 6);
     const appendThreshold = Math.max(viewport * 1.4, ROW_HEIGHT * 8);
+    setNearEnd(scrollBottom >= loadedHeight - Math.max(viewport, ROW_HEIGHT * 6));
 
     if (prefetchedItemsRef.current.length > 0) {
       const shouldAppend =
@@ -620,14 +639,14 @@ export function TransactionsClient({
       return;
     }
 
-    scrollMetricsRef.current.viewport = container.clientHeight;
-    setViewportHeight(container.clientHeight);
-    maybeLoadAhead();
-
-    const resizeObserver = new ResizeObserver(() => {
+    const updateViewport = () => {
+      scrollMetricsRef.current.top = container.scrollTop;
       scrollMetricsRef.current.viewport = container.clientHeight;
+      setCompact(container.clientWidth < TABLE_MIN_WIDTH);
       syncScrollState();
-    });
+    };
+    updateViewport();
+    const resizeObserver = new ResizeObserver(updateViewport);
 
     resizeObserver.observe(container);
 
@@ -637,11 +656,11 @@ export function TransactionsClient({
         window.cancelAnimationFrame(scrollFrameRef.current);
       }
     };
-  }, [maybeLoadAhead, syncScrollState]);
+  }, [syncScrollState]);
 
   React.useEffect(() => {
     maybeLoadAhead();
-  }, [visibleItems.length, prefetchedItems.length, hasMore, maybeLoadAhead]);
+  }, [compact, visibleItems.length, prefetchedItems.length, hasMore, maybeLoadAhead]);
 
   React.useEffect(() => {
     if (
@@ -721,11 +740,11 @@ export function TransactionsClient({
     };
   }, []);
 
-  const visibleStartIndex = Math.max(
+  const visibleStartIndex = compact ? 0 : Math.max(
     0,
     Math.floor(scrollTop / ROW_HEIGHT) - OVERSCAN_ROWS,
   );
-  const visibleRowCount = Math.max(
+  const visibleRowCount = compact ? visibleItems.length : Math.max(
     1,
     Math.ceil(viewportHeight / ROW_HEIGHT) + OVERSCAN_ROWS * 2,
   );
@@ -733,27 +752,24 @@ export function TransactionsClient({
     visibleItems.length,
     visibleStartIndex + visibleRowCount,
   );
-  const renderedRows = visibleItems.slice(visibleStartIndex, visibleEndIndex);
+  const renderedRows = compact ? visibleItems : visibleItems.slice(visibleStartIndex, visibleEndIndex);
   const totalHeight = visibleItems.length * ROW_HEIGHT;
-  const shouldShowVisibleLoader =
-    loadingMoreVisible ||
-    (prefetchInFlight &&
-      scrollTop + viewportHeight >= totalHeight - Math.max(viewportHeight, ROW_HEIGHT * 6));
+  const shouldShowVisibleLoader = loadingMoreVisible || (prefetchInFlight && nearEnd);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <div className="sticky top-0 z-20 flex gap-4 bg-background/95 pb-4 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+      <div className="sticky top-0 z-20 grid gap-2 bg-background/95 pb-4 backdrop-blur min-[420px]:grid-cols-[minmax(0,1fr)_auto]">
         <Input
           placeholder="Search by customer or transaction ID..."
           value={searchInput}
           onChange={(event) => setSearchInput(event.target.value)}
-          className="flex-1"
+          className="min-w-0"
         />
         <Select
           value={typeFilter}
           onValueChange={(value) => setTypeFilter(value as TransactionTypeFilter)}
         >
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-full min-[420px]:w-40">
             <SelectValue placeholder="Filter by type" />
           </SelectTrigger>
           <SelectContent>
@@ -767,26 +783,28 @@ export function TransactionsClient({
 
       <div
         ref={scrollContainerRef}
-        className="relative min-h-0 flex-1 overflow-auto rounded-md border custom-scrollbar"
+        className="relative min-h-0 min-w-0 flex-1 overflow-y-auto rounded-md border custom-scrollbar"
         onScroll={handleScroll}
       >
-        <div className="min-w-[1280px]">
-          <div className="sticky top-0 z-10 border-b bg-background">
-            <div
-              className="grid h-10 items-center gap-3 px-2 text-left text-sm font-medium text-muted-foreground"
-              style={{ gridTemplateColumns: GRID_TEMPLATE }}
-            >
-              <div className="pl-2">ID</div>
-              <div>Date</div>
-              <div>Customer</div>
-              <div>Type</div>
-              <div>Payment Method</div>
-              <div>Notes</div>
-              <div>Amount</div>
-              <div>Staff</div>
-              <div className="sr-only">Actions</div>
+        <div>
+          {!compact && (
+            <div className="sticky top-0 z-10 border-b bg-background">
+              <div
+                className="grid h-10 items-center gap-3 px-3 text-left text-sm font-medium text-muted-foreground"
+                style={{ gridTemplateColumns: GRID_TEMPLATE }}
+              >
+                <div>ID</div>
+                <div>Date</div>
+                <div>Customer</div>
+                <div>Type</div>
+                <div>Payment Method</div>
+                <div>Notes</div>
+                <div>Amount</div>
+                <div>Staff</div>
+                <div className="sr-only">Actions</div>
+              </div>
             </div>
-          </div>
+          )}
 
           {loadingInitial && visibleItems.length === 0 ? (
             <div className="flex h-24 items-center justify-center text-sm text-muted-foreground">
@@ -801,12 +819,13 @@ export function TransactionsClient({
               No transactions found
             </div>
           ) : (
-            <div className="relative" style={{ height: `${totalHeight}px` }}>
+            <div ref={rowsRef} className="relative" style={compact ? undefined : { height: totalHeight }}>
               {renderedRows.map((tx, index) => (
                 <TransactionRow
                   key={tx.id}
                   tx={tx}
                   top={(visibleStartIndex + index) * ROW_HEIGHT}
+                  compact={compact}
                   onOpenNotes={setSelectedDetailsTx}
                   onEditNotes={openNoteEditor}
                 />

@@ -32,7 +32,6 @@ export function UsersClient({ users }: { users: UserAccessSummary[] }) {
   }
 
   return <div className="space-y-6 overflow-auto pb-6">
-    <header><h1 className="text-2xl font-semibold">Accounts</h1><p className="text-muted-foreground">Verify each person before granting operator access. Email addresses are not verified.</p></header>
     {error && <p role="alert" className="text-destructive">{error}</p>}
     <Card><CardHeader><CardTitle>Registrations and access</CardTitle></CardHeader><CardContent>
       <Table><TableHeader><TableRow><TableHead>Person</TableHead><TableHead>Registered</TableHead><TableHead>Role</TableHead><TableHead>Access</TableHead></TableRow></TableHeader>

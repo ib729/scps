@@ -80,6 +80,7 @@ export function PosForm({ customerIdsWithTransactions, userName, initialMode }: 
   const [showReaderPrompt, setShowReaderPrompt] = useState(false);
 
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerWithAccount | null>(null);
+  const amountInputRef = useRef<HTMLInputElement>(null);
   const [dialogCustomer, setDialogCustomer] = useState<CustomerWithAccount | null>(null);
 
   const readerLabel =
@@ -559,12 +560,12 @@ export function PosForm({ customerIdsWithTransactions, userName, initialMode }: 
               <CardTitle className="text-lg">Process Purchase Manually</CardTitle>
             </CardHeader>
             <CardContent className="px-4 pb-4">
-              <form onSubmit={handleSubmit} className="grid gap-3 min-[360px]:grid-cols-2">
+              <form onSubmit={handleSubmit} className="grid gap-3">
                 <div className="col-span-full min-w-0">
                   <CustomerSearchField
                     id="customer"
                     label="Customer"
-                    placeholder="Search customers by name"
+                    onTabComplete={() => amountInputRef.current?.focus()}
                     selectedCustomer={selectedCustomer}
                     onSelect={(customer) => {
                       setSelectedCustomer(customer);
@@ -606,6 +607,7 @@ export function PosForm({ customerIdsWithTransactions, userName, initialMode }: 
                   <Label htmlFor="amount" className="text-base">Amount (¥)</Label>
                   <Input
                     id="amount"
+                    ref={amountInputRef}
                     type="number"
                     min="0.01"
                     step="0.01"
@@ -617,9 +619,8 @@ export function PosForm({ customerIdsWithTransactions, userName, initialMode }: 
                         e.preventDefault();
                       }
                     }}
-                    placeholder="Enter amount (e.g., 5.50)"
                     required
-                    className="h-10 text-base"
+                    className="h-12 text-base md:text-base"
                   />
                 </div>
 
@@ -629,8 +630,7 @@ export function PosForm({ customerIdsWithTransactions, userName, initialMode }: 
                     id="description"
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
-                    placeholder="e.g., Snacks, Drinks"
-                    className="min-h-12 text-base"
+                    className="h-12 min-h-12 text-base md:text-base"
                   />
                 </div>
 
@@ -640,8 +640,7 @@ export function PosForm({ customerIdsWithTransactions, userName, initialMode }: 
                     id="staff"
                     value={staff}
                     onChange={(e) => setStaff(e.target.value)}
-                    placeholder="Your name"
-                    className="h-10 text-base"
+                    className="h-12 text-base md:text-base"
                     disabled
                   />
                 </div>
