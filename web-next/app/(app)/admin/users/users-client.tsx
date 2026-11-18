@@ -33,7 +33,7 @@ export function UsersClient({ users }: { users: UserAccessSummary[] }) {
   }
 
   return (
-    <div className="grid min-w-0 grid-cols-1 content-start gap-4 pb-2">
+    <Card data-workspace-frame className="grid min-w-0 grow grid-cols-1 content-start gap-4 p-4 sm:p-6">
       {error && !grant && <p role="alert" className="rounded-lg border border-destructive/25 bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
       <Card className="gap-4">
         <CardHeader className="px-4 pt-4 sm:px-6 sm:pt-6">
@@ -136,6 +136,6 @@ export function UsersClient({ users }: { users: UserAccessSummary[] }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </Card>
   );
 }

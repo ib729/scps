@@ -35,6 +35,7 @@ Use the current guides for operations.
 - Remove the redundant heading from Manual POS.
 - Keep the Customers table header the same color as its frame, including on hover.
 - Use a pencil icon for Edit notes in Transactions.
+- Give Accounts the same full-height workspace frame as POS and Transactions.
 
 ## 2026-11-15
 
