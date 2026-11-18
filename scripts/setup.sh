@@ -3,10 +3,13 @@ set -eu
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 APP_USER=${SUDO_USER:-${USER:-$(id -un)}}
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  printf '%s\n' 'Usage: ./scripts/setup.sh [--systemd|--no-systemd]' 'Fast-forward a clean checkout from its upstream, install Debian/Ubuntu dependencies, and configure SCPS. Prompts before installing systemd services.'
+  printf '%s\n' 'Usage: ./scripts/setup.sh [--systemd|--no-systemd|--https HOST]' 'Fast-forward a clean checkout from its upstream, install Debian/Ubuntu dependencies, and configure SCPS.' 'Use --https with a public IP or DNS hostname to install systemd services and configure public TLS.'
   exit 0
 fi
-if [ "$#" -gt 1 ] || { [ "$#" -eq 1 ] && [ "$1" != "--systemd" ] && [ "$1" != "--no-systemd" ]; }; then printf '%s\n' 'Unexpected setup argument' >&2; exit 2; fi
+case "$#:${1:-}" in
+  0:|1:--systemd|1:--no-systemd|2:--https) ;;
+  *) printf '%s\n' 'Unexpected setup arguments. See --help.' >&2; exit 2 ;;
+esac
 if [ "$(id -u)" -eq 0 ] && { [ -z "${SUDO_USER:-}" ] || [ "$SUDO_USER" = root ]; }; then
   printf '%s\n' 'Run setup as the intended nonroot service user with sudo access' >&2
   exit 1
@@ -68,6 +71,14 @@ if [ "$#" -eq 0 ]; then
 fi
 sudo apt-get update
 sudo apt-get install -y git curl sqlite3 zstd rclone python3 build-essential pkg-config ca-certificates gnupg openssl libnfc-bin usbutils lsof udev
+if [ "$1" = "--https" ] && ! command -v caddy >/dev/null; then
+  caddy_version=$(LC_ALL=C apt-cache policy caddy | awk '/Candidate:/ { print $2; exit }')
+  if [ -z "$caddy_version" ] || ! dpkg --compare-versions "$caddy_version" ge 2.11.4; then
+    printf '%s\n' 'Install Caddy 2.11.4 or newer from https://caddyserver.com/docs/install#debian-ubuntu-raspbian, then rerun setup.' >&2
+    exit 1
+  fi
+  sudo apt-get install -y caddy
+fi
 if ! node -e 'const [a,b,c]=process.versions.node.split(".").map(Number);process.exit(a===26&&(b>13||b===13&&c>=1)?0:1)' 2>/dev/null; then
   download=$(mktemp)
   curl -fsSL -o "$download" https://deb.nodesource.com/setup_26.x

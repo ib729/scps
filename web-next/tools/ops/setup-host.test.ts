@@ -15,7 +15,7 @@ const loader = pathToFileURL(createRequire(import.meta.url).resolve("tsx")).href
 async function fixture(t: TestContext) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "scps setup ' % "));
   t.after(() => fs.rm(root, { recursive: true, force: true }));
-  for (const name of ["web-next/tools/ops/setup-host.ts", "web-next/lib/database-path.ts", "migrations/schema.sql", "web-next/migrations/better_auth_schema.sql", "web-next/.env.local.example", "systemd/scps.service", "systemd/scps-reader.service", "systemd/scps-reader2.service"]) {
+  for (const name of ["web-next/tools/ops/setup-host.ts", "web-next/tools/ops/setup-https.ts", "web-next/lib/database-path.ts", "migrations/schema.sql", "web-next/migrations/better_auth_schema.sql", "web-next/.env.local.example", "systemd/scps.service", "systemd/scps-reader.service", "systemd/scps-reader2.service"]) {
     const destination = path.join(root, name);
     await fs.mkdir(path.dirname(destination), { recursive: true });
     await fs.copyFile(path.join(sourceRoot, name), destination);
@@ -223,6 +223,84 @@ test("cutover retires owned legacy units before restart and refuses unsafe trans
       if (mode === "override" || mode === "invalid-unit") assert.doesNotMatch(calls, /systemctl stop/);
     }
   }
+});
+
+test("public HTTPS setup configures the browser origin and keeps the app behind Caddy", async t => {
+  const f = await fixture(t);
+  const commands = path.join(f.root, "https-commands");
+  const proxy = path.join(f.root, "Caddyfile");
+  const override = path.join(f.root, "https.conf");
+  for (const [name, body] of Object.entries({
+    systemctl: `case "$*" in
+  *Version*) echo 255;;
+  *LoadState*) if [ -f "$OVERRIDE" ] && [ "$4" = scps.service ]; then echo loaded; else echo not-found; fi;;
+  *FragmentPath*) echo /etc/systemd/system/scps.service;;
+  *DropInPaths*) echo /etc/systemd/system/scps.service.d/90-scps-https.conf;;
+  *WorkingDirectory*) printf '%s\\n' "$WEB";;
+esac`,
+    "systemd-analyze": "exit 0",
+    pnpm: `printf '%s\\n' "$NEXT_PUBLIC_APP_URL" > "$BUILD_ORIGIN"`,
+    caddy: `if [ "$1" = version ]; then echo v2.11.4; else grep -q reverse_proxy; fi`,
+    "dpkg-query": `printf ' /etc/caddy/Caddyfile %s\\n' "$(printf '%s' 'factory config' | md5sum | cut -d ' ' -f 1)"`,
+    curl: `printf '%s\\n' "$*" >> "$LOG"; printf '%s' "$HTTPS_STATUS"`,
+    sudo: `printf '%s\\n' "$*" >> "$LOG"
+case "$1" in
+  -u) shift 2; exec "$@";;
+  cat) if [ -f "$PROXY" ]; then cat "$PROXY"; else printf '%s' 'factory config'; fi;;
+  install) for dest do :; done; case "$dest" in
+    /etc/caddy/Caddyfile) cat > "$PROXY";;
+    */scps.service.d/90-scps-https.conf) cat > "$OVERRIDE";;
+    *) exit 5;;
+  esac;;
+  tee) cat >/dev/null;;
+  systemctl) ;;
+  *) exit 6;;
+esac`,
+  })) await fs.writeFile(path.join(f.binaries, name), `#!/bin/sh\n${body}\n`, { mode: 0o700 });
+  const env = { ...f.env, PATH: `${f.binaries}:${f.env.PATH ?? ""}`, LOG: commands, PROXY: proxy, OVERRIDE: override, WEB: f.web, BUILD_ORIGIN: path.join(f.root, "build-origin") };
+  const setup = (host: string, status = "200") => probe(f.web, `import fs from 'node:fs';
+const dropIn = '/etc/systemd/system/scps.service.d/90-scps-https.conf';
+const read = fs.readFileSync;
+const exists = fs.existsSync;
+fs.readFileSync = ((file, ...args) => String(file) === '/etc/os-release' ? 'ID=ubuntu\\n' : Reflect.apply(read, fs, [String(file) === dropIn ? process.env.OVERRIDE : file, ...args])) as typeof fs.readFileSync;
+fs.existsSync = file => exists(String(file) === dropIn ? process.env.OVERRIDE! : file);
+import { main } from './ops/setup-host';
+main(['--https', ${JSON.stringify(host)}]);`, f.root, { ...env, HTTPS_STATUS: status });
+  const invalid = await setup("127.0.0.1");
+  assert.notEqual(invalid.status, 0);
+  await assert.rejects(fs.stat(commands), { code: "ENOENT" });
+  const ip = await setup("93.184.216.34");
+  assert.equal(ip.status, 0, ip.stderr);
+  assert.match(await fs.readFile(proxy, "utf8"), /^93\.184\.216\.34 \{[\s\S]*profile shortlived[\s\S]*reverse_proxy 127\.0\.0\.1:38173/m);
+  assert.match(await fs.readFile(proxy, "utf8"), /default_sni 93\.184\.216\.34/);
+  assert.match(await fs.readFile(override, "utf8"), /Environment="HOSTNAME=127\.0\.0\.1"/);
+  const values = parse(await fs.readFile(path.join(f.web, ".env.local")));
+  assert.equal(values.NEXT_PUBLIC_APP_URL, "https://93.184.216.34");
+  assert.equal(values.TRUSTED_ORIGINS, "https://93.184.216.34");
+  assert.equal(values.TRUST_PROXY, "true");
+  assert.equal((await fs.readFile(env.BUILD_ORIGIN, "utf8")).trim(), "https://93.184.216.34");
+  const log = await fs.readFile(commands, "utf8");
+  assert.match(log, /systemctl restart scps\.service[\s\S]*systemctl reload-or-restart caddy\.service[\s\S]*https:\/\/93\.184\.216\.34\/login/);
+  await fs.writeFile(commands, "");
+  const rerun = await setup("93.184.216.34");
+  assert.equal(rerun.status, 0, rerun.stderr);
+  assert.doesNotMatch(await fs.readFile(commands, "utf8"), /^install /m);
+  await fs.writeFile(proxy, "custom proxy");
+  const refused = await setup("payments.school.org");
+  assert.notEqual(refused.status, 0);
+  assert.equal(await fs.readFile(proxy, "utf8"), "custom proxy");
+  assert.equal(parse(await fs.readFile(path.join(f.web, ".env.local"))).NEXT_PUBLIC_APP_URL, "https://93.184.216.34");
+  await fs.writeFile(proxy, "factory config");
+  await fs.unlink(override);
+  const domain = await setup("payments.school.org");
+  assert.equal(domain.status, 0, domain.stderr);
+  const domainConfig = await fs.readFile(proxy, "utf8");
+  assert.match(domainConfig, /^payments\.school\.org \{/m);
+  assert.doesNotMatch(domainConfig, /profile shortlived/);
+  assert.equal(parse(await fs.readFile(path.join(f.web, ".env.local"))).NEXT_PUBLIC_APP_URL, "https://payments.school.org");
+  const unready = await setup("payments.school.org", "502");
+  assert.notEqual(unready.status, 0);
+  assert.match(unready.stderr, /HTTPS is not ready/);
 });
 
 test("setup without systemd builds without installing or restarting services", async t => {

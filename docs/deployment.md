@@ -147,7 +147,24 @@ These actions target the web host only. When readers run on a separate Pi, run t
 
 ## HTTPS and reverse proxy
 
-Default `TRUST_PROXY=false` uses the socket peer. Set `TRUST_PROXY=true` **only** for the supported single loopback Nginx hop, with no publicly reachable app port. Only a loopback immediate peer's rightmost valid forwarded address is trusted; caller `X-Real-IP` and `x-scps-client-ip` are ignored. Nginx must append `$remote_addr` to `X-Forwarded-For` or overwrite it. Remote/multi-hop topologies are unsupported without separate trust configuration.
+### Automated HTTPS on a dedicated VPS
+
+On a Debian or Ubuntu VPS with TCP ports 80 and 443 open, run one of:
+
+```sh
+./scripts/setup.sh --https scps.school.org
+./scripts/setup.sh --https YOUR_PUBLIC_IP
+```
+
+Replace the example with the actual hostname or a static public IPv4 or IPv6 address. Pass IPv6 without brackets. IP mode needs no DNS. For a hostname, ask whoever manages DNS to point its `A` or `AAAA` record at the VPS first. If the school uses Cloudflare for DNS, leave the record **DNS only**. Do not enable the Cloudflare proxy or add a second proxy hop to this setup.
+
+The command enables the systemd web service, binds the app to loopback, configures its public URL and trusted origin before building, and configures Caddy to obtain and renew Let's Encrypt certificates. IP certificates use the approximately six-day `shortlived` profile and renew automatically. Setup prints the URL only after checking trusted HTTPS and the login response locally. Confirm it also opens from a device outside the VPS network before handing over the URL.
+
+Setup needs [the official Caddy 2.11.4 or newer 2.x Debian package](https://caddyserver.com/docs/install#debian-ubuntu-raspbian). It installs Caddy if a compatible package is available from configured apt repositories. Otherwise install the official package once, then rerun setup. Ports 80 and 443 must be available to Caddy. Setup does not change DNS, firewalls, or custom Caddyfiles, and refuses unrelated web-service overrides. To retry after fixing DNS or firewall rules, use the same hostname or IP. Use the manual configuration below if the VPS already hosts other sites or you need to change an existing managed HTTPS address.
+
+### Manual Nginx configuration
+
+Default `TRUST_PROXY=false` uses the socket peer. Set `TRUST_PROXY=true` **only** for a single loopback reverse proxy, with no publicly reachable app port. Only a loopback immediate peer's rightmost valid forwarded address is trusted; caller `X-Real-IP` and `x-scps-client-ip` are ignored. Nginx must append `$remote_addr` to `X-Forwarded-For` or overwrite it. The automated Caddy configuration overwrites it with the socket peer. Remote or multi-hop topologies are unsupported without separate trust configuration.
 
 Install Nginx and configure DNS for your actual domain. The following assumes TLS certificate files already exist; for initial certificate issuance first serve a plain HTTP site, then use your certificate provider/Certbot before enabling the TLS block. Put `map` and `limit_req_zone` in Nginx's **http context**, not inside `server`:
 The proxy example below uses port 3000. Replace it with 38173 for a new automated native setup, or use the port configured for your deployment.

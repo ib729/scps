@@ -7,6 +7,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { parse } from "dotenv";
 import Database from "better-sqlite3";
 import { resolveDatabasePath } from "../../lib/database-path";
+import { httpsDropIn, httpsOrigin, prepareHttps, startHttps } from "./setup-https";
 
 const repository = fileURLToPath(new URL("../../../", import.meta.url));
 const web = path.join(repository, "web-next");
@@ -79,10 +80,11 @@ function unitValue(value: string): string {
 
 export function main(args = process.argv.slice(2)): number {
   if (args.includes("--help") || args.includes("-h")) {
-    console.log("Usage: ./scripts/setup.sh [--systemd|--no-systemd]\nConfigures env/database and builds; service installation is optional. Existing ledgers are preserved.");
+    console.log("Usage: ./scripts/setup.sh [--systemd|--no-systemd|--https HOST]\nConfigures env/database and builds. Use --https with a public DNS hostname or IP. Existing ledgers are preserved.");
     return 0;
   }
-  if (args.length !== 1 || !["--systemd", "--no-systemd"].includes(args[0])) throw new Error("Specify --systemd or --no-systemd");
+  const publicUrl = args[0] === "--https" && args.length === 2 ? httpsOrigin(args[1]) : undefined;
+  if (!publicUrl && (args.length !== 1 || !["--systemd", "--no-systemd"].includes(args[0]))) throw new Error("Specify --systemd, --no-systemd, or --https HOST");
   const release = parse(fs.readFileSync("/etc/os-release", "utf8"));
   if (![release.ID, ...(release.ID_LIKE ?? "").split(/\s+/)].some(value => value === "debian" || value === "raspbian" || value === "ubuntu")) throw new Error("This setup supports Debian and Ubuntu based Linux hosts only");
   if (os.userInfo().username !== appUser) {
@@ -94,7 +96,7 @@ export function main(args = process.argv.slice(2)): number {
   const installedLegacy: string[] = [];
   const missing: string[] = [];
   const rendered = new Map<string, string>();
-  if (args[0] === "--systemd") {
+  if (args[0] !== "--no-systemd") {
     try {
       if (!execFileSync("systemctl", ["show", "--property=Version", "--value"], { encoding: "utf8" }).trim()) throw new Error("empty manager version");
       execFileSync("systemd-analyze", ["--version"], { stdio: "ignore" });
@@ -112,6 +114,10 @@ export function main(args = process.argv.slice(2)): number {
       if (props.LoadState !== "loaded" || !props.FragmentPath || !props.WorkingDirectory) throw new Error(`Cannot establish ownership of ${name}: ${JSON.stringify(props)}`);
       if (path.resolve(props.WorkingDirectory) !== path.resolve(web) || (legacy.includes(name) && props.DropInPaths)) {
         throw new Error(`Cannot replace ${name}: fragment ${props.FragmentPath}, working directory ${props.WorkingDirectory}, drop-ins ${props.DropInPaths || "(none)"}; migrate overrides to the chosen new name manually`);
+      }
+      if (publicUrl && name === "scps.service") {
+        const envFiles = execFileSync("systemctl", ["show", "--property=EnvironmentFiles", "--value", name], { encoding: "utf8" }).trim();
+        if (envFiles || (props.DropInPaths && props.DropInPaths !== httpsDropIn)) throw new Error("HTTPS setup refuses existing scps.service environment files or unrelated drop-ins");
       }
       if (legacy.includes(name)) installedLegacy.push(name);
     }
@@ -134,6 +140,7 @@ export function main(args = process.argv.slice(2)): number {
     } finally { fs.rmSync(staging, { recursive: true, force: true }); }
   }
   const freshEnv = !fs.existsSync(envFile);
+  const https = publicUrl ? prepareHttps(publicUrl, freshEnv ? "38173" : readEnvValue("PORT") || "3000") : undefined;
   if (freshEnv) fs.copyFileSync(path.join(web, ".env.local.example"), envFile, fs.constants.COPYFILE_EXCL);
   fs.chmodSync(envFile, 0o600);
   if (freshEnv) {
@@ -151,7 +158,13 @@ export function main(args = process.argv.slice(2)): number {
   if (!readEnvValue("NEXT_PUBLIC_APP_URL")) ensureEnvValue("NEXT_PUBLIC_APP_URL", "http://localhost:3000");
   const origins = readEnvValue("TRUSTED_ORIGINS");
   if (!origins || origins === "http://localhost:3000") ensureEnvValue("TRUSTED_ORIGINS", readEnvValue("NEXT_PUBLIC_APP_URL"));
-  runAsUser("env", ["NEXT_TELEMETRY_DISABLED=1", "pnpm", "--dir", web, "build"]);
+  if (publicUrl) {
+    ensureEnvValue("NEXT_PUBLIC_APP_URL", publicUrl.origin);
+    ensureEnvValue("TRUSTED_ORIGINS", publicUrl.origin);
+    ensureEnvValue("TRUST_PROXY", "true");
+  }
+  const buildEnv = publicUrl ? [`NEXT_PUBLIC_APP_URL=${publicUrl.origin}`, `TRUSTED_ORIGINS=${publicUrl.origin}`, "TRUST_PROXY=true"] : [];
+  runAsUser("env", ["NEXT_TELEMETRY_DISABLED=1", ...buildEnv, "pnpm", "--dir", web, "build"]);
   if (args[0] === "--no-systemd") {
     console.log(`SCPS setup complete. Start manually with: cd ${web} && pnpm start`);
     return 0;
@@ -166,13 +179,19 @@ export function main(args = process.argv.slice(2)): number {
     for (const [name, unit] of rendered) {
       execFileSync("sudo", ["tee", `/etc/systemd/system/${name}`], { input: unit, stdio: ["pipe", "ignore", "inherit"] });
     }
+  }
+  if (https && !fs.existsSync(httpsDropIn)) {
+    execFileSync("sudo", ["install", "-D", "-m0644", "/dev/stdin", httpsDropIn], { input: https.binding, stdio: ["pipe", "inherit", "inherit"] });
+  }
+  if (missing.length || https) {
     execFileSync("sudo", ["systemctl", "daemon-reload"], { stdio: "inherit" });
-    execFileSync("systemd-analyze", ["verify", ...missing.map(name => `/etc/systemd/system/${name}`)], { stdio: "inherit" });
+    if (missing.length) execFileSync("systemd-analyze", ["verify", ...missing.map(name => `/etc/systemd/system/${name}`)], { stdio: "inherit" });
   }
   execFileSync("sudo", ["systemctl", "enable", "scps.service"], { stdio: "inherit" });
   execFileSync("sudo", ["systemctl", "restart", "scps.service"], { stdio: "inherit" });
   execFileSync("sudo", ["systemctl", "--no-pager", "--full", "status", "scps.service"], { stdio: "inherit" });
-  console.log(`SCPS setup complete.\nEdit ${envFile} for the public URL and trusted origins, then restart scps.service.\nFor readers, set NEXTJS_URL=${readEnvValue("NEXT_PUBLIC_APP_URL")} and the matching NFC_TAP_SECRET in .env.broadcaster; configure serial permissions and USB reset privileges before enabling a reader.\nEncrypted backups: node --import tsx tools/ops/setup-r2-crypt.ts\nFuture deploy: node --import tsx tools/ops/deploy-vps.ts`);
+  if (publicUrl && https) startHttps(publicUrl, https);
+  console.log(`SCPS setup complete.\n${publicUrl ? "" : `Edit ${envFile} for the public URL and trusted origins, then restart scps.service.\n`}For readers, set NEXTJS_URL=${readEnvValue("NEXT_PUBLIC_APP_URL")} and the matching NFC_TAP_SECRET in .env.broadcaster; configure serial permissions and USB reset privileges before enabling a reader.\nEncrypted backups: node --import tsx tools/ops/setup-r2-crypt.ts\nFuture deploy: node --import tsx tools/ops/deploy-vps.ts`);
   return 0;
 }
 
