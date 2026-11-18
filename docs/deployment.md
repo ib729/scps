@@ -109,6 +109,8 @@ The checkout must track a branch on `origin`. The service user needs noninteract
 
 Administrators can deploy from **Settings > Application updates > Update SCPS**. The worker builds separately using a disposable SQLite database, tests startup, then restarts only web and checks `/login` on the expected process. If the new release fails, it boots the previously confirmed release. See `journalctl -u scps-update.service` for details. The health check does not verify NFC hardware or payments.
 
+If an older running version stalls during restart and the updater rolls back, run `sudo systemctl edit scps.service` and add `TimeoutStopSec=20s` under `[Service]`, then run `sudo systemctl daemon-reload` and retry the update outside payment activity. The timeout lets systemd finish stopping the old process before the updater's restart deadline. A timed-out stop disconnects any remaining requests. New installations already set this timeout.
+
 On hosts or service cgroups with at most 2 GiB of RAM, the production build uses one static generation worker, lower-memory Webpack compilation, and a 768 MiB Node old-generation limit by default. The updater keeps its existing RAM cap to protect the live service. In testing with a 945 MiB RAM cap, the build used about 900 MiB of swap. Keep swap available on small hosts; if builds still exhaust memory, use a larger host instead of removing the cap on a busy server.
 
 The `scps-update-check.timer` checks whether 30 days have passed since the last successful upstream check. It shows **An update is available** in Settings without installing anything or restarting SCPS. See `journalctl -u scps-update-check.service` for check failures.

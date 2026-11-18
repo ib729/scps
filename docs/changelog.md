@@ -18,6 +18,7 @@ Use the current guides for operations.
 - Reuse the previous systemd setup choice and leave a running managed deployment alone on reruns.
 - Stage regular files for setup configuration validation, comparison, and installation so privileged tools do not have to reopen subprocess stdin.
 - Use a lower-memory production build on small hosts and memory-capped updater services.
+- Bound web shutdown so stalled requests cannot block an update restart.
 
 ### Point of sale and customers
 - Fit POS purchase controls on short screens with a compact layout and scrollable dialogs.

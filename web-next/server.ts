@@ -381,13 +381,19 @@ app.prepare().then(() => {
   const shutdown = () => {
     if (shuttingDown) return;
     shuttingDown = true;
+    const deadline = setTimeout(() => {
+      console.warn('Shutdown deadline exceeded; closing remaining connections');
+      process.exit(process.exitCode ?? 0);
+    }, 5000);
     for (const client of wss.clients) client.terminate();
     wss.close();
     server.close(() => {
       app.close().then(() => {
         // Next's dev watchers can outlive close(); requests and sockets are drained first.
+        clearTimeout(deadline);
         process.exit(process.exitCode ?? 0);
       }).catch(error => {
+        clearTimeout(deadline);
         console.error('Error closing Next server', error);
         process.exit(1);
       });
