@@ -1,19 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
-  DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { createCustomerAction } from "@/app/actions/customers";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
@@ -22,7 +18,6 @@ export function CreateCustomerDialog() {
   const [name, setName] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,33 +41,22 @@ export function CreateCustomerDialog() {
       <DialogTrigger asChild>
         <Button>Add Customer</Button>
       </DialogTrigger>
-      <DialogContent>
-        <form onSubmit={handleSubmit}>
-          <DialogHeader>
-            <DialogTitle>Add New Customer</DialogTitle>
-            <DialogDescription>
-              Create a new customer account. An account with ¥0.00 balance will be
-              created automatically.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            {error && (
-              <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-            <div className="space-y-2">
-              <Label htmlFor="name">Customer Name</Label>
-              <Input
-                id="name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Enter customer name"
-                required
-              />
-            </div>
-          </div>
-          <DialogFooter>
+      <DialogContent showCloseButton={false} aria-describedby={undefined} className="sm:max-w-sm">
+        <DialogTitle className="sr-only">Add Customer</DialogTitle>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {error && (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+          <Input
+            aria-label="Customer name"
+            placeholder="Customer name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+          />
+          <DialogFooter className="grid grid-cols-2 sm:flex">
             <Button
               type="button"
               variant="outline"
@@ -81,7 +65,7 @@ export function CreateCustomerDialog() {
               Cancel
             </Button>
             <Button type="submit" disabled={loading}>
-              {loading ? "Creating..." : "Create Customer"}
+              {loading ? "Creating..." : "Create"}
             </Button>
           </DialogFooter>
         </form>

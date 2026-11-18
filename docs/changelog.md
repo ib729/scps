@@ -16,6 +16,7 @@ Use the current guides for operations.
 - Match the Manual POS input sizes, remove the sample text, and let Tab accept the highlighted customer and focus Amount.
 - Compact the Top-up form and remove the extra headings and copy from Top-up and Accounts.
 - Give Top-up fields more room and match the Payment Method control to the other inputs.
+- Simplify Add Customer to a name field and Cancel and Create buttons.
 
 ## 2026-11-15
 
