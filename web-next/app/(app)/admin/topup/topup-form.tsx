@@ -185,10 +185,10 @@ export function TopupForm({ customerIdsWithTransactions, userName }: TopupFormPr
   };
 
   return (
-    <div className="mx-auto w-full min-w-0 lg:max-w-[85%]">
-      <Card>
+    <div className="flex w-full min-w-0 grow">
+      <Card className="w-full">
         <CardContent className="p-4 sm:p-6">
-          <form onSubmit={handleTopup} className="grid gap-x-6 gap-y-3 sm:grid-cols-2 sm:gap-y-4">
+          <form onSubmit={handleTopup} className="mx-auto grid gap-x-6 gap-y-3 sm:grid-cols-2 sm:gap-y-4 lg:max-w-[85%]">
             {error ? (
               <Alert variant="destructive" className="col-span-full">
                 <AlertDescription>{error}</AlertDescription>

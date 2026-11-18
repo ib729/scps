@@ -21,6 +21,7 @@ Use the current guides for operations.
 - Remove Bitcoin from the Top-up payment dropdown without changing existing transactions.
 - Center Delete under Actions in Customers and put Edit notes beside the transaction ID.
 - Widen Top-up without changing its field proportions, and remove the placeholder text.
+- Expand the Top-up frame to fill the workspace while retaining the existing control sizes.
 
 ## 2026-11-15
 
