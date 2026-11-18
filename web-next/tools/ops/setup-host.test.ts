@@ -15,7 +15,7 @@ const loader = pathToFileURL(createRequire(import.meta.url).resolve("tsx")).href
 async function fixture(t: TestContext) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "scps setup ' % "));
   t.after(() => fs.rm(root, { recursive: true, force: true }));
-  for (const name of ["web-next/tools/ops/setup-host.ts", "web-next/tools/ops/setup-https.ts", "web-next/lib/database-path.ts", "web-next/lib/school-settings.ts", "migrations/schema.sql", "web-next/migrations/better_auth_schema.sql", "web-next/.env.local.example", "systemd/scps.service", "systemd/scps-reader.service", "systemd/scps-reader2.service", "systemd/scps-release-start.sh", "systemd/scps-update.service", "systemd/scps-update.path", "systemd/scps-update-check.service", "systemd/scps-update-check.timer"]) {
+  for (const name of ["web-next/tools/ops/setup-host.ts", "web-next/tools/ops/setup-https.ts", "web-next/tools/ops/install-config.ts", "web-next/lib/database-path.ts", "web-next/lib/school-settings.ts", "migrations/schema.sql", "web-next/migrations/better_auth_schema.sql", "web-next/.env.local.example", "systemd/scps.service", "systemd/scps-reader.service", "systemd/scps-reader2.service", "systemd/scps-release-start.sh", "systemd/scps-update.service", "systemd/scps-update.path", "systemd/scps-update-check.service", "systemd/scps-update-check.timer"]) {
     const destination = path.join(root, name);
     await fs.mkdir(path.dirname(destination), { recursive: true });
     await fs.copyFile(path.join(sourceRoot, name), destination);
@@ -31,7 +31,7 @@ async function fixture(t: TestContext) {
   const admin = path.join(root, "updater-files");
   await fs.mkdir(admin);
   await fs.writeFile(path.join(binaries, "fake-updater-install"), `#!${process.execPath}
-const fs = require('node:fs'), path = require('node:path');
+const fs = require('node:fs'), path = require('node:path'), cp = require('node:child_process');
 const args = process.argv.slice(2);
 const destination = args.at(-1);
 const file = path.join(${JSON.stringify(admin)}, path.basename(destination));
@@ -41,7 +41,7 @@ switch (args[0]) {
   case 'visudo': if (!fs.readFileSync(0, 'utf8').endsWith('NOPASSWD: /usr/bin/systemctl restart scps.service\\n')) process.exit(2); break;
   case 'install':
     if (args[1] === '-d') fs.mkdirSync(${JSON.stringify(updateState)}, {mode: 0o700});
-    else fs.writeFileSync(file, fs.readFileSync(0));
+    else process.exit(cp.spawnSync('install', [...args.slice(1, -1), file], {stdio: 'inherit'}).status ?? 1);
     break;
   default: process.exit(3);
 }
@@ -286,8 +286,8 @@ case "$1" in
   -u) shift 2; exec "$@";;
   cat) if [ -f "$PROXY" ]; then cat "$PROXY"; else printf '%s' 'factory config'; fi;;
   install) for dest do :; done; case "$dest" in
-    /etc/caddy/Caddyfile) cat > "$PROXY";;
-    */scps.service.d/90-scps-https.conf) cat > "$OVERRIDE";;
+    /etc/caddy/Caddyfile) install -D -m0644 "$4" "$PROXY";;
+    */scps.service.d/90-scps-https.conf) install -D -m0644 "$4" "$OVERRIDE";;
     *) exec fake-updater-install "$@";;
   esac;;
   test|cmp|visudo) exec fake-updater-install "$@";;

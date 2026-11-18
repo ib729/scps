@@ -9,6 +9,7 @@ import Database from "better-sqlite3";
 import { resolveDatabasePath } from "../../lib/database-path";
 import { getSchoolSettings } from "../../lib/school-settings";
 import { httpsDropIn, httpsOrigin, prepareHttps, startHttps } from "./setup-https";
+import { installConfig } from "./install-config";
 
 const repository = fileURLToPath(new URL("../../../", import.meta.url));
 const web = path.join(repository, "web-next");
@@ -100,7 +101,7 @@ function installUpdater(files: Map<string, { contents: string; mode: string }>) 
       try { execFileSync("sudo", ["cmp", "-s", "-", destination], { input: contents }); }
       catch { throw new Error(`Refusing to replace existing updater configuration: ${destination}`); }
     } else {
-      execFileSync("sudo", ["install", "-D", `-m${mode}`, "/dev/stdin", destination], { input: contents, stdio: ["pipe", "inherit", "inherit"] });
+      installConfig(destination, contents, mode);
     }
   }
 }
@@ -256,7 +257,7 @@ export function main(args = process.argv.slice(2)): number {
     }
   }
   if (https && !fs.existsSync(httpsDropIn)) {
-    execFileSync("sudo", ["install", "-D", "-m0644", "/dev/stdin", httpsDropIn], { input: https.binding, stdio: ["pipe", "inherit", "inherit"] });
+    installConfig(httpsDropIn, https.binding, "0644");
   }
   initializeUpdaterState();
   installUpdater(updater);

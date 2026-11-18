@@ -2,6 +2,7 @@ import fs from "node:fs";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { isIP } from "node:net";
+import { installConfig } from "./install-config";
 
 const caddyfile = "/etc/caddy/Caddyfile";
 export const httpsDropIn = "/etc/systemd/system/scps.service.d/90-scps-https.conf";
@@ -63,7 +64,7 @@ export function prepareHttps(url: URL, port: string): HttpsDraft {
 
 export function startHttps(url: URL, draft: HttpsDraft) {
   if (draft.changed) {
-    execFileSync("sudo", ["install", "-D", "-m0644", "/dev/stdin", caddyfile], { input: draft.config, stdio: ["pipe", "inherit", "inherit"] });
+    installConfig(caddyfile, draft.config, "0644");
   }
   execFileSync("sudo", ["systemctl", "reload-or-restart", "caddy.service"], { stdio: "inherit" });
   execFileSync("sudo", ["systemctl", "enable", "--now", "caddy.service"], { stdio: "inherit" });
