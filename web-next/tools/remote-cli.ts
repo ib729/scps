@@ -49,7 +49,6 @@ export async function main(args = process.argv.slice(2)): Promise<void> {
   const directory = process.env.SCPS_VPS_DIR || "/var/www/scps";
   const port = process.env.SCPS_VPS_PORT || "22";
   const key = process.env.SCPS_VPS_SSH_KEY || "";
-  console.log("┌──────────────────────────────────────────────┐\n│         SCPS REMOTE PRODUCTION CLI           │\n└──────────────────────────────────────────────┘");
   if (!host) {
     console.log(`[Warning] Remote Production VPS Host is not configured!\nAdd SCPS_VPS_HOST, SCPS_VPS_USER and SCPS_VPS_DIR to ${envFile}.`);
     const input = createInterface({ input: process.stdin, crlfDelay: Infinity });

@@ -47,7 +47,7 @@ async function main() {
   // Setup commander for scripted/non-interactive calls if provided
   program
     .name("scps-cli")
-    .description("A feature-rich administrative CLI for SCPS")
+    .description("SCPS administration CLI")
     .version("1.0.0");
 
   program

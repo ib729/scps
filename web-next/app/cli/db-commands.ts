@@ -85,7 +85,6 @@ export async function handleLedgerAdjustments() {
   while (true) {
     const search = await p.text({
       message: "Search for a customer by name",
-      placeholder: "e.g. John",
       validate: (v = "") => (!v.trim() ? "Search query cannot be empty" : undefined),
     });
 
@@ -120,8 +119,7 @@ export async function handleLedgerAdjustments() {
     const customer = matches.find((m) => m.id === selectedId)!;
 
     const amountInput = await p.text({
-      message: "Enter Top-up / Adjustment amount in ¥ (e.g. 50 or -20 for debit)",
-      placeholder: "e.g. 50.00",
+      message: "Amount (¥; negative for debit)",
       validate: (v = "") => {
         try {
           parseAdjustmentAmount(v);
@@ -138,7 +136,6 @@ export async function handleLedgerAdjustments() {
 
     const description = await p.text({
       message: "Optional note / description",
-      placeholder: "e.g. Cash Top-up via CLI",
     });
 
     if (p.isCancel(description)) break;
@@ -167,7 +164,6 @@ export async function handleLedgerAdjustments() {
 export async function handleCSVImport() {
   const csvPath = await p.text({
     message: "Enter the absolute or relative path to your CSV file",
-    placeholder: "e.g. customers.csv",
     validate: (v = "") => {
       if (!v.trim()) return "Path cannot be empty";
       if (!fs.existsSync(v.trim())) return "File does not exist at that path";
@@ -253,7 +249,6 @@ export async function handleImportDatabase(sourcePath?: string, confirmed?: bool
 
   const selectedSource = sourcePath ?? (confirmed ? "" : await p.text({
     message: "Enter the absolute or relative path to your SQLite database backup (.db file)",
-    placeholder: "e.g. stuco.db.backup",
     validate: (v = "") => {
       if (!v.trim()) return "Path cannot be empty";
       if (!fs.existsSync(v.trim())) return "Backup file does not exist at that path";

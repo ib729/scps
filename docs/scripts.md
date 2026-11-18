@@ -219,8 +219,9 @@ A dry run opens an existing ledger read-only, including schema, and checks plann
 within-file duplicates/card ownership without persisting them. Default duplicate
 handling skips existing names and may attach an unowned card;
 `--no-skip-duplicates` makes duplicates errors.
-Template generation never opens a database and writes the requested CSV file
-(replacing that file if it exists). Keep source CSV files for audit.
+Template generation never opens a database. It writes only the header, replacing
+the requested file if it exists. Add your customer rows before importing. Keep
+source CSV files for audit.
 
 ### Direct SQL import
 

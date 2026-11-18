@@ -169,7 +169,7 @@ node --import tsx tools/batch-import-customers.ts --dry-run customers.csv
 node --import tsx tools/batch-import-customers.ts customers.csv
 ```
 
-Dry run is read-only; template generation does not open the database. Valid rows are atomic; later valid rows can succeed after an earlier bad row, but any row failure returns nonzero. See [Customer import](scripts.md#customer-import-snapshots-and-schema-cutover).
+Dry run is read-only. Template generation writes only the header and does not open the database. Add your customer rows before importing. Valid rows are atomic; later valid rows can succeed after an earlier bad row, but any row failure returns nonzero. See [Customer import](scripts.md#customer-import-snapshots-and-schema-cutover).
 
 For remote administration configure local `SCPS_VPS_HOST`, `SCPS_VPS_USER`, `SCPS_VPS_DIR`, `SCPS_VPS_PORT`, `SCPS_VPS_SSH_KEY` in `web-next/.env.local`, then run `./scps-remote-cli` from the repository root. It uses `ssh -t` with quoted remote directory/arguments. Defaults and separate remote deployment behavior are in [Remote management](deployment.md#remote-management).
 

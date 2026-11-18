@@ -31,7 +31,7 @@ export async function main(args = process.argv.slice(2)): Promise<void> {
     let testNumber = 1;
     while (true) {
       console.log(`\nTEST #${testNumber}\n${'-'.repeat(70)}`);
-      const port = await prompt("\nWhich port is the reader in? (e.g., 'bottom USB 2.0', 'top USB 3.0'): ");
+      const port = await prompt("\nLabel this USB port: ");
       if (!port) {
         console.log('\nTesting complete!');
         break;

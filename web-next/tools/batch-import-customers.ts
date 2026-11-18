@@ -115,9 +115,7 @@ async function main() {
   const [filename] = program.args;
   const options = program.opts<{ template?: boolean; withUid?: boolean; dryRun?: boolean; skipDuplicates: boolean }>();
   if (options.template) {
-    await fs.promises.writeFile(filename, options.withUid
-      ? "name,uid\nJohn Doe,DEADBEEF\nJane Smith,0E39E996\nAlice Johnson,\n"
-      : "name\nJohn Doe\nJane Smith\nAlice Johnson\n");
+    await fs.promises.writeFile(filename, options.withUid ? "name,uid\n" : "name\n");
     console.log(`Template CSV created: ${filename}`);
     return;
   }

@@ -86,14 +86,12 @@ export async function handleManageUsers() {
     if (action === "create") {
       const name = await p.text({
         message: "Full Name",
-        placeholder: "e.g. Jason Kang",
         validate: (v = "") => (!v.trim() ? "Name is required" : undefined),
       });
       if (p.isCancel(name)) continue;
 
       const email = await p.text({
         message: "Email Address",
-        placeholder: "e.g. jason@qiss.org.cn",
         validate: (v = "") => (!v.trim() || !v.includes("@") ? "Enter a valid email" : undefined),
       });
       if (p.isCancel(email)) continue;

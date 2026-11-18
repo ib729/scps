@@ -127,14 +127,17 @@ test("read-only dry run detects within-file ownership and duplicate conflicts wi
   } finally { fs.rmSync(f.directory, { recursive: true, force: true }); }
 });
 
-test("standalone template needs no database and quoted relative database path is independent of cwd", () => {
+test("standalone templates contain only headers without a database, and relative database paths are independent of cwd", () => {
   const f = fixture();
   try {
     fs.unlinkSync(f.filename);
-    const template = f.run(["--template", "--with-uid"], path.dirname(web), true);
-    assert.equal(template.status, 0, template.stderr);
+    const nameAndUid = f.run(["--template", "--with-uid"], path.dirname(web), true);
+    assert.equal(nameAndUid.status, 0, nameAndUid.stderr);
+    assert.equal(fs.readFileSync(f.csv, "utf8"), "name,uid\n");
+    const nameOnly = f.run(["--template"], web, true);
+    assert.equal(nameOnly.status, 0, nameOnly.stderr);
+    assert.equal(fs.readFileSync(f.csv, "utf8"), "name\n");
     assert.equal(fs.existsSync(f.filename), false);
-    assert.equal(fs.readFileSync(f.csv, "utf8"), "name,uid\nJohn Doe,DEADBEEF\nJane Smith,0E39E996\nAlice Johnson,\n");
     const missing = f.run(["--dry-run"]);
     assert.equal(missing.status, 1);
     assert.equal(fs.existsSync(f.filename), false);
