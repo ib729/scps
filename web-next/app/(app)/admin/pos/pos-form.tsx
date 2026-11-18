@@ -315,7 +315,7 @@ export function PosForm({ customerIdsWithTransactions, userName, initialMode }: 
     <>
       {/* Enrollment dialog for unknown cards */}
       <Dialog open={enrollDialogOpen} onOpenChange={setEnrollDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>Enroll New Card</DialogTitle>
             <DialogDescription>
@@ -380,7 +380,7 @@ export function PosForm({ customerIdsWithTransactions, userName, initialMode }: 
 
       {/* Tap mode dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>Process Purchase</DialogTitle>
             <DialogDescription>
@@ -479,30 +479,25 @@ export function PosForm({ customerIdsWithTransactions, userName, initialMode }: 
         </DialogContent>
       </Dialog>
 
-      <div className="w-full space-y-6">
-        {/* Mode selector - more prominent */}
-        <Card className="border-2">
-          <CardContent className="pt-6">
-            <div className="grid grid-cols-2 gap-3">
-              <Button
-                type="button"
-                variant={mode === "tap-first" ? "default" : "outline"}
-                onClick={() => setMode("tap-first")}
-                className="h-14 w-full text-lg font-semibold"
-              >
-                Tap Card
-              </Button>
-              <Button
-                type="button"
-                variant={mode === "manual" ? "default" : "outline"}
-                onClick={() => setMode("manual")}
-                className="h-14 w-full text-lg font-semibold"
-              >
-                Manual
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="min-w-0 w-full space-y-3">
+        <div className="grid grid-cols-2 gap-2">
+          <Button
+            type="button"
+            variant={mode === "tap-first" ? "default" : "outline"}
+            onClick={() => setMode("tap-first")}
+            className="h-11 w-full font-semibold"
+          >
+            Tap Card
+          </Button>
+          <Button
+            type="button"
+            variant={mode === "manual" ? "default" : "outline"}
+            onClick={() => setMode("manual")}
+            className="h-11 w-full font-semibold"
+          >
+            Manual
+          </Button>
+        </div>
 
         {/* Success message - shown for both modes */}
         {success && (
@@ -542,8 +537,8 @@ export function PosForm({ customerIdsWithTransactions, userName, initialMode }: 
           <>
             {/* Status bar */}
             <Alert variant={isConnected ? "default" : "destructive"} className="border-2">
-              <AlertDescription className="flex flex-row items-start justify-between gap-3">
-                <div className="flex flex-col min-w-0 flex-1">
+              <AlertDescription className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex min-w-0 flex-1 basis-40 flex-col">
                   <span className="font-medium">{nfcStatusMessage}</span>
                   <span className="text-xs text-muted-foreground">
                     Listening on: {readerLabel}
@@ -559,13 +554,13 @@ export function PosForm({ customerIdsWithTransactions, userName, initialMode }: 
 
         {/* MANUAL MODE - Form */}
         {mode === "manual" && (
-          <Card className="flex-1">
-            <CardHeader className="space-y-1">
-              <CardTitle className="text-2xl">Process Purchase Manually</CardTitle>
+          <Card className="gap-3">
+            <CardHeader className="px-4 pt-4">
+              <CardTitle className="text-lg">Process Purchase Manually</CardTitle>
             </CardHeader>
-            <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="space-y-2">
+            <CardContent className="px-4 pb-4">
+              <form onSubmit={handleSubmit} className="grid gap-3 min-[360px]:grid-cols-2">
+                <div className="col-span-full min-w-0">
                   <CustomerSearchField
                     id="customer"
                     label="Customer"
@@ -579,7 +574,7 @@ export function PosForm({ customerIdsWithTransactions, userName, initialMode }: 
                 </div>
 
                 {selectedCustomer && (
-                  <div className="p-5 bg-muted rounded-lg space-y-3">
+                  <div className="col-span-full space-y-1 rounded-lg bg-muted px-3 py-2">
                     <div className="flex justify-between items-center">
                       <span className="text-base text-muted-foreground">
                         Current Balance:
@@ -624,7 +619,7 @@ export function PosForm({ customerIdsWithTransactions, userName, initialMode }: 
                     }}
                     placeholder="Enter amount (e.g., 5.50)"
                     required
-                    className="text-base h-12"
+                    className="h-10 text-base"
                   />
                 </div>
 
@@ -635,7 +630,7 @@ export function PosForm({ customerIdsWithTransactions, userName, initialMode }: 
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     placeholder="e.g., Snacks, Drinks"
-                    className="text-base min-h-[80px]"
+                    className="min-h-12 text-base"
                   />
                 </div>
 
@@ -646,7 +641,7 @@ export function PosForm({ customerIdsWithTransactions, userName, initialMode }: 
                     value={staff}
                     onChange={(e) => setStaff(e.target.value)}
                     placeholder="Your name"
-                    className="text-base h-12"
+                    className="h-10 text-base"
                     disabled
                   />
                 </div>
@@ -654,7 +649,7 @@ export function PosForm({ customerIdsWithTransactions, userName, initialMode }: 
                 <Button
                   type="submit"
                   disabled={loading || !selectedCustomer || !amount}
-                  className="w-full h-14 text-lg font-semibold"
+                  className="h-11 w-full self-end text-base font-semibold"
                 >
                   {loading ? "Processing..." : `Charge ¥${amount || "0"}`}
                 </Button>
@@ -666,7 +661,7 @@ export function PosForm({ customerIdsWithTransactions, userName, initialMode }: 
 
       {/* Reader Selection Prompt Dialog */}
       <Dialog open={showReaderPrompt} onOpenChange={setShowReaderPrompt}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>Select NFC Reader</DialogTitle>
             <DialogDescription>

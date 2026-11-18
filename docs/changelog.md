@@ -9,6 +9,10 @@ Use the current guides for operations.
 - Show School details and Database Management first, followed by POS Default Mode, NFC Reader Selection, and Reset NFC Hardware.
 - Give Account Settings the same responsive width and height limit as Settings.
 
+### Point of sale and customers
+- Fit POS purchase controls on short screens with a compact layout and scrollable dialogs.
+- Remove the total count footer from the customer table.
+
 ## 2026-11-15
 
 ### Repository cleanup

@@ -182,11 +182,6 @@ export function DataTable({
           </TableBody>
         </table>
       </div>
-      <div className="flex items-center justify-end pt-4">
-        <div className="text-sm text-muted-foreground">
-          {filteredRows.length} customer(s) total
-        </div>
-      </div>
     </div>
   );
 }
