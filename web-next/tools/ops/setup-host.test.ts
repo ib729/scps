@@ -37,8 +37,16 @@ const destination = args.at(-1);
 const file = path.join(${JSON.stringify(admin)}, path.basename(destination));
 switch (args[0]) {
   case 'test': process.exit(fs.existsSync(file) ? 0 : 1);
-  case 'cmp': process.exit(fs.readFileSync(0).equals(fs.readFileSync(file)) ? 0 : 1);
-  case 'visudo': if (!fs.readFileSync(0, 'utf8').endsWith('NOPASSWD: /usr/bin/systemctl restart scps.service\\n')) process.exit(2); break;
+  case 'cmp':
+    if (!path.isAbsolute(args[2]) || !fs.statSync(args[2]).isFile()) throw new Error('Expected a regular comparison source');
+    process.exit(cp.spawnSync('cmp', ['-s', args[2], file]).status ?? 1);
+  case 'visudo': {
+    if (!path.isAbsolute(destination) || !fs.statSync(destination).isFile()) throw new Error('Expected a regular sudoers source');
+    if (!fs.readFileSync(destination, 'utf8').endsWith('NOPASSWD: /usr/bin/systemctl restart scps.service\\n')) process.exit(2);
+    const checked = cp.spawnSync('visudo', ['-cf', destination], {stdio: 'inherit'});
+    if (checked.error?.code !== 'ENOENT' && checked.status !== 0) process.exit(2);
+    break;
+  }
   case 'install':
     if (args[1] === '-d') fs.mkdirSync(${JSON.stringify(updateState)}, {mode: 0o700});
     else process.exit(cp.spawnSync('install', [...args.slice(1, -1), file], {stdio: 'inherit'}).status ?? 1);

@@ -84,28 +84,6 @@ function unitValue(value: string): string {
   return value.replaceAll("%", "%%").replaceAll("\\", "\\\\").replaceAll('"', '\\"');
 }
 
-function installUpdater(files: Map<string, { contents: string; mode: string }>) {
-  for (const [destination, { contents, mode }] of files) {
-    if (destination.startsWith("/etc/sudoers.d/")) {
-      execFileSync("sudo", ["visudo", "-cf", "-"], { input: contents, stdio: ["pipe", "inherit", "inherit"] });
-    }
-    // Resume a partial setup only when its installed files match this checkout.
-    let installed = false;
-    try {
-      execFileSync("sudo", ["test", "-e", destination], { stdio: "ignore" });
-      installed = true;
-    } catch (error) {
-      if (!(error instanceof Error && "status" in error && error.status === 1)) throw error;
-    }
-    if (installed) {
-      try { execFileSync("sudo", ["cmp", "-s", "-", destination], { input: contents }); }
-      catch { throw new Error(`Refusing to replace existing updater configuration: ${destination}`); }
-    } else {
-      installConfig(destination, contents, mode);
-    }
-  }
-}
-
 function initializeUpdaterState() {
   if (!fs.existsSync(updateDirectory)) {
     execFileSync("sudo", ["install", "-d", "-m0700", "-o", appUser, updateDirectory], { stdio: "inherit" });
@@ -260,7 +238,9 @@ export function main(args = process.argv.slice(2)): number {
     installConfig(httpsDropIn, https.binding, "0644");
   }
   initializeUpdaterState();
-  installUpdater(updater);
+  for (const [destination, { contents, mode }] of updater) {
+    installConfig(destination, contents, mode, { preserveExisting: true });
+  }
   execFileSync("sudo", ["systemctl", "daemon-reload"], { stdio: "inherit" });
   execFileSync("systemd-analyze", ["verify", "/etc/systemd/system/scps.service", ...[...updater.keys()].filter(file => /\.(service|path|timer)$/.test(file))], { stdio: "inherit" });
   execFileSync("sudo", ["systemctl", "enable", "scps.service"], { stdio: "inherit" });

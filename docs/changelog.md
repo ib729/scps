@@ -16,7 +16,7 @@ Use the current guides for operations.
 - Remove the extra password length hint from Account Settings without changing validation.
 - Enable the web updater through systemd setup and check for updates every 30 days without installing them.
 - Reuse the previous systemd setup choice and leave a running managed deployment alone on reruns.
-- Stage configuration files before installing them so setup works when subprocess stdin is a socket.
+- Stage regular files for setup configuration validation, comparison, and installation so privileged tools do not have to reopen subprocess stdin.
 
 ### Point of sale and customers
 - Fit POS purchase controls on short screens with a compact layout and scrollable dialogs.
