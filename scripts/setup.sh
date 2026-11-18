@@ -41,6 +41,22 @@ if [ -f /etc/systemd/system/scps.service.d/30-release-update.conf ]; then
     printf '%s\n' 'SCPS update queued. Leaving services unchanged.'
     exit 0
   fi
+  if [ "$(systemctl show --property=TimeoutStopUSec --value scps.service)" = '1min 30s' ]; then
+    timeout_override=/etc/systemd/system/scps.service.d/31-release-stop-timeout.conf
+    if [ ! -e "$timeout_override" ]; then
+      (
+        config=$(mktemp)
+        trap 'rm -f -- "$config"' EXIT
+        printf '[Service]\nTimeoutStopSec=20s\n' > "$config"
+        sudo install -D -m0644 "$config" "$timeout_override"
+      )
+    fi
+    sudo systemctl daemon-reload
+    if [ "$(systemctl show --property=TimeoutStopUSec --value scps.service)" = '1min 30s' ]; then
+      printf '%s\n' 'Another systemd setting still sets the stop timeout to 90s. Check systemctl cat scps.service.' >&2
+      exit 1
+    fi
+  fi
   web_state=$(systemctl show --property=ActiveState --value scps.service)
   if ! systemctl is-enabled --quiet scps-update.path || ! systemctl is-active --quiet scps-update.path; then
     sudo systemctl daemon-reload

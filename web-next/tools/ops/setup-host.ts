@@ -179,7 +179,7 @@ export function main(args = process.argv.slice(2)): number {
       updater.set(destination, { contents, mode });
     }
     updater.set("/etc/sudoers.d/scps-release-update", { contents: `${appUser} ALL=(root) NOPASSWD: /usr/bin/systemctl restart scps.service\n`, mode: "0440" });
-    updater.set(updateDropIn, { contents: `[Service]\nEnvironment="SCPS_UPDATE_DIR=${updateDirectory}"\nExecStart=\nExecStart=${launcher} "${unitValue(process.execPath)}"\n`, mode: "0644" });
+    updater.set(updateDropIn, { contents: `[Service]\nEnvironment="SCPS_UPDATE_DIR=${updateDirectory}"\nExecStart=\nExecStart=${launcher} "${unitValue(process.execPath)}"\nTimeoutStopSec=20s\n`, mode: "0644" });
     const staging = fs.mkdtempSync(path.join(os.tmpdir(), "scps-units-"));
     try {
       for (const name of missing) {

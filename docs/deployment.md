@@ -109,7 +109,7 @@ The checkout must track a branch on `origin`. The service user needs noninteract
 
 Administrators can deploy from **Settings > Application updates > Update SCPS**. The worker builds separately using a disposable SQLite database, tests startup, then restarts only web and checks `/login` on the expected process. If the new release fails, it boots the previously confirmed release. See `journalctl -u scps-update.service` for details. The health check does not verify NFC hardware or payments.
 
-If an older running version stalls during restart and the updater rolls back, run `sudo systemctl edit scps.service` and add `TimeoutStopSec=20s` under `[Service]`, then run `sudo systemctl daemon-reload` and retry the update outside payment activity. The timeout lets systemd finish stopping the old process before the updater's restart deadline. A timed-out stop disconnects any remaining requests. New installations already set this timeout.
+Systemd setup configures a 20-second stop timeout. On an existing updater-managed installation still using the old 90-second default, the updated setup script installs `31-release-stop-timeout.conf` and reloads systemd without restarting web. If the original checkout has an older setup script, use `sudo systemctl edit scps.service` to add `TimeoutStopSec=20s` under `[Service]`, then reload systemd. Retry updates outside payment activity because a timed-out stop disconnects remaining requests.
 
 On hosts or service cgroups with at most 2 GiB of RAM, the production build uses one static generation worker, lower-memory Webpack compilation, and a 768 MiB Node old-generation limit by default. The updater keeps its existing RAM cap to protect the live service. In testing with a 945 MiB RAM cap, the build used about 900 MiB of swap. Keep swap available on small hosts; if builds still exhaust memory, use a larger host instead of removing the cap on a busy server.
 
@@ -117,7 +117,7 @@ The `scps-update-check.timer` checks whether 30 days have passed since the last 
 
 Do not publish migration-dependent releases to the updater branch until the host is ready. The worker blocks changes to known schema and database startup files and never runs migrations or restores the ledger.
 
-To replace an older manually installed updater or to perform manual maintenance, disable `scps-update.path` and `scps-update-check.timer` if installed, then wait for the worker services to finish. In a maintenance window, stop web and archive the old updater units, launcher, `30-release-update.conf`, sudoers rule and `/var/lib/scps-update` before reloading systemd. Keep the ledger and `.env.local` in place. Follow the manual migration instructions if needed before running setup again. Do not restart the original checkout against an incompatible ledger.
+To replace an older manually installed updater or to perform manual maintenance, disable `scps-update.path` and `scps-update-check.timer` if installed, then wait for the worker services to finish. In a maintenance window, stop web and archive the old updater units, launcher, `30-release-update.conf`, `31-release-stop-timeout.conf` if present, sudoers rule and `/var/lib/scps-update` before reloading systemd. Keep the ledger and `.env.local` in place. Follow the manual migration instructions if needed before running setup again. Do not restart the original checkout against an incompatible ledger.
 
 ### Reader services
 

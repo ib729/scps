@@ -18,7 +18,7 @@ Use the current guides for operations.
 - Reuse the previous systemd setup choice and leave a running managed deployment alone on reruns.
 - Stage regular files for setup configuration validation, comparison, and installation so privileged tools do not have to reopen subprocess stdin.
 - Use a lower-memory production build on small hosts and memory-capped updater services.
-- Bound web shutdown so stalled requests cannot block an update restart.
+- Bound web shutdown so stalled requests cannot block an update restart. Setup also applies the 20-second systemd stop timeout to new and older managed installations that used the 90-second default.
 
 ### Point of sale and customers
 - Fit POS purchase controls on short screens with a compact layout and scrollable dialogs.

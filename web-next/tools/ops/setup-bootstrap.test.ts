@@ -12,7 +12,7 @@ function git(cwd: string, ...args: string[]) {
   assert.equal(result.status, 0, result.stderr);
   return result.stdout.trim();
 }
-function fixture(options: { distro?: string; old?: 'good' | 'bad'; candidate?: 'bad'; download?: 'fail'; nodeOld?: boolean; managed?: 'existing' | 'active' | 'inactive' | 'busy' | 'foreign' } = {}) {
+function fixture(options: { distro?: string; old?: 'good' | 'bad'; candidate?: 'bad'; download?: 'fail'; nodeOld?: boolean; managed?: 'existing' | 'active' | 'inactive' | 'busy' | 'foreign'; stopTimeout?: string } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'scps-bootstrap-'));
   const bin = join(root, 'bin');
   const log = join(root, 'calls');
@@ -22,8 +22,9 @@ function fixture(options: { distro?: string; old?: 'good' | 'bad'; candidate?: '
   writeFileSync(join(root, 'os-release'), `ID=${options.distro ?? 'debian'}\n`);
   const dropIn = join(root, 'release-setup.conf');
   if (options.managed && options.managed !== 'existing') writeFileSync(dropIn, '');
-  writeFileSync(join(root, 'scripts/setup.sh'), readFileSync(resolve('../scripts/setup.sh'), 'utf8').replace('/etc/os-release', join(root, 'os-release')).replaceAll('/etc/systemd/system/scps.service.d/30-release-update.conf', dropIn));
-  writeFileSync(join(root, '.gitignore'), '/bin/\n/calls\n/os-release\n/release-setup.conf\n/.local/\n/origin.git/\n/upstream/\n');
+  const timeoutDropIn = join(root, 'restart-timeout.conf');
+  writeFileSync(join(root, 'scripts/setup.sh'), readFileSync(resolve('../scripts/setup.sh'), 'utf8').replace('/etc/os-release', join(root, 'os-release')).replaceAll('/etc/systemd/system/scps.service.d/30-release-update.conf', dropIn).replaceAll('/etc/systemd/system/scps.service.d/31-release-stop-timeout.conf', timeoutDropIn));
+  writeFileSync(join(root, '.gitignore'), '/bin/\n/calls\n/os-release\n/release-setup.conf\n/restart-timeout.conf\n/.local/\n/origin.git/\n/upstream/\n');
   git(root, 'init', '-b', 'main');
   git(root, 'add', '.gitignore', 'scripts/setup.sh');
   git(root, '-c', 'user.name=Test', '-c', 'user.email=test@example.test', 'commit', '-m', 'initial setup');
@@ -37,6 +38,7 @@ function fixture(options: { distro?: string; old?: 'good' | 'bad'; candidate?: '
   *WorkingDirectory*) printf '%s\\n' ${options.managed === 'foreign' ? '"/other/checkout/web-next"' : options.managed ? '"$ROOT/web-next"' : "''"};;
   *User*) id -un;;
   *ActiveState*scps-update.service) echo ${options.managed === 'busy' ? 'activating' : 'inactive'};;
+  *TimeoutStopUSec*) if grep -qs 'TimeoutStopSec=20s' "$ROOT/restart-timeout.conf"; then echo 20s; else printf '%s\\n' '${options.stopTimeout ?? '20s'}'; fi;;
   *ActiveState*scps.service) echo ${options.managed === 'inactive' ? 'inactive' : 'active'};;
   'is-enabled --quiet scps-update.path') [ "$MANAGED" = active ];;
   'is-active --quiet scps-update.path') [ "$MANAGED" = active ];;
@@ -160,3 +162,15 @@ for (const managed of ['active', 'inactive', 'busy', 'foreign'] as const) {
     } finally { f.cleanup(); }
   });
 }
+
+test('a managed rerun fixes the old default stop timeout without restarting web', () => {
+  const f = fixture({ managed: 'active', stopTimeout: '1min 30s' });
+  try {
+    const first = f.run();
+    assert.equal(first.status, 0, first.stderr);
+    assert.equal(readFileSync(join(f.root, 'restart-timeout.conf'), 'utf8'), '[Service]\nTimeoutStopSec=20s\n');
+    assert.match(first.calls, /systemctl daemon-reload/);
+    assert.doesNotMatch(first.calls, /systemctl (start|restart) scps\.service/);
+    assert.equal(f.run().calls, first.calls);
+  } finally { f.cleanup(); }
+});
