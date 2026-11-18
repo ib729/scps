@@ -9,7 +9,7 @@
   "packageManager": "pnpm@12.21.0",
   "scripts": {
     "dev": "node --import tsx server.ts",
-    "build": "next build --webpack",
+    "build": "node tools/ops/build.mjs",
     "start": "NODE_ENV=production node --import tsx server.ts",
     "lint": "eslint --flag unstable_native_nodejs_ts_config",
     "postinstall": "pnpm rebuild better-sqlite3",

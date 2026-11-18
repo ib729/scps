@@ -7,7 +7,10 @@ const contentSecurityPolicy = getContentSecurityPolicy();
 const nextConfig: NextConfig = {
   /* config options here */
   serverExternalPackages: ["better-sqlite3"],
-  experimental: { useTypeScriptCli: true },
+  experimental: {
+    useTypeScriptCli: true,
+    ...(process.env.SCPS_LOW_MEMORY_BUILD === "1" && { cpus: 1, webpackMemoryOptimizations: true }),
+  },
   outputFileTracingRoot: path.resolve(__dirname, "."),
   allowedDevOrigins: [
     "scps.ivanbelousov.com",

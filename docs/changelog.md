@@ -17,6 +17,7 @@ Use the current guides for operations.
 - Enable the web updater through systemd setup and check for updates every 30 days without installing them.
 - Reuse the previous systemd setup choice and leave a running managed deployment alone on reruns.
 - Stage regular files for setup configuration validation, comparison, and installation so privileged tools do not have to reopen subprocess stdin.
+- Use a lower-memory production build on small hosts and memory-capped updater services.
 
 ### Point of sale and customers
 - Fit POS purchase controls on short screens with a compact layout and scrollable dialogs.
