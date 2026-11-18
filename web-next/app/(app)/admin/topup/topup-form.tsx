@@ -292,7 +292,7 @@ export function TopupForm({ customerIdsWithTransactions, userName }: TopupFormPr
                   <SelectValue placeholder="Select payment method" />
                 </SelectTrigger>
                 <SelectContent>
-                  {PAYMENT_METHOD_VALUES.map((method) => (
+                  {PAYMENT_METHOD_VALUES.filter((method) => method !== "Bitcoin").map((method) => (
                     <SelectItem key={method} value={method} className="text-base md:text-base">
                       {method}
                     </SelectItem>

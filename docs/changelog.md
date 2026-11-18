@@ -17,6 +17,7 @@ Use the current guides for operations.
 - Compact the Top-up form and remove the extra headings and copy from Top-up and Accounts.
 - Give Top-up fields more room and match the Payment Method control to the other inputs.
 - Simplify Add Customer to a name field and Cancel and Create buttons.
+- Remove Bitcoin from the Top-up payment dropdown without changing existing transactions.
 
 ## 2026-11-15
 
