@@ -614,13 +614,8 @@ export function AppSidebar({ user: initialUser, initialPreferences, initialSchoo
 
       {mounted && (
         <Dialog open={showAccountDialog} onOpenChange={setShowAccountDialog}>
-          <DialogContent className={settingsDialogClassName}>
-            <DialogHeader>
-              <DialogTitle>Account Settings</DialogTitle>
-              <DialogDescription>
-                Manage your account settings and preferences.
-              </DialogDescription>
-            </DialogHeader>
+          <DialogContent showCloseButton={false} aria-describedby={undefined} className={settingsDialogClassName}>
+            <DialogTitle className="sr-only">Account Settings</DialogTitle>
             <Tabs defaultValue="profile" className="w-full">
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="profile">Profile</TabsTrigger>
