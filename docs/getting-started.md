@@ -49,7 +49,7 @@ This bootstrap detects Debian, Ubuntu and derivatives, installs OS/Node/native-b
 
 The automated production build and web service disable Next.js telemetry with `NEXT_TELEMETRY_DISABLED=1`.
 
-The script asks whether to install systemd services. Answer yes to render all three units and enable/restart **web only**. Reader units remain inactive until you configure `.env.broadcaster`, device selection, serial access and noninteractive USB reset privileges. Use `--systemd` or `--no-systemd` to select explicitly; noninteractive runs without a flag skip services. Without systemd, start the production server from `web-next` with `pnpm start`.
+The script asks whether to install systemd services. Answer yes to install missing units and enable/restart **web only**. Reruns preserve existing units for this checkout. Configure `.env.broadcaster`, device selection, serial access and noninteractive USB reset privileges before enabling the readers. Use `--systemd` or `--no-systemd` to select explicitly; noninteractive runs without a flag skip services. Without systemd, start the production server from `web-next` with `pnpm start`.
 
 The web service binds all interfaces by default. Restrict port 38173 with a firewall or loopback override before exposing the host.
 

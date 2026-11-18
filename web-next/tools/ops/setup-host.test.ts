@@ -123,7 +123,7 @@ test("duplicate secret assignments converge to runtime value without logging it"
   assert.ok(!(result.stdout + result.stderr).includes("private-value"));
 });
 
-test("typed setup renders both reader units safely and never prints the generated auth secret", async t => {
+test("systemd setup preserves installed units on rerun and installs missing readers", async t => {
   const f = await fixture(t);
   const units = path.join(f.root, "rendered-units");
   const log = path.join(f.root, "commands");
@@ -136,13 +136,22 @@ else if(args[0]==='tee'&&args[1].startsWith('/etc/systemd/system/'))fs.writeFile
 else if(args[0]!=='systemctl')throw new Error('Unexpected privileged command: '+args);
 `;
   await fs.writeFile(path.join(f.binaries, "sudo"), fakeSudo, { mode: 0o700 });
-  await fs.writeFile(path.join(f.binaries, "systemctl"), `#!/bin/sh\ncase "$*" in *Version*) echo 255;; *LoadState*) echo not-found;; esac\n`, { mode: 0o700 });
+  await fs.writeFile(path.join(f.binaries, "systemctl"), `#!/bin/sh
+for name do :; done
+case "$*" in
+  *Version*) echo 255;;
+  *LoadState*) if [ -f "$UNIT_DIR/$name" ]; then echo loaded; else echo not-found; fi;;
+  *FragmentPath*) printf '/etc/systemd/system/%s\\n' "$name";;
+  *WorkingDirectory*) printf '%s\\n' "$WEB";;
+esac
+`, { mode: 0o700 });
   await fs.writeFile(path.join(f.binaries, "systemd-analyze"), `#!/bin/sh\ncase "$*" in */etc/systemd/system/*) exit 0;; *) exec /usr/bin/systemd-analyze "$@";; esac\n`, { mode: 0o700 });
   await fs.writeFile(path.join(f.binaries, "pnpm"), `#!${process.execPath}\nrequire(${JSON.stringify(path.join(f.web, "node_modules/dotenv"))}).config({path:${JSON.stringify(path.join(f.web, ".env.local"))},quiet:true});\nif(!process.env.BETTER_AUTH_SECRET||process.env.BETTER_AUTH_SECRET==='replace-with-a-random-secret'){console.error('Build inherited a stale auth secret');process.exit(41);}\nif(process.env.NEXT_TELEMETRY_DISABLED!=='1'){console.error('Build did not opt out of telemetry');process.exit(42);}\nrequire('node:fs').appendFileSync(${JSON.stringify(log)},JSON.stringify(['pnpm',...process.argv.slice(2)])+'\\n');\n`, { mode: 0o700 });
-  const result = await probe(f.web, `import fs from 'node:fs';
+  const setup = () => probe(f.web, `import fs from 'node:fs';
 const read=fs.readFileSync;fs.readFileSync=((file,...args)=>String(file)==='/etc/os-release'?'ID=ubuntu\\n':Reflect.apply(read,fs,[file,...args])) as typeof fs.readFileSync;
 import { main } from './ops/setup-host';
-Promise.resolve().then(()=>main(["--systemd"])).then(code=>{process.exitCode=code??0}).catch(error=>{console.error(error);process.exitCode=1});`, f.root, { ...f.env, PATH: `${f.binaries}:${f.env.PATH ?? ""}` });
+Promise.resolve().then(()=>main(["--systemd"])).then(code=>{process.exitCode=code??0}).catch(error=>{console.error(error);process.exitCode=1});`, f.root, { ...f.env, UNIT_DIR: units, WEB: f.web, PATH: `${f.binaries}:${f.env.PATH ?? ""}` });
+  const result = await setup();
   assert.equal(result.status, 0, result.stderr);
   const env = parse(await fs.readFile(path.join(f.web, ".env.local")));
   assert.ok(env.BETTER_AUTH_SECRET.length >= 40);
@@ -169,6 +178,28 @@ Promise.resolve().then(()=>main(["--systemd"])).then(code=>{process.exitCode=cod
   const calls = (await fs.readFile(log, "utf8")).trim().split("\n").map(line => JSON.parse(line) as string[]);
   assert.ok(calls.some(args => args.join(" ") === "systemctl restart scps.service"));
   assert.ok(!calls.some(args => args[0] === "systemctl" && args.some(arg => arg.startsWith("scps-reader"))));
+
+  const webUnit = path.join(units, "scps.service");
+  const customized = (await fs.readFile(webUnit, "utf8")).replace("RestartSec=5", "RestartSec=17");
+  await fs.writeFile(webUnit, customized);
+  const reader = path.join(units, "scps-reader.service");
+  const existingReader = await fs.readFile(reader, "utf8");
+  const missingReader = path.join(units, "scps-reader2.service");
+  const expectedReader = await fs.readFile(missingReader, "utf8");
+  await fs.unlink(missingReader);
+
+  const rerun = await setup();
+  assert.equal(rerun.status, 0, rerun.stderr);
+  assert.equal(await fs.readFile(webUnit, "utf8"), customized);
+  assert.equal(await fs.readFile(reader, "utf8"), existingReader);
+  assert.equal(await fs.readFile(missingReader, "utf8"), expectedReader);
+
+  await fs.writeFile(log, "");
+  const fullyInstalled = await setup();
+  assert.equal(fullyInstalled.status, 0, fullyInstalled.stderr);
+  const rerunCalls = await fs.readFile(log, "utf8");
+  assert.doesNotMatch(rerunCalls, /"tee"|"daemon-reload"/);
+  assert.match(rerunCalls, /\["systemctl","restart","scps\.service"\]/);
 });
 
 test("cutover retires owned legacy units before restart and refuses unsafe transitions", async t => {

@@ -30,7 +30,7 @@ The typed `web-next/tools/ops/setup-host.ts` stage:
 1. Creates/restricts `web-next/.env.local`, sets the canonical quoted database path and generates a missing Better Auth secret without logging its value. A new environment uses port 38173 and matching localhost URL/origin; an existing environment retains its settings.
 2. Initializes both core and auth schemas **only if the database does not exist**; otherwise preserves it and requires explicit legacy migration.
 3. Builds as the service user with the pinned PATH preserved through sudo.
-4. Offers systemd installation. If accepted, validates `scps.service`, `scps-reader.service` and `scps-reader2.service`, retires owned legacy units, reloads systemd, and enables/restarts **only `scps`**. Newly installed readers remain inactive; existing new-name readers are not stopped.
+4. Offers systemd installation. If accepted, validates and installs missing `scps.service`, `scps-reader.service` and `scps-reader2.service` units, retires owned legacy units, and enables/restarts **only `scps`**. Reruns keep existing units for this checkout unchanged. Newly installed readers remain inactive; existing readers are not stopped.
 
 Use `--systemd` or `--no-systemd` to select explicitly. Noninteractive setup without either flag skips service installation. If skipped, start from `web-next` with `pnpm start`.
 
