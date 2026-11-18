@@ -54,7 +54,7 @@ export function ScpsUpdateSettings() {
       : update?.status?.message ?? (update?.enabled === false ? "Background updates are not configured on this host." : "");
 
   return (
-    <section className="space-y-3 border-t pt-4" aria-labelledby="scps-update-heading">
+    <section className="space-y-3" aria-labelledby="scps-update-heading">
       <h3 id="scps-update-heading" className="text-base font-semibold">Application updates</h3>
       <p className="text-sm text-muted-foreground">
         SCPS keeps running during the build. A successful build briefly interrupts service while SCPS restarts.
@@ -65,7 +65,7 @@ export function ScpsUpdateSettings() {
       {!update?.running && update?.status?.state === "updated" && !disconnected && (
         <Button type="button" variant="ghost" onClick={() => window.location.reload()}>Reload page</Button>
       )}
-      <p role="status" className="text-sm text-muted-foreground">{message}</p>
+      <p role="status" className="text-sm text-muted-foreground empty:hidden">{message}</p>
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
     </section>
   );

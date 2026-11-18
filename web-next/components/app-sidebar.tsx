@@ -869,44 +869,42 @@ export function AppSidebar({ user: initialUser, initialPreferences, initialSchoo
 
       {mounted && (
         <Dialog open={showSettingsDialog} onOpenChange={setShowSettingsDialog}>
-          <DialogContent showCloseButton={false} className={settingsDialogClassName}>
-            <DialogHeader className="space-y-0">
-              <DialogTitle className="text-[1.75rem] leading-tight">Settings</DialogTitle>
-            </DialogHeader>
-
-            <div className="space-y-6 pb-4 pt-0">
+          <DialogContent showCloseButton={false} aria-describedby={undefined} className="flex max-h-[calc(100dvh-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-[900px]">
+            <DialogTitle className="sr-only">Settings</DialogTitle>
+            <div className="grid min-h-0 gap-3 overflow-y-auto overscroll-contain p-4 sm:grid-cols-2 sm:p-6 *:min-w-0 *:rounded-xl *:border *:bg-muted/25 *:p-4">
               {user?.role === "admin" ? (
                 <>
                   <div className="space-y-3">
                     <h3 className="text-base font-semibold">School details</h3>
                     <p className="text-sm text-muted-foreground">These details are shared across the dashboard for all staff.</p>
-                    <Label htmlFor="school-year">School year</Label>
-                    <Input id="school-year" value={draftSchoolSettings.schoolYear} maxLength={40}
-                      onChange={(event) => setDraftSchoolSettings((current) => ({ ...current, schoolYear: event.target.value }))} />
-                    <Label htmlFor="school-logo">School logo</Label>
-                    <Input id="school-logo" type="file" accept="image/png,image/jpeg,image/webp" disabled={readingLogo}
-                      onChange={handleLogoChange} />
-                    <p className="text-xs text-muted-foreground">PNG, JPEG, or WebP, up to 512 KB. {draftSchoolSettings.logo ? "Custom logo selected." : "Using the default logo."}</p>
+                    <div className="space-y-2">
+                      <Label htmlFor="school-year">School year</Label>
+                      <Input id="school-year" value={draftSchoolSettings.schoolYear} maxLength={40}
+                        onChange={(event) => setDraftSchoolSettings((current) => ({ ...current, schoolYear: event.target.value }))} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="school-logo">School logo</Label>
+                      <Input id="school-logo" type="file" accept="image/png,image/jpeg,image/webp" disabled={readingLogo}
+                        onChange={handleLogoChange} />
+                      <p className="text-xs text-muted-foreground">PNG, JPEG, or WebP, up to 512 KB. {draftSchoolSettings.logo ? "Custom logo selected." : "Using the default logo."}</p>
+                    </div>
                     {draftSchoolSettings.logo && (
                       <Button variant="outline" onClick={() => setDraftSchoolSettings((current) => ({ ...current, logo: null }))}>
                         Use default logo
                       </Button>
                     )}
-                    <Button className="w-full" onClick={handleSaveSchool} disabled={savingSchool || readingLogo}>
+                    <Button onClick={handleSaveSchool} disabled={savingSchool || readingLogo}>
                       {savingSchool ? "Saving..." : "Save school details"}
                     </Button>
                   </div>
 
-                  <div className="space-y-3 border-t pt-4">
-                    <Label className="text-base font-semibold">
-                      Database Management
-                    </Label>
+                  <div className="space-y-3">
+                    <h3 className="text-base font-semibold">Database management</h3>
                     <p className="text-sm text-muted-foreground">
                       Download a compressed backup of the database.
                     </p>
                     <Button
                       variant="outline"
-                      className="w-full"
                       disabled={downloadingBackup}
                       onClick={() => {
                         setDownloadingBackup(true)
@@ -932,15 +930,13 @@ export function AppSidebar({ user: initialUser, initialPreferences, initialSchoo
                 </>
               ) : null}
 
-              <div className="space-y-3 not-first:border-t not-first:pt-4">
-                <Label className="text-base font-semibold">
-                  POS Default Mode
-                </Label>
+              <div className="space-y-3">
+                <h3 id="pos-mode-heading" className="text-base font-semibold">POS default mode</h3>
                 <p className="text-sm text-muted-foreground">
                   Choose which mode the POS page should open with by default.
                 </p>
-                <div className="space-y-3 pl-6">
-                  <div className="flex items-center space-x-3">
+                <div role="group" aria-labelledby="pos-mode-heading" className="grid gap-2">
+                  <label className="flex cursor-pointer items-center gap-3 rounded-lg border bg-background p-3 text-sm has-checked:border-primary/50 has-checked:bg-primary/5">
                     <input
                       type="radio"
                       id="pos-mode-tap"
@@ -950,16 +946,14 @@ export function AppSidebar({ user: initialUser, initialPreferences, initialSchoo
                       onChange={(e) =>
                         setLocalDefaultPosMode(e.target.value as PosDefaultMode)
                       }
-                      className="h-4 w-4 cursor-pointer"
+                      className="size-4 shrink-0 accent-primary"
                     />
-                    <label htmlFor="pos-mode-tap" className="text-sm cursor-pointer flex-1">
-                      <div className="font-medium">Tap Card</div>
-                      <div className="text-muted-foreground text-xs">
-                        Open POS ready for NFC card taps
-                      </div>
-                    </label>
-                  </div>
-                  <div className="flex items-center space-x-3">
+                    <span>
+                      <span className="block font-medium">Tap Card</span>
+                      <span className="block text-xs text-muted-foreground">Open POS ready for NFC card taps</span>
+                    </span>
+                  </label>
+                  <label className="flex cursor-pointer items-center gap-3 rounded-lg border bg-background p-3 text-sm has-checked:border-primary/50 has-checked:bg-primary/5">
                     <input
                       type="radio"
                       id="pos-mode-manual"
@@ -969,28 +963,23 @@ export function AppSidebar({ user: initialUser, initialPreferences, initialSchoo
                       onChange={(e) =>
                         setLocalDefaultPosMode(e.target.value as PosDefaultMode)
                       }
-                      className="h-4 w-4 cursor-pointer"
+                      className="size-4 shrink-0 accent-primary"
                     />
-                    <label htmlFor="pos-mode-manual" className="text-sm cursor-pointer flex-1">
-                      <div className="font-medium">Manual</div>
-                      <div className="text-muted-foreground text-xs">
-                        Open POS with customer search selected
-                      </div>
-                    </label>
-                  </div>
+                    <span>
+                      <span className="block font-medium">Manual</span>
+                      <span className="block text-xs text-muted-foreground">Open POS with customer search selected</span>
+                    </span>
+                  </label>
                 </div>
               </div>
 
-              {/* NFC Reader Selection */}
-              <div className="space-y-3 border-t pt-4">
-                <Label className="text-base font-semibold">
-                  NFC Reader Selection
-                </Label>
+              <div className="space-y-3">
+                <h3 id="nfc-reader-heading" className="text-base font-semibold">NFC reader selection</h3>
                 <p className="text-sm text-muted-foreground">
                   Choose which NFC reader to use for card taps. Each staff member can select their own reader.
                 </p>
-                <div className="space-y-3 pl-6">
-                  <div className="flex items-center space-x-3">
+                <div role="group" aria-labelledby="nfc-reader-heading" className="grid gap-2">
+                  <label className="flex cursor-pointer items-center gap-3 rounded-lg border bg-background p-3 text-sm has-checked:border-primary/50 has-checked:bg-primary/5">
                     <input
                       type="radio"
                       id="reader-1"
@@ -998,14 +987,14 @@ export function AppSidebar({ user: initialUser, initialPreferences, initialSchoo
                       value="reader-1"
                       checked={localSelectedReader === "reader-1"}
                       onChange={(e) => setLocalSelectedReader(e.target.value as "reader-1" | "reader-2")}
-                      className="h-4 w-4 cursor-pointer"
+                      className="size-4 shrink-0 accent-primary"
                     />
-                    <label htmlFor="reader-1" className="text-sm cursor-pointer flex-1">
-                      <div className="font-medium">Reader 1</div>
-                      <div className="text-muted-foreground text-xs">USB Port 0 (tty:USB0)</div>
-                    </label>
-                  </div>
-                  <div className="flex items-center space-x-3">
+                    <span>
+                      <span className="block font-medium">Reader 1</span>
+                      <span className="block text-xs text-muted-foreground">USB Port 0 (tty:USB0)</span>
+                    </span>
+                  </label>
+                  <label className="flex cursor-pointer items-center gap-3 rounded-lg border bg-background p-3 text-sm has-checked:border-primary/50 has-checked:bg-primary/5">
                     <input
                       type="radio"
                       id="reader-2"
@@ -1013,21 +1002,19 @@ export function AppSidebar({ user: initialUser, initialPreferences, initialSchoo
                       value="reader-2"
                       checked={localSelectedReader === "reader-2"}
                       onChange={(e) => setLocalSelectedReader(e.target.value as "reader-1" | "reader-2")}
-                      className="h-4 w-4 cursor-pointer"
+                      className="size-4 shrink-0 accent-primary"
                     />
-                    <label htmlFor="reader-2" className="text-sm cursor-pointer flex-1">
-                      <div className="font-medium">Reader 2</div>
-                      <div className="text-muted-foreground text-xs">USB Port 1 (tty:USB1)</div>
-                    </label>
-                  </div>
+                    <span>
+                      <span className="block font-medium">Reader 2</span>
+                      <span className="block text-xs text-muted-foreground">USB Port 1 (tty:USB1)</span>
+                    </span>
+                  </label>
                 </div>
               </div>
 
               {user?.role === "admin" ? (
-                <div className="space-y-3 border-t pt-6">
-                  <Label className="text-base font-semibold">
-                    System Services
-                  </Label>
+                <div className="space-y-3">
+                  <h3 className="text-base font-semibold">System services</h3>
                   <p className="text-sm text-muted-foreground">
                     Restart NFC drivers and services if readers become unresponsive.
                   </p>
@@ -1035,7 +1022,6 @@ export function AppSidebar({ user: initialUser, initialPreferences, initialSchoo
                     onClick={handleRestartServices}
                     disabled={restartingServices}
                     variant="outline"
-                    className="w-full"
                   >
                     {restartingServices ? (
                       <>
@@ -1053,7 +1039,7 @@ export function AppSidebar({ user: initialUser, initialPreferences, initialSchoo
               ) : null}
             </div>
 
-            <div className="flex justify-end gap-2">
+            <div className="flex shrink-0 justify-end gap-2 border-t bg-background px-4 py-3 sm:px-6">
               <Button
                 variant="outline"
                 onClick={() => {
@@ -1065,7 +1051,7 @@ export function AppSidebar({ user: initialUser, initialPreferences, initialSchoo
                 Cancel
               </Button>
               <Button onClick={handleSaveSettings} disabled={savingSettings}>
-                {savingSettings ? "Saving..." : "Save Settings"}
+                {savingSettings ? "Saving..." : "Save preferences"}
               </Button>
             </div>
           </DialogContent>
