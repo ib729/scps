@@ -13,6 +13,7 @@ Use the current guides for operations.
 - Add an opt-in administrator update button with isolated builds, restart checks, and code rollback.
 - Organize Settings into responsive panels, hide the redundant title, and keep preference actions visible while scrolling.
 - Put account creation above registrations and refresh the Account popup’s Profile and Security tabs.
+- Remove the extra password length hint from Account Settings without changing validation.
 
 ### Point of sale and customers
 - Fit POS purchase controls on short screens with a compact layout and scrollable dialogs.
@@ -30,6 +31,7 @@ Use the current guides for operations.
 - Give Customers the same workspace frame as POS, Transactions, and Top-up, and tighten the margins around all four.
 - Remove the redundant heading from Manual POS.
 - Keep the Customers table header the same color as its frame, including on hover.
+- Use a pencil icon for Edit notes in Transactions.
 
 ## 2026-11-15
 

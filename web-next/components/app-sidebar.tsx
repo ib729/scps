@@ -720,7 +720,6 @@ export function AppSidebar({ user: initialUser, initialPreferences, initialSchoo
                       value={passwordData.newPassword}
                       onChange={(e) => handlePasswordChange("newPassword", e.target.value)}
                       autoComplete="new-password"
-                      aria-describedby="account-password-hint"
                       className="pr-10"
                     />
                     <Button
@@ -741,7 +740,6 @@ export function AppSidebar({ user: initialUser, initialPreferences, initialSchoo
                       </span>
                     </Button>
                   </div>
-                  <p id="account-password-hint" className="text-xs text-muted-foreground">Use at least 8 characters.</p>
                   {passwordData.newPassword && (
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-muted-foreground">Strength:</span>

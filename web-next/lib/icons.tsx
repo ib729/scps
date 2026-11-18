@@ -23,6 +23,7 @@ export {
   Minus,
   Moon,
   PanelLeft as PanelLeftIcon,
+  PencilLine,
   ReceiptText as Receipt,
   RotateCw,
   Settings,

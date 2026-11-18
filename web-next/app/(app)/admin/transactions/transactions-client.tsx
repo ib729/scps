@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 
-import { Check, Copy, Receipt } from "@/lib/icons";
+import { Check, Copy, PencilLine } from "@/lib/icons";
 import type {
   TransactionListCursor,
   TransactionNoteHistory,
@@ -172,7 +172,7 @@ const TransactionRow = React.memo(function TransactionRow({
           title="Edit notes"
           onClick={() => onEditNotes(tx)}
         >
-          <Receipt aria-hidden="true" />
+          <PencilLine aria-hidden="true" />
         </Button>
       </div>
 
