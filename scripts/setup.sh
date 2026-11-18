@@ -10,10 +10,6 @@ case "$#:${1:-}" in
   0:|1:--systemd|1:--no-systemd|2:--https) ;;
   *) printf '%s\n' 'Unexpected setup arguments. See --help.' >&2; exit 2 ;;
 esac
-if [ -f /etc/systemd/system/scps.service.d/30-release-update.conf ]; then
-  printf '%s\n' 'Disable the SCPS release updater before running in-place setup. See docs/deployment.md.' >&2
-  exit 1
-fi
 if [ "$(id -u)" -eq 0 ] && { [ -z "${SUDO_USER:-}" ] || [ "$SUDO_USER" = root ]; }; then
   printf '%s\n' 'Run setup as the intended nonroot service user with sudo access' >&2
   exit 1
@@ -25,6 +21,43 @@ run_as_user() {
     sudo -u "$APP_USER" env PATH="$PATH" "$@"
   fi
 }
+
+installed_web=$(systemctl show --property=WorkingDirectory --value scps.service 2>/dev/null || :)
+if [ -f /etc/systemd/system/scps.service.d/30-release-update.conf ]; then
+  if [ "$installed_web" != "$ROOT/web-next" ] ||
+     [ "$(systemctl show --property=User --value scps.service)" != "$APP_USER" ]; then
+    printf '%s\n' 'The installed SCPS updater belongs to another checkout or service user.' >&2
+    exit 1
+  fi
+  case "${1:-}" in
+    ''|--systemd) ;;
+    *) printf '%s\n' 'The updater already manages this installation. See docs/deployment.md for manual maintenance.' >&2; exit 1 ;;
+  esac
+  case "$(systemctl show --property=ActiveState --value scps-update.service)" in
+    inactive|failed) ;;
+    *) printf '%s\n' 'SCPS update in progress. Leaving services unchanged.'; exit 0 ;;
+  esac
+  if [ -e /var/lib/scps-update/request ]; then
+    printf '%s\n' 'SCPS update queued. Leaving services unchanged.'
+    exit 0
+  fi
+  web_state=$(systemctl show --property=ActiveState --value scps.service)
+  if ! systemctl is-enabled --quiet scps-update.path || ! systemctl is-active --quiet scps-update.path; then
+    sudo systemctl daemon-reload
+    # A prior setup may have installed the launcher without switching to it yet.
+    if [ "$web_state" = active ]; then sudo systemctl restart scps.service; fi
+    if [ "$web_state" = inactive ] || [ "$web_state" = failed ]; then sudo systemctl start scps.service; fi
+    sudo systemctl enable --now scps-update.path
+  elif [ "$web_state" = inactive ] || [ "$web_state" = failed ]; then
+    sudo systemctl start scps.service
+  fi
+  if [ "$(systemctl show --property=LoadState --value scps-update-check.timer)" = loaded ] &&
+     { ! systemctl is-enabled --quiet scps-update-check.timer || ! systemctl is-active --quiet scps-update-check.timer; }; then
+    sudo systemctl enable --now scps-update-check.timer
+  fi
+  printf '%s\n' 'SCPS systemd setup is already configured. Use Settings > Application updates to deploy.'
+  exit 0
+fi
 download=
 candidate=
 cleanup() {
@@ -64,7 +97,13 @@ fi
 }
 printf 'Detected %s\n' "${PRETTY_NAME:-${ID:-Linux}}"
 if [ "$#" -eq 0 ]; then
-  if [ -t 0 ]; then
+  if [ "$installed_web" = "$ROOT/web-next" ]; then
+    printf '%s\n' 'Existing SCPS systemd installation detected. Configuring its services.'
+    set -- --systemd
+  elif [ -f "$ROOT/.local/setup-no-systemd" ]; then
+    printf '%s\n' 'Reusing the previous setup choice: no systemd services.'
+    set -- --no-systemd
+  elif [ -t 0 ]; then
     printf 'Install and enable the web systemd service? [y/N] '
     read -r answer || answer=
     case "$answer" in y|Y|yes|YES) set -- --systemd ;; *) set -- --no-systemd ;; esac
@@ -124,3 +163,6 @@ export PATH
 run_as_user pnpm --dir "$ROOT/web-next" install --frozen-lockfile
 cd "$ROOT/web-next"
 run_as_user env -u SUDO_USER node --import tsx tools/ops/setup-host.ts "$@"
+if [ "$1" = "--no-systemd" ]; then
+  run_as_user touch "$ROOT/.local/setup-no-systemd"
+fi

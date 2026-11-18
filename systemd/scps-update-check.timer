@@ -1,0 +1,11 @@
+[Unit]
+Description=Schedule SCPS release availability checks
+
+[Timer]
+# The worker contacts Git only when 30 days have elapsed since its last successful check.
+OnCalendar=daily
+Persistent=true
+Unit=scps-update-check.service
+
+[Install]
+WantedBy=timers.target

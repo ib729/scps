@@ -32,10 +32,12 @@ test("only a same-origin administrator can queue one update, and status survives
     assert.deepEqual((await Promise.all([request(admin, "POST"), request(admin, "POST")])).map(r => r.status).sort(), [202, 409]);
     assert.equal((await (await request(admin, "GET")).json()).running, true);
     await fs.writeFile(path.join(state, "status.json"), JSON.stringify({ state: "rolled_back", message: "Previous release restored." }));
+    await fs.writeFile(path.join(state, "availability.json"), JSON.stringify({ checkedAt: Date.now(), available: true }));
     await fs.unlink(path.join(state, "request"));
     const status = await (await request(admin, "GET")).json();
     assert.equal(status.running, false);
     assert.equal(status.status.state, "rolled_back");
+    assert.equal(status.updateAvailable, true);
   } finally {
     if (previous === undefined) delete process.env[key]; else process.env[key] = previous;
     await server?.close();

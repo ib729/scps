@@ -14,6 +14,8 @@ Use the current guides for operations.
 - Organize Settings into responsive panels, hide the redundant title, and keep preference actions visible while scrolling.
 - Put account creation above registrations and refresh the Account popup’s Profile and Security tabs.
 - Remove the extra password length hint from Account Settings without changing validation.
+- Enable the web updater through systemd setup and check for updates every 30 days without installing them.
+- Reuse the previous systemd setup choice and leave a running managed deployment alone on reruns.
 
 ### Point of sale and customers
 - Fit POS purchase controls on short screens with a compact layout and scrollable dialogs.

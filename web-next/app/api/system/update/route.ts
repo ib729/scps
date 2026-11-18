@@ -39,7 +39,13 @@ export async function GET(request: Request) {
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     }
-    return NextResponse.json({ enabled: true, running, status });
+    let updateAvailable = false;
+    try {
+      updateAvailable = JSON.parse(await fs.readFile(path.join(directory, "availability.json"), "utf8")).available === true;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+    }
+    return NextResponse.json({ enabled: true, running, status, updateAvailable });
   } catch (error) { return failure(error); }
 }
 

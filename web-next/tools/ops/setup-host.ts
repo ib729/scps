@@ -14,6 +14,8 @@ const repository = fileURLToPath(new URL("../../../", import.meta.url));
 const web = path.join(repository, "web-next");
 const envFile = path.join(web, ".env.local");
 const appUser = process.env.SUDO_USER || os.userInfo().username;
+const updateDirectory = "/var/lib/scps-update";
+const updateDropIn = "/etc/systemd/system/scps.service.d/30-release-update.conf";
 
 export function runAsUser(command: string, args: string[], cwd = web): void {
   execFileSync("sudo", ["-u", appUser, "env", "-u", "SUDO_USER", `PATH=${process.env.PATH ?? "/usr/bin:/bin"}`, command, ...args], { cwd, stdio: "inherit" });
@@ -81,6 +83,45 @@ function unitValue(value: string): string {
   return value.replaceAll("%", "%%").replaceAll("\\", "\\\\").replaceAll('"', '\\"');
 }
 
+function installUpdater(files: Map<string, { contents: string; mode: string }>) {
+  for (const [destination, { contents, mode }] of files) {
+    if (destination.startsWith("/etc/sudoers.d/")) {
+      execFileSync("sudo", ["visudo", "-cf", "-"], { input: contents, stdio: ["pipe", "inherit", "inherit"] });
+    }
+    // Resume a partial setup only when its installed files match this checkout.
+    let installed = false;
+    try {
+      execFileSync("sudo", ["test", "-e", destination], { stdio: "ignore" });
+      installed = true;
+    } catch (error) {
+      if (!(error instanceof Error && "status" in error && error.status === 1)) throw error;
+    }
+    if (installed) {
+      try { execFileSync("sudo", ["cmp", "-s", "-", destination], { input: contents }); }
+      catch { throw new Error(`Refusing to replace existing updater configuration: ${destination}`); }
+    } else {
+      execFileSync("sudo", ["install", "-D", `-m${mode}`, "/dev/stdin", destination], { input: contents, stdio: ["pipe", "inherit", "inherit"] });
+    }
+  }
+}
+
+function initializeUpdaterState() {
+  if (!fs.existsSync(updateDirectory)) {
+    execFileSync("sudo", ["install", "-d", "-m0700", "-o", appUser, updateDirectory], { stdio: "inherit" });
+  }
+  const state = fs.lstatSync(updateDirectory);
+  if (!state.isDirectory() || state.uid !== os.userInfo().uid || (state.mode & 0o777) !== 0o700) {
+    throw new Error(`Expected a private updater directory owned by ${appUser}: ${updateDirectory}`);
+  }
+  const current = path.join(updateDirectory, "current");
+  const baseline = path.resolve(repository);
+  try { fs.symlinkSync(baseline, current); }
+  catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+    if (fs.readlinkSync(current) !== baseline) throw new Error("The updater already points at a different release. Keep the previous installation or complete maintenance manually.");
+  }
+}
+
 export function main(args = process.argv.slice(2)): number {
   if (args.includes("--help") || args.includes("-h")) {
     console.log("Usage: ./scripts/setup.sh [--systemd|--no-systemd|--https HOST]\nConfigures env/database and builds. Use --https with a public DNS hostname or IP. Existing ledgers are preserved.");
@@ -94,11 +135,13 @@ export function main(args = process.argv.slice(2)): number {
     runAsUser(process.execPath, ["--import", "tsx", fileURLToPath(import.meta.url), ...args]);
     return 0;
   }
+  if (fs.existsSync(updateDropIn)) throw new Error("This installation already uses the release updater. Rerun scripts/setup.sh, not setup-host.ts.");
   const managed = ["scps.service", "scps-reader.service", "scps-reader2.service"];
   const legacy = ["stuco-web.service", "tap-broadcaster.service", "tap-broadcaster-reader2.service"];
   const installedLegacy: string[] = [];
   const missing: string[] = [];
   const rendered = new Map<string, string>();
+  const updater = new Map<string, { contents: string; mode: string }>();
   if (args[0] !== "--no-systemd") {
     try {
       if (!execFileSync("systemctl", ["show", "--property=Version", "--value"], { encoding: "utf8" }).trim()) throw new Error("empty manager version");
@@ -118,19 +161,46 @@ export function main(args = process.argv.slice(2)): number {
       if (path.resolve(props.WorkingDirectory) !== path.resolve(web) || (legacy.includes(name) && props.DropInPaths)) {
         throw new Error(`Cannot replace ${name}: fragment ${props.FragmentPath}, working directory ${props.WorkingDirectory}, drop-ins ${props.DropInPaths || "(none)"}; migrate overrides to the chosen new name manually`);
       }
-      if (publicUrl && name === "scps.service") {
-        const envFiles = execFileSync("systemctl", ["show", "--property=EnvironmentFiles", "--value", name], { encoding: "utf8" }).trim();
-        if (envFiles || (props.DropInPaths && props.DropInPaths !== httpsDropIn)) throw new Error("HTTPS setup refuses existing scps.service environment files or unrelated drop-ins");
+      if (name === "scps.service") {
+        const property = (key: string) => execFileSync("systemctl", ["show", `--property=${key}`, "--value", name], { encoding: "utf8" }).trim();
+        if ((props.DropInPaths && props.DropInPaths !== httpsDropIn) || property("EnvironmentFiles") ||
+            property("User") !== appUser || !property("ExecStart").includes(`argv[]=${process.execPath} --import tsx server.ts ;`)) {
+          throw new Error("Refusing to replace a customized scps.service launcher. Review the unit before enabling SCPS updates.");
+        }
       }
       if (legacy.includes(name)) installedLegacy.push(name);
     }
   }
-  if (missing.length) {
+  if (args[0] !== "--no-systemd") {
+    if (!/^[a-z_][a-z0-9_-]*[$]?$/i.test(appUser)) throw new Error("The SCPS service username cannot be used in the restricted sudo rule");
+    const upstream = execFileSync("git", ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"], { cwd: repository, encoding: "utf8" }).trim();
+    if (!upstream.startsWith("origin/")) throw new Error("Systemd setup requires a release branch tracked on origin");
+    const branch = upstream.slice("origin/".length);
+    execFileSync("git", ["check-ref-format", `refs/heads/${branch}`], { cwd: repository, stdio: "ignore" });
     const replacements: [string, string][] = [
       ["__RUN_USER__", unitValue(appUser)], ["__ENV_FILE__", path.join(repository, ".env.broadcaster").replaceAll("%", "%%").replaceAll("\\", "\\\\")],
       ["__NODE_EXEC__", unitValue(process.execPath)], ["__RUN_PATH__", unitValue(process.env.PATH ?? "/usr/bin:/bin")],
       ["__WORKING_DIR__", (() => { if (/[\0\r\n]/.test(web)) throw new Error("Systemd paths must be single-line values"); return web.replaceAll("%", "%%").replaceAll("\\", "\\\\"); })()],
     ];
+    const launcher = "/usr/local/libexec/scps-release-start";
+    const updaterService = "/etc/systemd/system/scps-update.service";
+    const watcher = "/etc/systemd/system/scps-update.path";
+    for (const [source, destination, mode] of [
+      ["scps-release-start.sh", launcher, "0755"],
+      ["scps-update.service", updaterService, "0644"],
+      ["scps-update.path", watcher, "0644"],
+      ["scps-update-check.service", "/etc/systemd/system/scps-update-check.service", "0644"],
+      ["scps-update-check.timer", "/etc/systemd/system/scps-update-check.timer", "0644"],
+    ]) {
+      let contents = fs.readFileSync(path.join(repository, "systemd", source), "utf8");
+      if (source.endsWith(".service")) {
+        contents = contents.replace('Environment="SCPS_UPDATE_BRANCH=main"', `Environment="SCPS_UPDATE_BRANCH=${unitValue(branch)}"`);
+        for (const [placeholder, value] of replacements) contents = contents.replaceAll(placeholder, value);
+      }
+      updater.set(destination, { contents, mode });
+    }
+    updater.set("/etc/sudoers.d/scps-release-update", { contents: `${appUser} ALL=(root) NOPASSWD: /usr/bin/systemctl restart scps.service\n`, mode: "0440" });
+    updater.set(updateDropIn, { contents: `[Service]\nEnvironment="SCPS_UPDATE_DIR=${updateDirectory}"\nExecStart=\nExecStart=${launcher} "${unitValue(process.execPath)}"\n`, mode: "0644" });
     const staging = fs.mkdtempSync(path.join(os.tmpdir(), "scps-units-"));
     try {
       for (const name of missing) {
@@ -139,7 +209,9 @@ export function main(args = process.argv.slice(2)): number {
         rendered.set(name, unit);
         fs.writeFileSync(path.join(staging, name), unit);
       }
-      execFileSync("systemd-analyze", ["verify", ...missing.map(name => path.join(staging, name))], { stdio: "inherit" });
+      const updateUnits = [...updater.keys()].filter(file => /\.(service|path|timer)$/.test(file));
+      for (const destination of updateUnits) fs.writeFileSync(path.join(staging, path.basename(destination)), updater.get(destination)!.contents);
+      execFileSync("systemd-analyze", ["verify", ...[...missing, ...updateUnits.map(file => path.basename(file))].map(name => path.join(staging, name))], { stdio: "inherit" });
     } finally { fs.rmSync(staging, { recursive: true, force: true }); }
   }
   const freshEnv = !fs.existsSync(envFile);
@@ -186,15 +258,16 @@ export function main(args = process.argv.slice(2)): number {
   if (https && !fs.existsSync(httpsDropIn)) {
     execFileSync("sudo", ["install", "-D", "-m0644", "/dev/stdin", httpsDropIn], { input: https.binding, stdio: ["pipe", "inherit", "inherit"] });
   }
-  if (missing.length || https) {
-    execFileSync("sudo", ["systemctl", "daemon-reload"], { stdio: "inherit" });
-    if (missing.length) execFileSync("systemd-analyze", ["verify", ...missing.map(name => `/etc/systemd/system/${name}`)], { stdio: "inherit" });
-  }
+  initializeUpdaterState();
+  installUpdater(updater);
+  execFileSync("sudo", ["systemctl", "daemon-reload"], { stdio: "inherit" });
+  execFileSync("systemd-analyze", ["verify", "/etc/systemd/system/scps.service", ...[...updater.keys()].filter(file => /\.(service|path|timer)$/.test(file))], { stdio: "inherit" });
   execFileSync("sudo", ["systemctl", "enable", "scps.service"], { stdio: "inherit" });
   execFileSync("sudo", ["systemctl", "restart", "scps.service"], { stdio: "inherit" });
   execFileSync("sudo", ["systemctl", "--no-pager", "--full", "status", "scps.service"], { stdio: "inherit" });
+  execFileSync("sudo", ["systemctl", "enable", "--now", "scps-update.path", "scps-update-check.timer"], { stdio: "inherit" });
   if (publicUrl && https) startHttps(publicUrl, https);
-  console.log(`SCPS setup complete.\n${publicUrl ? "" : `Edit ${envFile} for the public URL and trusted origins, then restart scps.service.\n`}For readers, set NEXTJS_URL=${readEnvValue("NEXT_PUBLIC_APP_URL")} and the matching NFC_TAP_SECRET in .env.broadcaster; configure serial permissions and USB reset privileges before enabling a reader.\nEncrypted backups: node --import tsx tools/ops/setup-r2-crypt.ts\nFuture deploy: node --import tsx tools/ops/deploy-vps.ts`);
+  console.log(`SCPS setup complete. Administrators can deploy future releases from Settings > Application updates.\n${publicUrl ? "" : `Edit ${envFile} for the public URL and trusted origins, then restart scps.service.\n`}For readers, set NEXTJS_URL=${readEnvValue("NEXT_PUBLIC_APP_URL")} and the matching NFC_TAP_SECRET in .env.broadcaster; configure serial permissions and USB reset privileges before enabling a reader.\nEncrypted backups: node --import tsx tools/ops/setup-r2-crypt.ts`);
   return 0;
 }
 

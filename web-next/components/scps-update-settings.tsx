@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 type UpdateStatus = {
   enabled: boolean;
   running: boolean;
+  updateAvailable?: boolean;
   status: { state: string; message: string } | null;
 };
 
@@ -51,7 +52,7 @@ export function ScpsUpdateSettings() {
     ? "Update status is unavailable. Waiting to reconnect…"
     : update?.running
       ? update.status?.state === "running" ? update.status.message : "Update queued."
-      : update?.status?.message ?? (update?.enabled === false ? "Background updates are not configured on this host." : "");
+      : update?.status?.message ?? (update?.enabled === false ? "Run ./scripts/setup.sh on the host with systemd enabled to turn on background updates." : "");
 
   return (
     <section className="space-y-3" aria-labelledby="scps-update-heading">
@@ -66,6 +67,7 @@ export function ScpsUpdateSettings() {
         <Button type="button" variant="ghost" onClick={() => window.location.reload()}>Reload page</Button>
       )}
       <p role="status" className="text-sm text-muted-foreground empty:hidden">{message}</p>
+      {!update?.running && update?.updateAvailable && <p className="text-sm font-medium">An update is available.</p>}
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
     </section>
   );

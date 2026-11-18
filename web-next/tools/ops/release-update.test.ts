@@ -3,7 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { applyUpdate, finishUpdate } from "./release-update";
+import { applyUpdate, checkForUpdate, finishUpdate } from "./release-update";
 
 for (const scenario of ["updated", "current", "build", "baseline", "candidate", "restart", "rollback"] as const) {
   test(`background update: ${scenario}`, async (t) => {
@@ -52,3 +52,24 @@ for (const scenario of ["updated", "current", "build", "baseline", "candidate", 
     assert.deepEqual(restarted, scenario === "updated" ? [candidate] : ["candidate", "restart", "rollback"].includes(scenario) ? [candidate, baseline] : []);
   });
 }
+
+test("scheduled checks persist availability, skip for 30 days, and never queue an install", t => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "scps-check-"));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const day = 86_400_000;
+  const installed = "a".repeat(40);
+  const upstream = "b".repeat(40);
+  const state = path.join(directory, "availability.json");
+  const request = path.join(directory, "request");
+  const checkUnexpectedly = () => { throw new Error("The checker should not contact Git yet"); };
+  checkForUpdate(directory, () => installed, () => upstream, day);
+  assert.deepEqual(JSON.parse(fs.readFileSync(state, "utf8")), { checkedAt: day, available: true });
+  checkForUpdate(directory, () => installed, checkUnexpectedly, 30 * day);
+  fs.writeFileSync(request, "admin");
+  checkForUpdate(directory, () => upstream, checkUnexpectedly, 31 * day);
+  assert.equal(fs.readFileSync(request, "utf8"), "admin");
+  fs.unlinkSync(request);
+  checkForUpdate(directory, () => upstream, () => upstream, 31 * day);
+  assert.deepEqual(JSON.parse(fs.readFileSync(state, "utf8")), { checkedAt: 31 * day, available: false });
+  assert.equal(fs.existsSync(request), false);
+});

@@ -23,16 +23,16 @@ From a repository owned by the intended service user, with sudo access:
 ./scripts/setup.sh
 ```
 
-The shell bootstrap requires Git and a clean checkout on a branch with a configured upstream. It pulls with `--ff-only` before installing dependencies and stops if the update fails. It then sets up Node, pinned pnpm, and OS/native-build packages needed to invoke TypeScript. Its Python package is for native-addon compilation, not application execution. Reader-host utilities include `libnfc-bin`, `usbutils`, `lsof` and `udev`; backups need `sqlite3`, `zstd` and `rclone`.
+For a new installation, the shell bootstrap requires Git and a clean checkout on a branch with a configured upstream. It fast-forwards before installing Node, pinned pnpm and OS dependencies. Rerunning setup after the web updater is configured skips the pull, install and build.
 
 The typed `web-next/tools/ops/setup-host.ts` stage:
 
 1. Creates/restricts `web-next/.env.local`, sets the canonical quoted database path and generates a missing Better Auth secret without logging its value. A new environment uses port 38173 and matching localhost URL/origin; an existing environment retains its settings.
 2. Initializes both core and auth schemas **only if the database does not exist**. The initial school year runs from the host's current local calendar year to the following year, for example `2026-2027`. Setup preserves existing databases and requires explicit legacy migration.
 3. Builds as the service user with the pinned PATH preserved through sudo.
-4. Offers systemd installation. If accepted, validates and installs missing `scps.service`, `scps-reader.service` and `scps-reader2.service` units, retires owned legacy units, and enables/restarts **only `scps`**. Reruns keep existing units for this checkout unchanged. Newly installed readers remain inactive; existing readers are not stopped.
+4. If systemd is selected, installs the managed web service, inactive reader units, and the web updater with its check timer. It retires owned legacy units and restarts **only `scps`**.
 
-Use `--systemd` or `--no-systemd` to select explicitly. Noninteractive setup without either flag skips service installation. If skipped, start from `web-next` with `pnpm start`.
+Use `--systemd` or `--no-systemd` to select explicitly. For a new installation, noninteractive setup without a flag skips systemd. If setup finds `scps.service` for this checkout, it skips the prompt and uses systemd. Once the updater is installed, reruns keep SCPS running, or start it if it is stopped. If an update is in progress, setup leaves the services alone. If systemd was skipped, start from `web-next` with `pnpm start`.
 
 Setup refuses to retire a legacy unit with drop-ins or a unit belonging to another repository. Review and migrate those overrides manually before retrying. Legacy unit files are kept disabled for rollback; setup does not create aliases or restart them.
 
@@ -103,49 +103,17 @@ It uses `ssh -t`; default repository is the remote user's `$HOME/scps`. `SCPS_RE
 
 #### Enable the Update SCPS button
 
-This is opt-in for a Linux host running `scps.service` under systemd. First deploy a version that includes the updater using the manual instructions above. The existing clean checkout stays in place as the worker's control directory and initial rollback target. Do not pull or rebuild there while background updates are enabled.
+Run `./scripts/setup.sh --systemd` from the checkout root as the service user with sudo access. Use a maintenance window for the first installation on an existing live host: setup builds in the original checkout once and restarts web. Setup installs the updater and only grants passwordless access to restart `scps.service`. It refuses to replace a customized web launcher or conflicting updater files.
 
-1. Check `sudo systemctl cat scps.service` for the service user, absolute Node path, checkout's `web-next` directory and pinned PATH. The service user needs noninteractive read access to Git `origin` and permission to run pnpm. The absolute path to the existing ledger must be set in the checkout's `web-next/.env.local`. Keep that file and ledger in place. Confirm a current backup and disk space for two additional builds.
-2. From the checkout root, set `SCPS_USER` to the existing service user and run:
+The checkout must track a branch on `origin`. The service user needs noninteractive read access to that remote and space for two isolated builds. Keep the original checkout and its `.env.local` in place as the updater's control directory. The worker fetches and runs code from the configured branch as the SCPS user, so restrict who can push to it.
 
-   ```bash
-   SCPS_USER=scps  # Replace with the actual service user
-   sudo install -d -m 0700 -o "$SCPS_USER" /var/lib/scps-update
-   sudo ln -sT "$(pwd -P)" /var/lib/scps-update/current
-   sudo install -D -m 0755 systemd/scps-release-start.sh /usr/local/libexec/scps-release-start
-   sudo install -m 0644 systemd/scps-update.path systemd/scps-update.service /etc/systemd/system/
-   sudoedit /etc/systemd/system/scps-update.service
-   ```
+Administrators can deploy from **Settings > Application updates > Update SCPS**. The worker builds separately using a disposable SQLite database, tests startup, then restarts only web and checks `/login` on the expected process. If the new release fails, it boots the previously confirmed release. See `journalctl -u scps-update.service` for details. The health check does not verify NFC hardware or payments.
 
-   Replace all placeholders with the existing web service's settings. Quote the absolute `WorkingDirectory` as in the existing unit. Change `SCPS_UPDATE_BRANCH` only if deploying from a different trusted release branch. If the live service port overrides `.env.local`, add `Environment="SCPS_UPDATE_PORT=38173"` using its actual port. The worker fetches and runs code from this branch as the SCPS user, so restrict who can push to it.
-3. Use `sudo visudo -f /etc/sudoers.d/scps-release-update` to allow only the fixed restart command (substitute the actual username):
+The `scps-update-check.timer` checks whether 30 days have passed since the last successful upstream check. It shows **An update is available** in Settings without installing anything or restarting SCPS. See `journalctl -u scps-update-check.service` for check failures.
 
-   ```sudoers
-   scps ALL=(root) NOPASSWD: /usr/bin/systemctl restart scps.service
-   ```
+Do not publish migration-dependent releases to the updater branch until the host is ready. The worker blocks changes to known schema and database startup files and never runs migrations or restores the ledger.
 
-4. Create `/etc/systemd/system/scps.service.d/30-release-update.conf` with `sudoedit` after creating its parent directory. Substitute the same absolute Node path from the existing `ExecStart`. Leave existing Caddy and reader settings alone.
-
-   ```ini
-   [Service]
-   Environment="SCPS_UPDATE_DIR=/var/lib/scps-update"
-   ExecStart=
-   ExecStart=/usr/local/libexec/scps-release-start "/absolute/path/to/node"
-   ```
-
-5. Validate and enable:
-
-   ```bash
-   sudo systemd-analyze verify scps.service scps-update.service scps-update.path
-   sudo systemctl daemon-reload
-   sudo systemctl enable --now scps-update.path
-   sudo systemctl restart scps.service
-   sudo systemctl status scps.service scps-update.path --no-pager
-   ```
-
-Administrators can now use **Settings > Application updates > Update SCPS**. The independent worker builds in another directory using a disposable SQLite database, tests startup over loopback, then restarts only web and checks `/login` on the expected process. If it fails after switching, it boots the previously confirmed release. The app remains available during the build but disconnects briefly at restart. The status survives web restarts; see `journalctl -u scps-update.service` for details. The health check does not verify NFC hardware or financial workflows.
-
-Do not publish migration-dependent releases to the updater branch until the host is ready. The worker blocks changes to known schema and database startup files and never runs a migration or restores a live ledger. It cannot infer compatibility from arbitrary application changes. For manual maintenance, disable the watcher with `sudo systemctl disable --now scps-update.path` and wait for `scps-update.service` to finish. In a maintenance window, stop web, remove the drop-in, reload systemd, and follow the manual deployment and migration instructions before restarting. Do not restart the original checkout against a newer, incompatible ledger.
+To replace an older manually installed updater or to perform manual maintenance, disable `scps-update.path` and `scps-update-check.timer` if installed, then wait for the worker services to finish. In a maintenance window, stop web and archive the old updater units, launcher, `30-release-update.conf`, sudoers rule and `/var/lib/scps-update` before reloading systemd. Keep the ledger and `.env.local` in place. Follow the manual migration instructions if needed before running setup again. Do not restart the original checkout against an incompatible ledger.
 
 ### Reader services
 

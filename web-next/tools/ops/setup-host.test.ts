@@ -15,7 +15,7 @@ const loader = pathToFileURL(createRequire(import.meta.url).resolve("tsx")).href
 async function fixture(t: TestContext) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "scps setup ' % "));
   t.after(() => fs.rm(root, { recursive: true, force: true }));
-  for (const name of ["web-next/tools/ops/setup-host.ts", "web-next/tools/ops/setup-https.ts", "web-next/lib/database-path.ts", "web-next/lib/school-settings.ts", "migrations/schema.sql", "web-next/migrations/better_auth_schema.sql", "web-next/.env.local.example", "systemd/scps.service", "systemd/scps-reader.service", "systemd/scps-reader2.service"]) {
+  for (const name of ["web-next/tools/ops/setup-host.ts", "web-next/tools/ops/setup-https.ts", "web-next/lib/database-path.ts", "web-next/lib/school-settings.ts", "migrations/schema.sql", "web-next/migrations/better_auth_schema.sql", "web-next/.env.local.example", "systemd/scps.service", "systemd/scps-reader.service", "systemd/scps-reader2.service", "systemd/scps-release-start.sh", "systemd/scps-update.service", "systemd/scps-update.path", "systemd/scps-update-check.service", "systemd/scps-update-check.timer"]) {
     const destination = path.join(root, name);
     await fs.mkdir(path.dirname(destination), { recursive: true });
     await fs.copyFile(path.join(sourceRoot, name), destination);
@@ -24,10 +24,32 @@ async function fixture(t: TestContext) {
   await fs.symlink(path.join(sourceRoot, "web-next/node_modules"), path.join(web, "node_modules"), "dir");
   const binaries = path.join(root, "bin");
   await fs.mkdir(binaries);
+  const updateState = path.join(root, "update-state");
+  const source = path.join(web, "tools/ops/setup-host.ts");
+  await fs.writeFile(source, (await fs.readFile(source, "utf8")).replace('"/var/lib/scps-update"', JSON.stringify(updateState)));
+  await fs.writeFile(path.join(binaries, "git"), '#!/bin/sh\ncase "$1" in rev-parse) echo origin/test-release;; check-ref-format) ;; *) exit 80;; esac\n', { mode: 0o700 });
+  const admin = path.join(root, "updater-files");
+  await fs.mkdir(admin);
+  await fs.writeFile(path.join(binaries, "fake-updater-install"), `#!${process.execPath}
+const fs = require('node:fs'), path = require('node:path');
+const args = process.argv.slice(2);
+const destination = args.at(-1);
+const file = path.join(${JSON.stringify(admin)}, path.basename(destination));
+switch (args[0]) {
+  case 'test': process.exit(fs.existsSync(file) ? 0 : 1);
+  case 'cmp': process.exit(fs.readFileSync(0).equals(fs.readFileSync(file)) ? 0 : 1);
+  case 'visudo': if (!fs.readFileSync(0, 'utf8').endsWith('NOPASSWD: /usr/bin/systemctl restart scps.service\\n')) process.exit(2); break;
+  case 'install':
+    if (args[1] === '-d') fs.mkdirSync(${JSON.stringify(updateState)}, {mode: 0o700});
+    else fs.writeFileSync(file, fs.readFileSync(0));
+    break;
+  default: process.exit(3);
+}
+`, { mode: 0o700 });
   const env = { ...process.env };
   delete env.DATABASE_PATH;
   delete env.SUDO_USER;
-  return { root, web, binaries, env };
+  return { root, web, binaries, env, admin, updateState };
 }
 
 async function probe(web: string, content: string, cwd: string, env: NodeJS.ProcessEnv) {
@@ -138,6 +160,7 @@ const fs=require('node:fs'),path=require('node:path'),cp=require('node:child_pro
 const args=process.argv.slice(2);fs.appendFileSync(${JSON.stringify(log)},JSON.stringify(args)+'\\n');
 if(args[0]==='-u'){const result=cp.spawnSync(args[2],args.slice(3),{env:{...process.env,PATH:'/usr/bin:/bin'},stdio:'inherit'});if(result.signal)process.kill(process.pid,result.signal);else process.exit(result.status??1);}
 else if(args[0]==='tee'&&args[1].startsWith('/etc/systemd/system/'))fs.writeFileSync(path.join(${JSON.stringify(units)},path.basename(args[1])),fs.readFileSync(0));
+else if(['install','test','cmp','visudo'].includes(args[0]))process.exit(cp.spawnSync('fake-updater-install',args,{stdio:'inherit'}).status??90);
 else if(args[0]!=='systemctl')throw new Error('Unexpected privileged command: '+args);
 `;
   await fs.writeFile(path.join(f.binaries, "sudo"), fakeSudo, { mode: 0o700 });
@@ -148,6 +171,8 @@ case "$*" in
   *LoadState*) if [ -f "$UNIT_DIR/$name" ]; then echo loaded; else echo not-found; fi;;
   *FragmentPath*) printf '/etc/systemd/system/%s\\n' "$name";;
   *WorkingDirectory*) printf '%s\\n' "$WEB";;
+  *--property=User*) id -un;;
+  *ExecStart*) printf 'argv[]=%s --import tsx server.ts ;\\n' '${process.execPath}';;
 esac
 `, { mode: 0o700 });
   await fs.writeFile(path.join(f.binaries, "systemd-analyze"), `#!/bin/sh\ncase "$*" in */etc/systemd/system/*) exit 0;; *) exec /usr/bin/systemd-analyze "$@";; esac\n`, { mode: 0o700 });
@@ -182,6 +207,12 @@ Promise.resolve().then(()=>main(["--systemd"])).then(code=>{process.exitCode=cod
   if (!webVerification.error?.message.includes("ENOENT")) assert.equal(webVerification.status, 0, webVerification.stderr);
   const calls = (await fs.readFile(log, "utf8")).trim().split("\n").map(line => JSON.parse(line) as string[]);
   assert.ok(calls.some(args => args.join(" ") === "systemctl restart scps.service"));
+  assert.ok(calls.some(args => args.join(" ") === "systemctl enable --now scps-update.path scps-update-check.timer"));
+  assert.equal(await fs.readlink(path.join(f.updateState, "current")), f.root);
+  assert.match(await fs.readFile(path.join(f.admin, "scps-update.service"), "utf8"), /SCPS_UPDATE_BRANCH=test-release/);
+  assert.match(await fs.readFile(path.join(f.admin, "scps-update-check.service"), "utf8"), /release-update\.ts check/);
+  assert.match(await fs.readFile(path.join(f.admin, "scps-update-check.timer"), "utf8"), /OnCalendar=daily/);
+  assert.match(await fs.readFile(path.join(f.admin, "scps-release-update"), "utf8"), /NOPASSWD: \/usr\/bin\/systemctl restart scps\.service\n$/);
   assert.ok(!calls.some(args => args[0] === "systemctl" && args.some(arg => arg.startsWith("scps-reader"))));
 
   const webUnit = path.join(units, "scps.service");
@@ -203,7 +234,7 @@ Promise.resolve().then(()=>main(["--systemd"])).then(code=>{process.exitCode=cod
   const fullyInstalled = await setup();
   assert.equal(fullyInstalled.status, 0, fullyInstalled.stderr);
   const rerunCalls = await fs.readFile(log, "utf8");
-  assert.doesNotMatch(rerunCalls, /"tee"|"daemon-reload"/);
+  assert.doesNotMatch(rerunCalls, /"tee"|"install"/);
   assert.match(rerunCalls, /\["systemctl","restart","scps\.service"\]/);
 });
 
@@ -212,7 +243,7 @@ test("cutover retires owned legacy units before restart and refuses unsafe trans
     const f = await fixture(t);
     const log = path.join(f.root, "cutover-log");
     await fs.writeFile(path.join(f.binaries, "pnpm"), "#!/bin/sh\nexit 0\n", { mode: 0o700 });
-    await fs.writeFile(path.join(f.binaries, "sudo"), `#!/bin/sh\necho "$*" >> "$LOG"\nif [ "$1" = -u ]; then shift 2; exec "$@"; fi\nif [ "$1" = tee ]; then cat >/dev/null; exit 0; fi\nif [ "$MODE" = stop-failure ] && [ "$2" = stop ]; then exit 9; fi\nexit 0\n`, { mode: 0o700 });
+    await fs.writeFile(path.join(f.binaries, "sudo"), `#!/bin/sh\necho "$*" >> "$LOG"\nif [ "$1" = -u ]; then shift 2; exec "$@"; fi\nif [ "$1" = tee ]; then cat >/dev/null; exit 0; fi\ncase "$1" in install|test|cmp|visudo) exec fake-updater-install "$@";; esac\nif [ "$MODE" = stop-failure ] && [ "$2" = stop ]; then exit 9; fi\nexit 0\n`, { mode: 0o700 });
     await fs.writeFile(path.join(f.binaries, "systemctl"), `#!/bin/sh\ncase "$*" in\n*Version*) echo 255;;\n*LoadState*) case "$*" in *stuco-web.service*) echo loaded;; *scps-reader.service*) [ "$MODE" = repeat ] && echo loaded || echo not-found;; *) echo not-found;; esac;;\n*FragmentPath*) echo /etc/systemd/system/example.service;;\n*WorkingDirectory*) printf '%s\\n' "$WEB";;\n*DropInPaths*) [ "$MODE" = override ] && echo /etc/systemd/system/example.service.d/custom.conf || true;;\n*ActiveState*) echo inactive;;\nesac\n`, { mode: 0o700 });
     await fs.writeFile(path.join(f.binaries, "systemd-analyze"), `#!/bin/sh\n[ "$1" = --version ] && exit 0\n[ "$MODE" = invalid-unit ] && exit 1\nexit 0\n`, { mode: 0o700 });
     const result = await probe(f.web, `import fs from 'node:fs'; const read=fs.readFileSync; fs.readFileSync=((file,...args)=>String(file)==='/etc/os-release'?'ID=ubuntu\\n':Reflect.apply(read,fs,[file,...args])) as typeof fs.readFileSync; import { main } from './ops/setup-host'; main(['--systemd']);`, f.root, { ...f.env, MODE: mode, LOG: log, WEB: f.web, PATH: `${f.binaries}:${f.env.PATH ?? ""}` });
@@ -242,6 +273,8 @@ test("public HTTPS setup configures the browser origin and keeps the app behind 
   *FragmentPath*) echo /etc/systemd/system/scps.service;;
   *DropInPaths*) echo /etc/systemd/system/scps.service.d/90-scps-https.conf;;
   *WorkingDirectory*) printf '%s\\n' "$WEB";;
+  *--property=User*) id -un;;
+  *ExecStart*) printf 'argv[]=%s --import tsx server.ts ;\\n' '${process.execPath}';;
 esac`,
     "systemd-analyze": "exit 0",
     pnpm: `printf '%s\\n' "$NEXT_PUBLIC_APP_URL" > "$BUILD_ORIGIN"`,
@@ -255,8 +288,9 @@ case "$1" in
   install) for dest do :; done; case "$dest" in
     /etc/caddy/Caddyfile) cat > "$PROXY";;
     */scps.service.d/90-scps-https.conf) cat > "$OVERRIDE";;
-    *) exit 5;;
+    *) exec fake-updater-install "$@";;
   esac;;
+  test|cmp|visudo) exec fake-updater-install "$@";;
   tee) cat >/dev/null;;
   systemctl) ;;
   *) exit 6;;

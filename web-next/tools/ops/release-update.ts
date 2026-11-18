@@ -35,6 +35,23 @@ function status(directory: string, state: State, message: string) {
   });
 }
 
+export function checkForUpdate(directory: string, currentRevision: () => string, remoteRevision: () => string, now = Date.now()) {
+  const request = path.join(directory, "request");
+  if (fs.existsSync(request)) return;
+  const file = path.join(directory, "availability.json");
+  if (fs.existsSync(file)) {
+    const { checkedAt } = JSON.parse(fs.readFileSync(file, "utf8"));
+    if (typeof checkedAt === "number" && now - checkedAt < 30 * 24 * 60 * 60 * 1000) return;
+  }
+  const current = currentRevision();
+  const remote = remoteRevision();
+  if (!/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(remote)) throw new Error("Could not read the configured upstream revision");
+  if (fs.existsSync(request) || current !== currentRevision()) return;
+  atomicWrite(file, temporary => {
+    fs.writeFileSync(temporary, JSON.stringify({ checkedAt: now, available: current !== remote }), { mode: 0o600 });
+  });
+}
+
 export async function applyUpdate(ops: Operations) {
   const current = path.join(ops.directory, "current");
   const request = fs.readFileSync(path.join(ops.directory, "request"), "utf8");
@@ -47,6 +64,7 @@ export async function applyUpdate(ops: Operations) {
   const release = await ops.prepare(previous, stage);
   if (!release) {
     status(ops.directory, "current", "SCPS is already up to date.");
+    fs.rmSync(path.join(ops.directory, "availability.json"), { force: true });
     return;
   }
   stage("Restarting SCPS to check the new release");
@@ -55,6 +73,7 @@ export async function applyUpdate(ops: Operations) {
   if (!await ops.healthy(release.directory)) throw new Error("The new release did not become healthy");
   atomicWrite(current, (file) => fs.symlinkSync(release.directory, file));
   status(ops.directory, "updated", `SCPS updated to ${release.revision.slice(0, 12)}.`);
+  fs.rmSync(path.join(ops.directory, "availability.json"), { force: true });
 }
 
 // systemd always invokes this after the worker, including on timeout or signal.
@@ -141,18 +160,26 @@ function main() {
   const trial = "/run/scps-update/trial";
   const baseline = path.resolve(import.meta.dirname, "../../..");
   const baselineEnv = path.join(baseline, "web-next", ".env.local");
+  const gitEnv = { ...process.env, GIT_TERMINAL_PROMPT: "0" };
+  const git = (args: string[]) => command("git", args, baseline, gitEnv, true);
+  const ref = `refs/heads/${process.env.SCPS_UPDATE_BRANCH || "main"}`;
+  const revisionOf = (release: string) => {
+    const revision = release === baseline ? git(["rev-parse", "HEAD"]) : fs.readFileSync(path.join(release, ".scps-revision"), "utf8");
+    if (!/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(revision)) throw new Error("Invalid confirmed release revision");
+    return revision;
+  };
+  if (process.argv[2] === "check") {
+    git(["check-ref-format", ref]);
+    return checkForUpdate(directory, () => revisionOf(fs.realpathSync(path.join(directory, "current"))), () => git(["ls-remote", "--exit-code", "origin", ref]).split("\t")[0]);
+  }
   const ops: Operations = {
     directory, trial,
     async prepare(previous, stage) {
-      const gitEnv = { ...process.env, GIT_TERMINAL_PROMPT: "0" };
-      const git = (args: string[]) => command("git", args, baseline, gitEnv, true);
       if (git(["status", "--porcelain"])) throw new Error("The deployment checkout is dirty");
-      const branch = process.env.SCPS_UPDATE_BRANCH || "main";
-      git(["check-ref-format", `refs/heads/${branch}`]);
-      git(["fetch", "--no-tags", "origin", `refs/heads/${branch}`]);
+      git(["check-ref-format", ref]);
+      git(["fetch", "--no-tags", "origin", ref]);
       const revision = git(["rev-parse", "--verify", "FETCH_HEAD^{commit}"]);
-      const old = previous === baseline ? git(["rev-parse", "HEAD"]) : fs.readFileSync(path.join(previous, ".scps-revision"), "utf8");
-      if (!/^[a-f0-9]{40,64}$/.test(old)) throw new Error("Invalid confirmed release revision");
+      const old = revisionOf(previous);
       if (revision === old) return null;
       git(["merge-base", "--is-ancestor", old, revision]);
       const schemaPaths = ["migrations", "web-next/migrations", "web-next/lib/db.ts", "web-next/lib/customer-schema.ts", "web-next/lib/database-path.ts"];
