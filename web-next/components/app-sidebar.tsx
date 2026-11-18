@@ -121,8 +121,6 @@ interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   initialSchoolSettings: SchoolSettings
 }
 
-const settingsDialogClassName = "max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain sm:max-w-[900px]"
-
 export function AppSidebar({ user: initialUser, initialPreferences, initialSchoolSettings, ...props }: AppSidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
@@ -615,14 +613,24 @@ export function AppSidebar({ user: initialUser, initialPreferences, initialSchoo
 
       {mounted && (
         <Dialog open={showAccountDialog} onOpenChange={setShowAccountDialog}>
-          <DialogContent showCloseButton={false} aria-describedby={undefined} className={settingsDialogClassName}>
+          <DialogContent showCloseButton={false} aria-describedby={undefined} className="max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain p-4 sm:max-w-xl sm:p-6">
             <DialogTitle className="sr-only">Account Settings</DialogTitle>
-            <Tabs defaultValue="profile" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
+            <Tabs defaultValue="profile" className="min-w-0 gap-4">
+              <TabsList className="grid h-11 w-full grid-cols-2" aria-label="Account sections">
                 <TabsTrigger value="profile">Profile</TabsTrigger>
                 <TabsTrigger value="security">Security</TabsTrigger>
               </TabsList>
-              <TabsContent value="profile" className="space-y-4">
+              <TabsContent value="profile" className="gap-4 data-[state=active]:grid sm:grid-cols-2">
+                <div className="flex min-w-0 items-center gap-3 rounded-xl border bg-muted/25 p-3 sm:col-span-2">
+                  <Avatar className="size-12 shrink-0">
+                    {formData.image && <AvatarImage src={formData.image} alt="" />}
+                    <AvatarFallback>{formData.name.charAt(0).toUpperCase() || "U"}</AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0 wrap-anywhere">
+                    <p className="font-semibold">{user?.name}</p>
+                    <p className="text-sm text-muted-foreground">{user?.email}</p>
+                  </div>
+                </div>
                 <div className="space-y-2">
                   <Label htmlFor="name">Full Name</Label>
                   <Input
@@ -642,7 +650,7 @@ export function AppSidebar({ user: initialUser, initialPreferences, initialSchoo
                     placeholder="Enter your email"
                   />
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-2 sm:col-span-2">
                   <Label htmlFor="image">Profile Picture URL</Label>
                   <Input
                     id="image"
@@ -651,38 +659,18 @@ export function AppSidebar({ user: initialUser, initialPreferences, initialSchoo
                     placeholder="Enter image URL"
                   />
                   {formData.image && (
-                    <div className="mt-3">
-                      <Label className="text-xs text-muted-foreground mb-2 block">Preview:</Label>
-                      <div className="flex items-center gap-3">
-                        <Avatar className="h-16 w-16">
-                          <AvatarImage src={formData.image} alt={formData.name} />
-                          <AvatarFallback>{formData.name.charAt(0).toUpperCase()}</AvatarFallback>
-                        </Avatar>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleFormChange("image", "")}
-                          disabled={loading}
-                        >
-                          Remove Picture
-                        </Button>
-                      </div>
-                    </div>
+                    <Button type="button" variant="outline" size="sm" onClick={() => handleFormChange("image", "")} disabled={loading}>
+                      Remove picture
+                    </Button>
                   )}
                 </div>
 
-                {/* Account Information */}
-                <div className="pt-4 border-t space-y-1">
-                  <p className="text-xs text-muted-foreground">
-                    Account created: {user?.createdAt ? new Date(user.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : 'N/A'}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Last updated: {user?.updatedAt ? new Date(user.updatedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : 'N/A'}
-                  </p>
+                <div className="rounded-lg bg-muted/35 p-3 text-xs text-muted-foreground sm:col-span-2">
+                  <div>Account created: {user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : "N/A"}</div>
+                  <div>Last updated: {user?.updatedAt ? new Date(user.updatedAt).toLocaleDateString() : "N/A"}</div>
                 </div>
 
-                <div className="flex justify-end gap-2">
+                <div className="flex flex-wrap justify-end gap-2 border-t pt-4 sm:col-span-2">
                   <Button variant="outline" onClick={() => setShowAccountDialog(false)} disabled={loading}>
                     Cancel
                   </Button>
@@ -692,6 +680,7 @@ export function AppSidebar({ user: initialUser, initialPreferences, initialSchoo
                 </div>
               </TabsContent>
               <TabsContent value="security" className="space-y-4">
+                <h3 className="font-semibold">Change password</h3>
                 <div className="space-y-2">
                   <Label htmlFor="current-password">Current Password</Label>
                   <div className="relative">
@@ -700,7 +689,7 @@ export function AppSidebar({ user: initialUser, initialPreferences, initialSchoo
                       type={showCurrentPassword ? "text" : "password"}
                       value={passwordData.currentPassword}
                       onChange={(e) => handlePasswordChange("currentPassword", e.target.value)}
-                      placeholder="Enter current password"
+                      autoComplete="current-password"
                       className="pr-10"
                     />
                     <Button
@@ -730,7 +719,8 @@ export function AppSidebar({ user: initialUser, initialPreferences, initialSchoo
                       type={showNewPassword ? "text" : "password"}
                       value={passwordData.newPassword}
                       onChange={(e) => handlePasswordChange("newPassword", e.target.value)}
-                      placeholder="Enter new password (min 8 characters)"
+                      autoComplete="new-password"
+                      aria-describedby="account-password-hint"
                       className="pr-10"
                     />
                     <Button
@@ -751,6 +741,7 @@ export function AppSidebar({ user: initialUser, initialPreferences, initialSchoo
                       </span>
                     </Button>
                   </div>
+                  <p id="account-password-hint" className="text-xs text-muted-foreground">Use at least 8 characters.</p>
                   {passwordData.newPassword && (
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-muted-foreground">Strength:</span>
@@ -768,7 +759,7 @@ export function AppSidebar({ user: initialUser, initialPreferences, initialSchoo
                       type={showConfirmPassword ? "text" : "password"}
                       value={passwordData.confirmPassword}
                       onChange={(e) => handlePasswordChange("confirmPassword", e.target.value)}
-                      placeholder="Confirm new password"
+                      autoComplete="new-password"
                       className="pr-10"
                     />
                     <Button
@@ -790,7 +781,7 @@ export function AppSidebar({ user: initialUser, initialPreferences, initialSchoo
                     </Button>
                   </div>
                 </div>
-                <div className="flex justify-end gap-2">
+                <div className="flex flex-wrap justify-end gap-2 border-t pt-4">
                   <Button variant="outline" onClick={() => setShowAccountDialog(false)} disabled={loading}>
                     Cancel
                   </Button>
@@ -799,20 +790,18 @@ export function AppSidebar({ user: initialUser, initialPreferences, initialSchoo
                   </Button>
                 </div>
 
-                {/* Danger Zone */}
-                <div className="pt-6 mt-6 border-t border-destructive/20">
+                <div className="rounded-xl border border-destructive/25 bg-destructive/5 p-4">
                   <div className="space-y-3">
                     <div>
-                      <h3 className="text-sm font-semibold text-destructive">Danger Zone</h3>
+                      <h3 className="text-sm font-semibold text-destructive">Delete account</h3>
                       <p className="text-xs text-muted-foreground mt-1">
-                        Once you delete your account, there is no going back. Please be certain.
+                        Deleting your account is permanent.
                       </p>
                     </div>
                     <Button
                       variant="destructive"
                       onClick={() => setShowDeleteDialog(true)}
                       disabled={loading}
-                      className="w-full"
                     >
                       Delete Account
                     </Button>

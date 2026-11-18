@@ -98,8 +98,8 @@ export function DataTable({
         className="relative min-h-0 flex-1 overflow-auto rounded-md border custom-scrollbar"
       >
         <table className="w-full caption-bottom text-sm">
-          <TableHeader className="sticky top-0 z-10 bg-background">
-            <TableRow>
+          <TableHeader className="sticky top-0 z-10 bg-card">
+            <TableRow className="hover:bg-transparent">
               <TableHead>
                 <Button variant="ghost" onClick={() => toggleSort("name")}>
                   Customer Name
