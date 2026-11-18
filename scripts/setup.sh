@@ -10,6 +10,10 @@ case "$#:${1:-}" in
   0:|1:--systemd|1:--no-systemd|2:--https) ;;
   *) printf '%s\n' 'Unexpected setup arguments. See --help.' >&2; exit 2 ;;
 esac
+if [ -f /etc/systemd/system/scps.service.d/30-release-update.conf ]; then
+  printf '%s\n' 'Disable the SCPS release updater before running in-place setup. See docs/deployment.md.' >&2
+  exit 1
+fi
 if [ "$(id -u)" -eq 0 ] && { [ -z "${SUDO_USER:-}" ] || [ "$SUDO_USER" = root ]; }; then
   printf '%s\n' 'Run setup as the intended nonroot service user with sudo access' >&2
   exit 1

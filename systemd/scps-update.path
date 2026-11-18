@@ -1,0 +1,9 @@
+[Unit]
+Description=Watch for SCPS application update requests
+
+[Path]
+PathExists=/var/lib/scps-update/request
+Unit=scps-update.service
+
+[Install]
+WantedBy=multi-user.target

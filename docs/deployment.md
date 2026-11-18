@@ -101,6 +101,52 @@ node --import tsx tools/ops/deploy-remote.ts scps@server.example.com main
 
 It uses `ssh -t`; default repository is the remote user's `$HOME/scps`. `SCPS_REMOTE_PATH='/absolute/path with spaces/scps'` overrides it literally. Directory and branch arguments are POSIX-quoted; custom paths do not expand `$HOME`, `~` or shell metacharacters. SSH exit/signal propagates. The remote must already have the required Node/pnpm/dependencies to invoke the typed deployment tool.
 
+#### Enable the Update SCPS button
+
+This is opt-in for a Linux host running `scps.service` under systemd. First deploy a version that includes the updater using the manual instructions above. The existing clean checkout stays in place as the worker's control directory and initial rollback target. Do not pull or rebuild there while background updates are enabled.
+
+1. Check `sudo systemctl cat scps.service` for the service user, absolute Node path, checkout's `web-next` directory and pinned PATH. The service user needs noninteractive read access to Git `origin` and permission to run pnpm. The absolute path to the existing ledger must be set in the checkout's `web-next/.env.local`. Keep that file and ledger in place. Confirm a current backup and disk space for two additional builds.
+2. From the checkout root, set `SCPS_USER` to the existing service user and run:
+
+   ```bash
+   SCPS_USER=scps  # Replace with the actual service user
+   sudo install -d -m 0700 -o "$SCPS_USER" /var/lib/scps-update
+   sudo ln -sT "$(pwd -P)" /var/lib/scps-update/current
+   sudo install -D -m 0755 systemd/scps-release-start.sh /usr/local/libexec/scps-release-start
+   sudo install -m 0644 systemd/scps-update.path systemd/scps-update.service /etc/systemd/system/
+   sudoedit /etc/systemd/system/scps-update.service
+   ```
+
+   Replace all placeholders with the existing web service's settings. Quote the absolute `WorkingDirectory` as in the existing unit. Change `SCPS_UPDATE_BRANCH` only if deploying from a different trusted release branch. If the live service port overrides `.env.local`, add `Environment="SCPS_UPDATE_PORT=38173"` using its actual port. The worker fetches and runs code from this branch as the SCPS user, so restrict who can push to it.
+3. Use `sudo visudo -f /etc/sudoers.d/scps-release-update` to allow only the fixed restart command (substitute the actual username):
+
+   ```sudoers
+   scps ALL=(root) NOPASSWD: /usr/bin/systemctl restart scps.service
+   ```
+
+4. Create `/etc/systemd/system/scps.service.d/30-release-update.conf` with `sudoedit` after creating its parent directory. Substitute the same absolute Node path from the existing `ExecStart`. Leave existing Caddy and reader settings alone.
+
+   ```ini
+   [Service]
+   Environment="SCPS_UPDATE_DIR=/var/lib/scps-update"
+   ExecStart=
+   ExecStart=/usr/local/libexec/scps-release-start "/absolute/path/to/node"
+   ```
+
+5. Validate and enable:
+
+   ```bash
+   sudo systemd-analyze verify scps.service scps-update.service scps-update.path
+   sudo systemctl daemon-reload
+   sudo systemctl enable --now scps-update.path
+   sudo systemctl restart scps.service
+   sudo systemctl status scps.service scps-update.path --no-pager
+   ```
+
+Administrators can now use **Settings > Application updates > Update SCPS**. The independent worker builds in another directory using a disposable SQLite database, tests startup over loopback, then restarts only web and checks `/login` on the expected process. If it fails after switching, it boots the previously confirmed release. The app remains available during the build but disconnects briefly at restart. The status survives web restarts; see `journalctl -u scps-update.service` for details. The health check does not verify NFC hardware or financial workflows.
+
+Do not publish migration-dependent releases to the updater branch until the host is ready. The worker blocks changes to known schema and database startup files and never runs a migration or restores a live ledger. It cannot infer compatibility from arbitrary application changes. For manual maintenance, disable the watcher with `sudo systemctl disable --now scps-update.path` and wait for `scps-update.service` to finish. In a maintenance window, stop web, remove the drop-in, reload systemd, and follow the manual deployment and migration instructions before restarting. Do not restart the original checkout against a newer, incompatible ledger.
+
 ### Reader services
 
 Readers may run on a separate Pi while web/SQLite live on the VPS. Install matching Node/package dependencies and native libnfc tools on that host. Supported scope is PN532 UART/I2C and libnfc-supported USB; unsupported or ambiguous explicit selectors fail. Configure exact devices for two readers. See [NFC Setup](nfc-setup.md) and [Dual readers](nfc-setup.md#dual-readers) for wiring, calibration and remote-reader setup.

@@ -1,0 +1,23 @@
+# Render placeholders as described in docs/deployment.md.
+[Unit]
+Description=Build and apply an SCPS application update
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=__RUN_USER__
+WorkingDirectory=__WORKING_DIR__
+Environment="PATH=__RUN_PATH__"
+Environment="SCPS_UPDATE_DIR=/var/lib/scps-update"
+Environment="SCPS_UPDATE_BRANCH=main"
+RuntimeDirectory=scps-update
+RuntimeDirectoryMode=0700
+Nice=10
+CPUWeight=25
+MemoryMax=60%
+UMask=0077
+TimeoutStartSec=40min
+TimeoutStopSec=2min
+ExecStart="__NODE_EXEC__" --import tsx tools/ops/release-update.ts
+ExecStopPost="__NODE_EXEC__" --import tsx tools/ops/release-update.ts finish

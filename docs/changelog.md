@@ -9,6 +9,8 @@ Use the current guides for operations.
 - Show School details and Database Management first, followed by POS Default Mode, NFC Reader Selection, and Reset NFC Hardware.
 - Give Account Settings the same responsive width and height limit as Settings.
 - Replace animated icons with static Lucide icons and give Accounts a distinct user settings icon.
+- Remove the visible header and close icon from Account Settings. Click outside or press Escape to dismiss.
+- Add an opt-in administrator update button with isolated builds, restart checks, and code rollback.
 
 ### Point of sale and customers
 - Fit POS purchase controls on short screens with a compact layout and scrollable dialogs.

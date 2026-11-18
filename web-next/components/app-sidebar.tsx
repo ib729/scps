@@ -77,6 +77,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
+import { ScpsUpdateSettings } from "@/components/scps-update-settings"
 
 // Navigation items
 const navItems = [
@@ -927,6 +928,7 @@ export function AppSidebar({ user: initialUser, initialPreferences, initialSchoo
                       )}
                     </Button>
                   </div>
+                  <ScpsUpdateSettings />
                 </>
               ) : null}
 

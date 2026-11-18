@@ -36,6 +36,9 @@ export async function main(args = process.argv.slice(2)): Promise<void> {
     console.log("Usage: node --import tsx tools/ops/deploy-vps.ts [branch]\nDeploy the clean local checkout (default: main), install with the frozen lockfile, build and restart scps.");
     return;
   }
+  if (fs.existsSync("/etc/systemd/system/scps.service.d/30-release-update.conf")) {
+    throw new Error("Disable the SCPS release updater before in-place deployment. See docs/deployment.md.");
+  }
   if (args.length > 1) throw new Error("Expected at most one branch");
   const branch = args[0] || "main";
   if (branch.startsWith("-") || /[\0\r\n]/.test(branch)) throw new Error("Invalid branch name");
