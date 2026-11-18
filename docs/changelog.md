@@ -15,6 +15,7 @@ Use the current guides for operations.
 - Show every transaction field without horizontal scrolling. Use labeled rows when the table does not fit.
 - Match the Manual POS input sizes, remove the sample text, and let Tab accept the highlighted customer and focus Amount.
 - Compact the Top-up form and remove the extra headings and copy from Top-up and Accounts.
+- Give Top-up fields more room and match the Payment Method control to the other inputs.
 
 ## 2026-11-15
 

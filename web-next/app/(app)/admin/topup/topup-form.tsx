@@ -185,10 +185,10 @@ export function TopupForm({ customerIdsWithTransactions, userName }: TopupFormPr
   };
 
   return (
-    <div className="min-w-0 w-full">
+    <div className="mx-auto w-full min-w-0 max-w-2xl">
       <Card>
-        <CardContent className="p-4">
-          <form onSubmit={handleTopup} className="grid gap-2 sm:grid-cols-2">
+        <CardContent className="p-4 sm:p-6">
+          <form onSubmit={handleTopup} className="grid gap-x-6 gap-y-3 sm:grid-cols-2 sm:gap-y-4">
             {error ? (
               <Alert variant="destructive" className="col-span-full">
                 <AlertDescription>{error}</AlertDescription>
@@ -254,7 +254,7 @@ export function TopupForm({ customerIdsWithTransactions, userName }: TopupFormPr
               </div>
             ) : null}
 
-            <div className="space-y-1">
+            <div className="space-y-2">
               <Label htmlFor="amount" className="text-base font-medium">
                 Amount (¥)
               </Label>
@@ -271,7 +271,7 @@ export function TopupForm({ customerIdsWithTransactions, userName }: TopupFormPr
               />
             </div>
 
-            <div className="space-y-1">
+            <div className="space-y-2">
               <Label htmlFor="payment-method" className="text-base font-medium">
                 Payment Method
               </Label>
@@ -287,7 +287,7 @@ export function TopupForm({ customerIdsWithTransactions, userName }: TopupFormPr
               >
                 <SelectTrigger
                   id="payment-method"
-                  className="h-12 w-full px-3 py-1 text-base md:text-base *:data-[slot=select-value]:text-base"
+                  className="data-[size=default]:h-12 w-full text-base md:text-base"
                 >
                   <SelectValue placeholder="Select payment method" />
                 </SelectTrigger>
@@ -302,7 +302,7 @@ export function TopupForm({ customerIdsWithTransactions, userName }: TopupFormPr
             </div>
 
             {paymentMethod === "Other" ? (
-              <div className="col-span-full space-y-1">
+              <div className="col-span-full space-y-2">
                 <Label htmlFor="other-payment-method" className="text-base font-medium">
                   Other Payment Method
                 </Label>
@@ -321,7 +321,7 @@ export function TopupForm({ customerIdsWithTransactions, userName }: TopupFormPr
               </div>
             ) : null}
 
-            <div className="space-y-1">
+            <div className="space-y-2">
               <Label htmlFor="description" className="text-base font-medium">
                 Notes (Optional)
               </Label>
@@ -334,7 +334,7 @@ export function TopupForm({ customerIdsWithTransactions, userName }: TopupFormPr
               />
             </div>
 
-            <div className="space-y-1">
+            <div className="space-y-2">
               <Label htmlFor="staff" className="text-base font-medium">
                 Staff Name
               </Label>
@@ -348,7 +348,7 @@ export function TopupForm({ customerIdsWithTransactions, userName }: TopupFormPr
               />
             </div>
 
-            <div className="col-span-full grid gap-2 sm:grid-cols-2">
+            <div className="col-span-full grid gap-3 pt-2 sm:grid-cols-2">
               <Button
                 type="submit"
                 disabled={
