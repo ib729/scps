@@ -480,7 +480,7 @@ export function PosForm({ customerIdsWithTransactions, userName, initialMode }: 
         </DialogContent>
       </Dialog>
 
-      <Card className="w-full min-w-0 grow gap-3 p-4 sm:p-6">
+      <Card data-workspace-frame className="w-full min-w-0 grow gap-3 p-4 sm:p-6">
         <div className="grid grid-cols-2 gap-2">
           <Button
             type="button"
@@ -555,104 +555,97 @@ export function PosForm({ customerIdsWithTransactions, userName, initialMode }: 
 
         {/* MANUAL MODE - Form */}
         {mode === "manual" && (
-          <section className="space-y-3">
-            <h2 className="text-lg font-semibold">Process Purchase Manually</h2>
-            <div>
-              <form onSubmit={handleSubmit} className="grid gap-3">
-                <div className="col-span-full min-w-0">
-                  <CustomerSearchField
-                    id="customer"
-                    label="Customer"
-                    onTabComplete={() => amountInputRef.current?.focus()}
-                    selectedCustomer={selectedCustomer}
-                    onSelect={(customer) => {
-                      setSelectedCustomer(customer);
-                      setError("");
-                    }}
-                  />
+          <form onSubmit={handleSubmit} className="grid gap-3">
+            <CustomerSearchField
+              id="customer"
+              label="Customer"
+              onTabComplete={() => amountInputRef.current?.focus()}
+              selectedCustomer={selectedCustomer}
+              onSelect={(customer) => {
+                setSelectedCustomer(customer);
+                setError("");
+              }}
+            />
+
+            {selectedCustomer && (
+              <div className="space-y-1 rounded-lg bg-muted px-3 py-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-base text-muted-foreground">
+                    Current Balance:
+                  </span>
+                  <span
+                    className={`font-bold text-xl ${selectedCustomer.balance < 0
+                        ? "text-red-600"
+                        : selectedCustomer.balance <= LOW_BALANCE_THRESHOLD &&
+                          customerIdsWithTransactions.includes(selectedCustomer.id)
+                          ? "text-orange-600"
+                          : ""
+                      }`}
+                  >
+                    ¥{formatCurrency(selectedCustomer.balance)}
+                  </span>
                 </div>
-
-                {selectedCustomer && (
-                  <div className="col-span-full space-y-1 rounded-lg bg-muted px-3 py-2">
-                    <div className="flex justify-between items-center">
-                      <span className="text-base text-muted-foreground">
-                        Current Balance:
-                      </span>
-                      <span
-                        className={`font-bold text-xl ${selectedCustomer.balance < 0
-                            ? "text-red-600"
-                            : selectedCustomer.balance <= LOW_BALANCE_THRESHOLD &&
-                              customerIdsWithTransactions.includes(selectedCustomer.id)
-                              ? "text-orange-600"
-                              : ""
-                          }`}
-                      >
-                        ¥{formatCurrency(selectedCustomer.balance)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-base text-muted-foreground">
-                        Overdraft Limit:
-                      </span>
-                      <span className="font-medium text-base">
-                        ¥{formatCurrency(selectedCustomer.max_overdraft_week)}/week
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                <div className="space-y-2">
-                  <Label htmlFor="amount" className="text-base">Amount (¥)</Label>
-                  <Input
-                    id="amount"
-                    ref={amountInputRef}
-                    type="number"
-                    min="0.01"
-                    step="0.01"
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    onKeyDown={(e) => {
-                      if (e.key === "ArrowUp" || e.key === "ArrowDown") {
-                        e.preventDefault();
-                      }
-                    }}
-                    required
-                    className="h-12 text-base md:text-base"
-                  />
+                <div className="flex justify-between items-center">
+                  <span className="text-base text-muted-foreground">
+                    Overdraft Limit:
+                  </span>
+                  <span className="font-medium text-base">
+                    ¥{formatCurrency(selectedCustomer.max_overdraft_week)}/week
+                  </span>
                 </div>
+              </div>
+            )}
 
-                <div className="space-y-2">
-                  <Label htmlFor="description" className="text-base">Description (Optional)</Label>
-                  <Textarea
-                    id="description"
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    className="h-12 min-h-12 text-base md:text-base"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="staff" className="text-base">Staff Name</Label>
-                  <Input
-                    id="staff"
-                    value={staff}
-                    onChange={(e) => setStaff(e.target.value)}
-                    className="h-12 text-base md:text-base"
-                    disabled
-                  />
-                </div>
-
-                <Button
-                  type="submit"
-                  disabled={loading || !selectedCustomer || !amount}
-                  className="h-11 w-full self-end text-base font-semibold"
-                >
-                  {loading ? "Processing..." : `Charge ¥${amount || "0"}`}
-                </Button>
-              </form>
+            <div className="space-y-2">
+              <Label htmlFor="amount" className="text-base">Amount (¥)</Label>
+              <Input
+                id="amount"
+                ref={amountInputRef}
+                type="number"
+                min="0.01"
+                step="0.01"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                onWheel={(e) => e.currentTarget.blur()}
+                onKeyDown={(e) => {
+                  if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+                    e.preventDefault();
+                  }
+                }}
+                required
+                className="h-12 text-base md:text-base"
+              />
             </div>
-          </section>
+
+            <div className="space-y-2">
+              <Label htmlFor="description" className="text-base">Description (Optional)</Label>
+              <Textarea
+                id="description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="h-12 min-h-12 text-base md:text-base"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="staff" className="text-base">Staff Name</Label>
+              <Input
+                id="staff"
+                value={staff}
+                onChange={(e) => setStaff(e.target.value)}
+                className="h-12 text-base md:text-base"
+                disabled
+              />
+            </div>
+
+            <Button
+              type="submit"
+              disabled={loading || !selectedCustomer || !amount}
+              className="h-11 w-full self-end text-base font-semibold"
+            >
+              {loading ? "Processing..." : `Charge ¥${amount || "0"}`}
+            </Button>
+          </form>
         )}
       </Card>
 

@@ -22,7 +22,7 @@ export default async function TransactionsPage() {
   });
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+    <div data-workspace-frame className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <TransactionsClient
         initialData={initialBatch.items}
         initialCursor={initialBatch.nextCursor}

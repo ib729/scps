@@ -26,6 +26,8 @@ Use the current guides for operations.
 - Widen Top-up without changing its field proportions, and remove the placeholder text.
 - Expand the Top-up frame to fill the workspace while retaining the existing control sizes.
 - Apply the full-workspace frame to POS and Transactions without making their controls taller.
+- Give Customers the same workspace frame as POS, Transactions, and Top-up, and tighten the margins around all four.
+- Remove the redundant heading from Manual POS.
 
 ## 2026-11-15
 
