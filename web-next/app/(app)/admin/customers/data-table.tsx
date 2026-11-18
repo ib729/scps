@@ -114,11 +114,7 @@ export function DataTable({
               </TableHead>
               <TableHead>Overdraft Limit</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>
-                <div className="flex justify-end pr-2">
-                  <span>Actions</span>
-                </div>
-              </TableHead>
+              <TableHead className="text-center">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -162,13 +158,11 @@ export function DataTable({
                       <Badge variant="default">Active</Badge>
                     )}
                   </TableCell>
-                  <TableCell>
-                    <div className="flex justify-end pr-2">
-                      <DeleteCustomerDialog
-                        customerId={customer.id}
-                        customerName={customer.name}
-                      />
-                    </div>
+                  <TableCell className="text-center">
+                    <DeleteCustomerDialog
+                      customerId={customer.id}
+                      customerName={customer.name}
+                    />
                   </TableCell>
                 </TableRow>
               ))

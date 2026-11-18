@@ -18,6 +18,8 @@ Use the current guides for operations.
 - Give Top-up fields more room and match the Payment Method control to the other inputs.
 - Simplify Add Customer to a name field and Cancel and Create buttons.
 - Remove Bitcoin from the Top-up payment dropdown without changing existing transactions.
+- Center Delete under Actions in Customers and put Edit notes beside the transaction ID.
+- Widen Top-up without changing its field proportions, and remove the placeholder text.
 
 ## 2026-11-15
 

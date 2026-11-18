@@ -185,7 +185,7 @@ export function TopupForm({ customerIdsWithTransactions, userName }: TopupFormPr
   };
 
   return (
-    <div className="mx-auto w-full min-w-0 max-w-2xl">
+    <div className="mx-auto w-full min-w-0 lg:max-w-[85%]">
       <Card>
         <CardContent className="p-4 sm:p-6">
           <form onSubmit={handleTopup} className="grid gap-x-6 gap-y-3 sm:grid-cols-2 sm:gap-y-4">
@@ -228,7 +228,6 @@ export function TopupForm({ customerIdsWithTransactions, userName }: TopupFormPr
               <CustomerSearchField
                 id="customer"
                 label="Customer"
-                placeholder="Search customers by name"
                 selectedCustomer={selectedCustomer}
                 onSelect={setSelectedCustomer}
               />
@@ -265,7 +264,6 @@ export function TopupForm({ customerIdsWithTransactions, userName }: TopupFormPr
                 step="0.01"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                placeholder="Enter amount (e.g., 5.50)"
                 className="h-12 text-base md:text-base"
                 required
               />
@@ -289,7 +287,7 @@ export function TopupForm({ customerIdsWithTransactions, userName }: TopupFormPr
                   id="payment-method"
                   className="data-[size=default]:h-12 w-full text-base md:text-base"
                 >
-                  <SelectValue placeholder="Select payment method" />
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {PAYMENT_METHOD_VALUES.filter((method) => method !== "Bitcoin").map((method) => (
@@ -310,7 +308,6 @@ export function TopupForm({ customerIdsWithTransactions, userName }: TopupFormPr
                   id="other-payment-method"
                   value={otherPaymentMethod}
                   onChange={(e) => setOtherPaymentMethod(e.target.value)}
-                  placeholder="Enter payment method"
                   className="h-12 text-base md:text-base"
                   maxLength={OTHER_PAYMENT_METHOD_MAX_LENGTH}
                   required
@@ -329,7 +326,6 @@ export function TopupForm({ customerIdsWithTransactions, userName }: TopupFormPr
                 id="description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Optional notes about the top-up"
                 className="h-12 min-h-12 text-base md:text-base"
               />
             </div>
@@ -342,7 +338,6 @@ export function TopupForm({ customerIdsWithTransactions, userName }: TopupFormPr
                 id="staff"
                 value={staff}
                 onChange={(e) => setStaff(e.target.value)}
-                placeholder="Your name"
                 className="h-12 text-base md:text-base"
                 disabled
               />

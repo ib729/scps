@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 
-import { Check, Copy, MoreHorizontal } from "@/lib/icons";
+import { Check, Copy, Receipt } from "@/lib/icons";
 import type {
   TransactionListCursor,
   TransactionNoteHistory,
@@ -13,12 +13,6 @@ import { formatCurrency } from "@/lib/currency";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -35,7 +29,7 @@ const TABLE_MIN_WIDTH = 1040;
 const OVERSCAN_ROWS = 8;
 const PREFETCH_RATIO = 0.65;
 const GRID_TEMPLATE =
-  "minmax(72px,0.7fr) minmax(130px,1.15fr) minmax(110px,1.3fr) 76px minmax(92px,1fr) minmax(155px,1.7fr) minmax(85px,0.8fr) minmax(92px,1fr) 36px";
+  "minmax(72px,0.7fr) 36px minmax(130px,1.15fr) minmax(110px,1.3fr) 76px minmax(92px,1fr) minmax(155px,1.7fr) minmax(85px,0.8fr) minmax(92px,1fr)";
 
 type TransactionTypeFilter = "all" | "TOPUP" | "DEBIT" | "ADJUST";
 
@@ -168,6 +162,19 @@ const TransactionRow = React.memo(function TransactionRow({
         </div>
       </div>
 
+      <div className={compact ? "justify-self-end" : undefined}>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Edit notes"
+          title="Edit notes"
+          onClick={() => onEditNotes(tx)}
+        >
+          <Receipt aria-hidden="true" />
+        </Button>
+      </div>
+
       <div>
         {compact && <TransactionLabel>Date</TransactionLabel>}
         {new Date(`${tx.created_at}Z`).toLocaleString("en-US", {
@@ -181,7 +188,7 @@ const TransactionRow = React.memo(function TransactionRow({
         })}
       </div>
 
-      <div className={compact ? "col-span-2" : "line-clamp-2"} title={tx.customer_name}>
+      <div className={compact ? undefined : "line-clamp-2"} title={tx.customer_name}>
         {compact && <TransactionLabel>Customer</TransactionLabel>}
         <Link href={`/admin/customers/${tx.customer_id}`} className="font-medium hover:underline">
           {tx.customer_name}
@@ -249,22 +256,6 @@ const TransactionRow = React.memo(function TransactionRow({
       <div className={`text-muted-foreground ${compact ? "" : "line-clamp-2"}`} title={tx.staff ?? undefined}>
         {compact && <TransactionLabel>Staff</TransactionLabel>}
         {tx.staff || "-"}
-      </div>
-
-      <div className={`flex justify-end ${compact ? "col-span-2" : ""}`}>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-              <MoreHorizontal className="h-4 w-4" />
-              <span className="sr-only">Open transaction actions</span>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => onEditNotes(tx)}>
-              Edit notes
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
       </div>
     </div>
   );
@@ -794,6 +785,7 @@ export function TransactionsClient({
                 style={{ gridTemplateColumns: GRID_TEMPLATE }}
               >
                 <div>ID</div>
+                <div><span className="sr-only">Actions</span></div>
                 <div>Date</div>
                 <div>Customer</div>
                 <div>Type</div>
@@ -801,7 +793,6 @@ export function TransactionsClient({
                 <div>Notes</div>
                 <div>Amount</div>
                 <div>Staff</div>
-                <div className="sr-only">Actions</div>
               </div>
             </div>
           )}
