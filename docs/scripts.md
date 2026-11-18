@@ -12,7 +12,7 @@ From the repository root, the only shell entrypoints are:
 ./scripts/setup.sh
 ```
 
-The first two only resolve the package directory and launch TypeScript. The Debian bootstrap installs OS/Node/pnpm/native-build dependencies and invokes the typed setup stage. All other examples below run **from `web-next/`**, after `pnpm install --frozen-lockfile`:
+The first two only resolve the package directory and launch TypeScript. The Debian bootstrap fast-forwards the clean checkout from its configured Git upstream, installs OS/Node/pnpm/native-build dependencies and invokes the typed setup stage. All other examples below run **from `web-next/`**, after `pnpm install --frozen-lockfile`:
 
 ```bash
 cd web-next

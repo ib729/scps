@@ -45,7 +45,7 @@ From the repository root, as the intended service user with sudo access:
 ./scripts/setup.sh
 ```
 
-This bootstrap detects Debian, Ubuntu and derivatives, installs OS/Node/native-build prerequisites, pins pnpm and installs package dependencies, then invokes `web-next/tools/ops/setup-host.ts`. The typed stage configures the private env file, creates a missing auth secret without printing it, initializes core+auth only for a **missing** ledger, and builds. A new environment defaults to port **38173** and matching localhost URL and trusted origin. Existing environment settings and ledgers are preserved.
+This bootstrap detects Debian, Ubuntu and derivatives, then fast-forwards the current Git branch from its configured upstream. Use a clean checkout; if the pull fails, setup stops before installing dependencies or restarting services. The bootstrap installs OS/Node/native-build prerequisites, pins pnpm and installs package dependencies, then invokes `web-next/tools/ops/setup-host.ts`. The typed stage configures the private env file, creates a missing auth secret without printing it, initializes core+auth only for a **missing** ledger, and builds. A new environment defaults to port **38173** and matching localhost URL and trusted origin. Existing environment settings and ledgers are preserved.
 
 The automated production build and web service disable Next.js telemetry with `NEXT_TELEMETRY_DISABLED=1`.
 

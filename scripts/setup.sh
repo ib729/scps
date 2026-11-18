@@ -3,7 +3,7 @@ set -eu
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 APP_USER=${SUDO_USER:-${USER:-$(id -un)}}
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  printf '%s\n' 'Usage: ./scripts/setup.sh [--systemd|--no-systemd]' 'Bootstrap Debian/Ubuntu dependencies and configure SCPS. Prompts before installing systemd services.'
+  printf '%s\n' 'Usage: ./scripts/setup.sh [--systemd|--no-systemd]' 'Fast-forward a clean checkout from its upstream, install Debian/Ubuntu dependencies, and configure SCPS. Prompts before installing systemd services.'
   exit 0
 fi
 if [ "$#" -gt 1 ] || { [ "$#" -eq 1 ] && [ "$1" != "--systemd" ] && [ "$1" != "--no-systemd" ]; }; then printf '%s\n' 'Unexpected setup argument' >&2; exit 2; fi
@@ -32,6 +32,29 @@ case " ${ID:-} ${ID_LIKE:-} " in
   *" debian "*|*" raspbian "*|*" ubuntu "*) ;;
   *) printf '%s\n' 'Debian or Ubuntu based Linux required' >&2; exit 1 ;;
 esac
+command -v sudo >/dev/null
+if ! command -v git >/dev/null; then
+  printf '%s\n' 'Git is required to update the checkout before setup. Install git and try again.' >&2
+  exit 1
+fi
+if ! run_as_user git -C "$ROOT" rev-parse --verify --quiet '@{upstream}' >/dev/null; then
+  printf '%s\n' 'Setup requires a Git branch with a configured upstream.' >&2
+  exit 1
+fi
+changes=$(run_as_user git -C "$ROOT" status --porcelain --untracked-files=normal)
+if [ -n "$changes" ]; then
+  printf '%s\n' 'Setup refuses a dirty checkout. Commit or stash local changes first.' >&2
+  exit 1
+fi
+{
+  before=$(run_as_user git -C "$ROOT" rev-parse HEAD)
+  run_as_user git -C "$ROOT" pull --ff-only --no-rebase
+  updated_script=$(run_as_user git -C "$ROOT" diff --name-only "$before" HEAD -- scripts/setup.sh)
+  # Run the new bootstrap if the update replaced the script we are reading.
+  if [ -n "$updated_script" ]; then
+    exec /bin/sh "$ROOT/scripts/setup.sh" "$@"
+  fi
+}
 printf 'Detected %s\n' "${PRETTY_NAME:-${ID:-Linux}}"
 if [ "$#" -eq 0 ]; then
   if [ -t 0 ]; then
@@ -43,7 +66,6 @@ if [ "$#" -eq 0 ]; then
     set -- --no-systemd
   fi
 fi
-command -v sudo >/dev/null
 sudo apt-get update
 sudo apt-get install -y git curl sqlite3 zstd rclone python3 build-essential pkg-config ca-certificates gnupg openssl libnfc-bin usbutils lsof udev
 if ! node -e 'const [a,b,c]=process.versions.node.split(".").map(Number);process.exit(a===26&&(b>13||b===13&&c>=1)?0:1)' 2>/dev/null; then
