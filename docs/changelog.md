@@ -3,6 +3,12 @@
 Historical commands and names describe their releases, not current instructions.
 Use the current guides for operations.
 
+## 2026-11-18
+
+### Settings
+- Show School details and Database Management first, followed by POS Default Mode, NFC Reader Selection, and Reset NFC Hardware.
+- Give Account Settings the same responsive width and height limit as Settings.
+
 ## 2026-11-15
 
 ### Repository cleanup

@@ -189,6 +189,8 @@ const SidebarNavLink = React.forwardRef<HTMLAnchorElement, SidebarNavLinkProps>(
   )
 })
 
+const settingsDialogClassName = "max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain sm:max-w-[900px]"
+
 export function AppSidebar({ user: initialUser, initialPreferences, initialSchoolSettings, ...props }: AppSidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
@@ -681,7 +683,7 @@ export function AppSidebar({ user: initialUser, initialPreferences, initialSchoo
 
       {mounted && (
         <Dialog open={showAccountDialog} onOpenChange={setShowAccountDialog}>
-          <DialogContent className="sm:max-w-[500px]">
+          <DialogContent className={settingsDialogClassName}>
             <DialogHeader>
               <DialogTitle>Account Settings</DialogTitle>
               <DialogDescription>
@@ -940,106 +942,15 @@ export function AppSidebar({ user: initialUser, initialPreferences, initialSchoo
 
       {mounted && (
         <Dialog open={showSettingsDialog} onOpenChange={setShowSettingsDialog}>
-          <DialogContent showCloseButton={false} className="max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain sm:max-w-[900px]">
+          <DialogContent showCloseButton={false} className={settingsDialogClassName}>
             <DialogHeader className="space-y-0">
               <DialogTitle className="text-[1.75rem] leading-tight">Settings</DialogTitle>
             </DialogHeader>
 
             <div className="space-y-6 pb-4 pt-0">
-              {/* NFC Reader Selection */}
-              <div className="space-y-3">
-                <Label className="text-base font-semibold">
-                  NFC Reader Selection
-                </Label>
-                <p className="text-sm text-muted-foreground">
-                  Choose which NFC reader to use for card taps. Each staff member can select their own reader.
-                </p>
-                <div className="space-y-3 pl-6">
-                  <div className="flex items-center space-x-3">
-                    <input
-                      type="radio"
-                      id="reader-1"
-                      name="nfc-reader"
-                      value="reader-1"
-                      checked={localSelectedReader === "reader-1"}
-                      onChange={(e) => setLocalSelectedReader(e.target.value as "reader-1" | "reader-2")}
-                      className="h-4 w-4 cursor-pointer"
-                    />
-                    <label htmlFor="reader-1" className="text-sm cursor-pointer flex-1">
-                      <div className="font-medium">Reader 1</div>
-                      <div className="text-muted-foreground text-xs">USB Port 0 (tty:USB0)</div>
-                    </label>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <input
-                      type="radio"
-                      id="reader-2"
-                      name="nfc-reader"
-                      value="reader-2"
-                      checked={localSelectedReader === "reader-2"}
-                      onChange={(e) => setLocalSelectedReader(e.target.value as "reader-1" | "reader-2")}
-                      className="h-4 w-4 cursor-pointer"
-                    />
-                    <label htmlFor="reader-2" className="text-sm cursor-pointer flex-1">
-                      <div className="font-medium">Reader 2</div>
-                      <div className="text-muted-foreground text-xs">USB Port 1 (tty:USB1)</div>
-                    </label>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-3 pt-4 border-t">
-                <Label className="text-base font-semibold">
-                  POS Default Mode
-                </Label>
-                <p className="text-sm text-muted-foreground">
-                  Choose which mode the POS page should open with by default.
-                </p>
-                <div className="space-y-3 pl-6">
-                  <div className="flex items-center space-x-3">
-                    <input
-                      type="radio"
-                      id="pos-mode-tap"
-                      name="pos-default-mode"
-                      value="tap-first"
-                      checked={localDefaultPosMode === "tap-first"}
-                      onChange={(e) =>
-                        setLocalDefaultPosMode(e.target.value as PosDefaultMode)
-                      }
-                      className="h-4 w-4 cursor-pointer"
-                    />
-                    <label htmlFor="pos-mode-tap" className="text-sm cursor-pointer flex-1">
-                      <div className="font-medium">Tap Card</div>
-                      <div className="text-muted-foreground text-xs">
-                        Open POS ready for NFC card taps
-                      </div>
-                    </label>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <input
-                      type="radio"
-                      id="pos-mode-manual"
-                      name="pos-default-mode"
-                      value="manual"
-                      checked={localDefaultPosMode === "manual"}
-                      onChange={(e) =>
-                        setLocalDefaultPosMode(e.target.value as PosDefaultMode)
-                      }
-                      className="h-4 w-4 cursor-pointer"
-                    />
-                    <label htmlFor="pos-mode-manual" className="text-sm cursor-pointer flex-1">
-                      <div className="font-medium">Manual</div>
-                      <div className="text-muted-foreground text-xs">
-                        Open POS with customer search selected
-                      </div>
-                    </label>
-                  </div>
-                </div>
-              </div>
-
               {user?.role === "admin" ? (
                 <>
-                  <div className="space-y-3 border-t pt-4">
+                  <div className="space-y-3">
                     <h3 className="text-base font-semibold">School details</h3>
                     <p className="text-sm text-muted-foreground">These details are shared across the dashboard for all staff.</p>
                     <Label htmlFor="school-year">School year</Label>
@@ -1090,34 +1001,127 @@ export function AppSidebar({ user: initialUser, initialPreferences, initialSchoo
                       )}
                     </Button>
                   </div>
-
-                  <div className="space-y-3 border-t pt-6">
-                    <Label className="text-base font-semibold">
-                      System Services
-                    </Label>
-                    <p className="text-sm text-muted-foreground">
-                      Restart NFC drivers and services if readers become unresponsive.
-                    </p>
-                    <Button
-                      onClick={handleRestartServices}
-                      disabled={restartingServices}
-                      variant="outline"
-                      className="w-full"
-                    >
-                      {restartingServices ? (
-                        <>
-                          <RotateCw className="mr-2 h-4 w-4 animate-spin" />
-                          Resetting Hardware...
-                        </>
-                      ) : (
-                        <>
-                          <RotateCw className="mr-2 h-4 w-4" />
-                          Reset NFC Hardware
-                        </>
-                      )}
-                    </Button>
-                  </div>
                 </>
+              ) : null}
+
+              <div className="space-y-3 not-first:border-t not-first:pt-4">
+                <Label className="text-base font-semibold">
+                  POS Default Mode
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  Choose which mode the POS page should open with by default.
+                </p>
+                <div className="space-y-3 pl-6">
+                  <div className="flex items-center space-x-3">
+                    <input
+                      type="radio"
+                      id="pos-mode-tap"
+                      name="pos-default-mode"
+                      value="tap-first"
+                      checked={localDefaultPosMode === "tap-first"}
+                      onChange={(e) =>
+                        setLocalDefaultPosMode(e.target.value as PosDefaultMode)
+                      }
+                      className="h-4 w-4 cursor-pointer"
+                    />
+                    <label htmlFor="pos-mode-tap" className="text-sm cursor-pointer flex-1">
+                      <div className="font-medium">Tap Card</div>
+                      <div className="text-muted-foreground text-xs">
+                        Open POS ready for NFC card taps
+                      </div>
+                    </label>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <input
+                      type="radio"
+                      id="pos-mode-manual"
+                      name="pos-default-mode"
+                      value="manual"
+                      checked={localDefaultPosMode === "manual"}
+                      onChange={(e) =>
+                        setLocalDefaultPosMode(e.target.value as PosDefaultMode)
+                      }
+                      className="h-4 w-4 cursor-pointer"
+                    />
+                    <label htmlFor="pos-mode-manual" className="text-sm cursor-pointer flex-1">
+                      <div className="font-medium">Manual</div>
+                      <div className="text-muted-foreground text-xs">
+                        Open POS with customer search selected
+                      </div>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* NFC Reader Selection */}
+              <div className="space-y-3 border-t pt-4">
+                <Label className="text-base font-semibold">
+                  NFC Reader Selection
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  Choose which NFC reader to use for card taps. Each staff member can select their own reader.
+                </p>
+                <div className="space-y-3 pl-6">
+                  <div className="flex items-center space-x-3">
+                    <input
+                      type="radio"
+                      id="reader-1"
+                      name="nfc-reader"
+                      value="reader-1"
+                      checked={localSelectedReader === "reader-1"}
+                      onChange={(e) => setLocalSelectedReader(e.target.value as "reader-1" | "reader-2")}
+                      className="h-4 w-4 cursor-pointer"
+                    />
+                    <label htmlFor="reader-1" className="text-sm cursor-pointer flex-1">
+                      <div className="font-medium">Reader 1</div>
+                      <div className="text-muted-foreground text-xs">USB Port 0 (tty:USB0)</div>
+                    </label>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <input
+                      type="radio"
+                      id="reader-2"
+                      name="nfc-reader"
+                      value="reader-2"
+                      checked={localSelectedReader === "reader-2"}
+                      onChange={(e) => setLocalSelectedReader(e.target.value as "reader-1" | "reader-2")}
+                      className="h-4 w-4 cursor-pointer"
+                    />
+                    <label htmlFor="reader-2" className="text-sm cursor-pointer flex-1">
+                      <div className="font-medium">Reader 2</div>
+                      <div className="text-muted-foreground text-xs">USB Port 1 (tty:USB1)</div>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {user?.role === "admin" ? (
+                <div className="space-y-3 border-t pt-6">
+                  <Label className="text-base font-semibold">
+                    System Services
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    Restart NFC drivers and services if readers become unresponsive.
+                  </p>
+                  <Button
+                    onClick={handleRestartServices}
+                    disabled={restartingServices}
+                    variant="outline"
+                    className="w-full"
+                  >
+                    {restartingServices ? (
+                      <>
+                        <RotateCw className="mr-2 h-4 w-4 animate-spin" />
+                        Resetting Hardware...
+                      </>
+                    ) : (
+                      <>
+                        <RotateCw className="mr-2 h-4 w-4" />
+                        Reset NFC Hardware
+                      </>
+                    )}
+                  </Button>
+                </div>
               ) : null}
             </div>
 
