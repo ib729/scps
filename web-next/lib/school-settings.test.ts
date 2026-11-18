@@ -13,7 +13,8 @@ test("school branding persists without disturbing other metadata", () => {
   const db = new Database(join(dir, "test.sqlite"));
   try {
     db.exec("CREATE TABLE app_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL); INSERT INTO app_meta VALUES ('currency_scale', '100')");
-    assert.deepEqual(getSchoolSettings(db), { schoolYear: "2025-2026", logo: null });
+    const year = new Date().getFullYear();
+    assert.deepEqual(getSchoolSettings(db), { schoolYear: `${year}-${year + 1}`, logo: null });
     saveSchoolSettings(db, { schoolYear: " 2027-2028 ", logo });
     assert.deepEqual(getSchoolSettings(db), { schoolYear: "2027-2028", logo });
     assert.deepEqual(db.prepare("SELECT value FROM app_meta WHERE key = 'currency_scale'").get(), { value: "100" });

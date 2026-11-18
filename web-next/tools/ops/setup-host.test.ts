@@ -15,7 +15,7 @@ const loader = pathToFileURL(createRequire(import.meta.url).resolve("tsx")).href
 async function fixture(t: TestContext) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "scps setup ' % "));
   t.after(() => fs.rm(root, { recursive: true, force: true }));
-  for (const name of ["web-next/tools/ops/setup-host.ts", "web-next/tools/ops/setup-https.ts", "web-next/lib/database-path.ts", "migrations/schema.sql", "web-next/migrations/better_auth_schema.sql", "web-next/.env.local.example", "systemd/scps.service", "systemd/scps-reader.service", "systemd/scps-reader2.service"]) {
+  for (const name of ["web-next/tools/ops/setup-host.ts", "web-next/tools/ops/setup-https.ts", "web-next/lib/database-path.ts", "web-next/lib/school-settings.ts", "migrations/schema.sql", "web-next/migrations/better_auth_schema.sql", "web-next/.env.local.example", "systemd/scps.service", "systemd/scps-reader.service", "systemd/scps-reader2.service"]) {
     const destination = path.join(root, name);
     await fs.mkdir(path.dirname(destination), { recursive: true });
     await fs.copyFile(path.join(sourceRoot, name), destination);
@@ -60,9 +60,14 @@ test("setup from either cwd keeps one quoted canonical database and preserves cu
     const db = new Database(target);
     try {
       assert.ok(db.prepare("SELECT name FROM sqlite_schema WHERE name='session'").get());
+      const schoolYear = db.prepare("SELECT value FROM app_meta WHERE key = 'school_year'").pluck();
       if (index === 0) {
+        const year = new Date().getFullYear();
+        assert.equal(schoolYear.get(), `${year}-${year + 1}`);
+        db.exec("UPDATE app_meta SET value = 'Custom year' WHERE key = 'school_year'");
         db.exec("INSERT INTO customers(id,name) VALUES(1,'preserved'); INSERT INTO user(id,name,email) VALUES('saved','Saved','saved@example.test'); INSERT INTO account(id,userId,accountId,providerId,password) VALUES('credential','saved','saved','credential','fixture-hash'); INSERT INTO session(id,userId,token,expiresAt) VALUES('session','saved','fixture-token',4102444800);");
       } else {
+        assert.equal(schoolYear.get(), "Custom year");
         assert.deepEqual(db.prepare("SELECT name FROM customers WHERE id=1").get(), { name: "preserved" });
         assert.deepEqual(db.prepare("SELECT password FROM account WHERE id='credential'").get(), { password: "fixture-hash" });
         assert.deepEqual(db.prepare("SELECT token FROM session WHERE id='session'").get(), { token: "fixture-token" });

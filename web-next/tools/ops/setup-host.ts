@@ -7,6 +7,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { parse } from "dotenv";
 import Database from "better-sqlite3";
 import { resolveDatabasePath } from "../../lib/database-path";
+import { getSchoolSettings } from "../../lib/school-settings";
 import { httpsDropIn, httpsOrigin, prepareHttps, startHttps } from "./setup-https";
 
 const repository = fileURLToPath(new URL("../../../", import.meta.url));
@@ -56,6 +57,8 @@ export function configureDatabase(): string {
       database.transaction(() => {
         database!.exec(fs.readFileSync(path.join(repository, "migrations/schema.sql"), "utf8"));
         database!.exec(fs.readFileSync(path.join(web, "migrations/better_auth_schema.sql"), "utf8"));
+        database!.prepare("INSERT OR IGNORE INTO app_meta (key, value) VALUES ('school_year', ?)")
+          .run(getSchoolSettings(database!).schoolYear);
       })();
       if (database.pragma("integrity_check", { simple: true }) !== "ok" || (database.pragma("foreign_key_check") as unknown[]).length) throw new Error("Initialized database failed integrity checks");
       database.close();

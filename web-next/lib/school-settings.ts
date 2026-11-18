@@ -12,8 +12,9 @@ export function getSchoolSettings(db: Database.Database): SchoolSettings {
   const get = db.prepare("SELECT value FROM app_meta WHERE key = ?").pluck();
   const schoolYear = get.get("school_year");
   const logo = get.get("school_logo");
+  const year = new Date().getFullYear();
   return {
-    schoolYear: typeof schoolYear === "string" ? schoolYear : "2025-2026",
+    schoolYear: typeof schoolYear === "string" ? schoolYear : `${year}-${year + 1}`,
     logo: typeof logo === "string" ? logo : null,
   };
 }
